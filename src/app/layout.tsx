@@ -8,14 +8,13 @@ import { ServiceWorkerRegister } from "@/lib/ServiceWorkerRegister";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// METADATA PWA UFFICIALI NEXT.JS
 export const metadata: Metadata = {
-  title: "Gestionale Squadra",
-  description: "App gestione squadra di calcio",
-  manifest: "/manifest.json", // Link al manifest standard
+  title: "Calcio Chigi",
+  description: "Gestione della squadra di calcio del Circolo Chigi",
+  manifest: "/manifest.json",
   icons: {
     icon: "/icon-192x192.png",
-    apple: "/icon-192x192.png", // Icona per iOS
+    apple: "/icon-192x192.png",
   },
   appleWebApp: {
     capable: true,
@@ -24,7 +23,6 @@ export const metadata: Metadata = {
   },
 };
 
-// CONFIGURAZIONE VIEWPORT (Separata in Next 14+)
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -45,7 +43,6 @@ export default function RootLayout({
     <html lang="it" suppressHydrationWarning>
       <body className={`${inter.className} bg-background text-foreground antialiased overscroll-none`}>
         
-        {/* Registrazione SW */}
         <ServiceWorkerRegister />
 
         <ThemeProvider

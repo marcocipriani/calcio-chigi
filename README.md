@@ -1,4 +1,4 @@
-# ⚽ Calcio Circolo Chigi - Gestionale Squadra
+# ⚽ Calcio Circolo Chigi - Gestionale della squadra di calcio
 
 Web App progressiva (PWA) sviluppata per la gestione completa della squadra **Circolo Chigi** nel campionato *ASI Over35 Arti & Mestieri 2025/2026*.
 
@@ -88,6 +88,7 @@ src/
 │   └── BottomNav.tsx    # Navigazione mobile persistente
 ├── lib/                 # Configurazioni (Supabase client, Utils)
 └── public/              # Assets statici (Icone PWA, Manifest, SW)
+
 
 ## 🤝 AI Credits
 ⚡ Progetto sviluppato con il supporto di Gemini Pro (in una sola giornata).

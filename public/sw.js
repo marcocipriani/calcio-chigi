@@ -5,10 +5,8 @@ const ASSETS_TO_CACHE = [
   "/manifest.json",
   "/icon-192x192.png",
   "/icon-512x512.png",
-  // Aggiungi qui eventuali font o asset statici critici
 ];
 
-// 1. Installazione: Scarica e salva nella cache i file statici
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -18,7 +16,6 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// 2. Attivazione: Pulisce le vecchie cache se cambia la versione
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -30,7 +27,6 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// 3. Fetch: Intercetta le richieste di rete
 // Strategia: Stale-While-Revalidate (Mostra subito la cache, poi aggiorna da rete)
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;

@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { EventCard } from '@/components/EventCard';
-import { EventDialog } from '@/components/EventDialog'; // IMPORTA IL NUOVO DIALOG
-import { Loader2, Trophy, Dumbbell, ListFilter, CalendarDays, History, Plus } from 'lucide-react';
+import { EventDialog } from '@/components/EventDialog'; 
+import { Loader2, Trophy, Dumbbell, ListFilter, CalendarDays, History, Plus, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { differenceInDays, differenceInHours } from 'date-fns';
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 
@@ -17,7 +18,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('ALL');
   
-  // STATI MANAGER
   const [isManager, setIsManager] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
@@ -52,7 +52,6 @@ export default function Home() {
     setLoading(false);
   }
 
-  // LOGICHE MANAGER
   const handleCreateNew = () => {
       setEditingEvent(null);
       setDialogOpen(true);
@@ -65,20 +64,18 @@ export default function Home() {
 
   const handleSaveEvent = async (eventData: any) => {
       if (editingEvent) {
-          // UPDATE
           const { error } = await supabase
             .from('events')
             .update(eventData)
             .eq('id', editingEvent.id);
           if(error) alert(error.message);
       } else {
-          // CREATE
           const { error } = await supabase
             .from('events')
             .insert([eventData]);
           if(error) alert(error.message);
       }
-      fetchData(); // Ricarica tutto
+      fetchData();
   }
 
   const getLogo = (teamName: string) => {
@@ -87,15 +84,20 @@ export default function Home() {
     return team?.logo_url;
   }
 
-  // --- FILTRI ---
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0,0,0,0);
+
+  const now = new Date();
+
   const myEvents = events.filter(e => {
     if (e.tipo === 'ALLENAMENTO') return true;
     return !e.avversario?.includes(' vs ');
   });
 
-  const now = new Date();
-  const futureRaw = myEvents.filter(e => new Date(e.data_ora) >= now || e.giocata === false);
-  const pastRaw = myEvents.filter(e => new Date(e.data_ora) < now && e.giocata === true).reverse();
+  const futureRaw = myEvents.filter(e => new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+  
+  const pastRaw = myEvents.filter(e => new Date(e.data_ora) < yesterday && e.giocata === true).reverse();
 
   const applyTypeFilter = (list: any[]) => {
     if (filter === 'ALL') return list;
@@ -105,6 +107,19 @@ export default function Home() {
   const visibleFutureEvents = applyTypeFilter(futureRaw);
   const visiblePastEvents = applyTypeFilter(pastRaw);
 
+  const nextMatch = visibleFutureEvents.find(e => e.tipo === 'PARTITA' && new Date(e.data_ora) > now);
+  
+  const getCountdownLabel = (dateStr: string) => {
+      const matchDate = new Date(dateStr);
+      const diffDays = differenceInDays(matchDate, now);
+      const diffHours = differenceInHours(matchDate, now);
+
+      if (diffDays > 1) return `${diffDays} Giorni`;
+      if (diffDays === 1) return `Domani`;
+      if (diffDays === 0 && diffHours > 0) return `${diffHours} Ore`;
+      return "LIVE";
+  }
+
   return (
     <main className="container max-w-md mx-auto px-4 py-4 space-y-4 pb-20">
       
@@ -113,6 +128,16 @@ export default function Home() {
             <h2 className="text-3xl font-black text-foreground tracking-tight">Il calendario</h2>
             <p className="text-sm text-muted-foreground font-medium">Gli impegni della squadra</p>
         </div>
+        
+        {nextMatch && (
+            <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
+                <div className="bg-red-600 text-primary-foreground px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
+                    <Clock className="h-3 w-3" />
+                    {getCountdownLabel(nextMatch.data_ora)}
+                </div>
+            </div>
+        )}
       </div>
 
       {loading ? (
@@ -168,7 +193,16 @@ export default function Home() {
                         </div>
                     ) : (
                         visibleFutureEvents.map(event => (
-                        <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02]">
+                        <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02] relative group">
+                            
+                            {event.id === nextMatch?.id && (
+                                <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-20">
+                                    <span className="bg-red-600 text-white border-2 border-background shadow-md text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full">
+                                        NEXT MATCH
+                                    </span>
+                                </div>
+                            )}
+
                             <EventCard 
                                 event={event} 
                                 opponentLogo={getLogo(event.avversario)} 
@@ -207,14 +241,13 @@ export default function Home() {
 
       {isManager && (
           <Button 
-            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center"
+            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
             onClick={handleCreateNew}
           >
               <Plus className="h-8 w-8 text-white" />
           </Button>
       )}
 
-      {/* MODALE DI GESTIONE */}
       <EventDialog 
         open={dialogOpen} 
         onOpenChange={setDialogOpen}

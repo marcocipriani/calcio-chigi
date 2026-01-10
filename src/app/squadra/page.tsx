@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Briefcase, Quote, AlertCircle } from "lucide-react"
 
-// --- COSTANTI MODULI ---
+// --- MODULI ---
 const FORMATIONS: any = {
   "4-4-2": [
     { id: 'POR', role: 'PT', top: '88%', left: '50%' },
@@ -65,7 +65,7 @@ const isU35Func = (dob: string) => { const age = getAge(dob); return age !== nul
 
 // --- COMPONENTI ---
 
-// 1. CARD LISTA ROSA (Versione Verticale Spaziosa - Come da HTML)
+// 1. CARD LISTA ROSA
 function DraggableListCard({ player, isSelected }: { player: any, isSelected: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `list-${player.id}`,
@@ -159,7 +159,6 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
           </DialogContent>
       </Dialog>
 
-      {/* CARD CON LAYOUT VERTICALE (Ripreso da HTML fornito) */}
       <Card 
         {...listeners} 
         {...attributes} 
@@ -189,7 +188,7 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
             )}
         </div>
         
-        {/* Info - Vertical Layout */}
+        {/* Info */}
         <div className="flex-1 w-full min-w-0 flex flex-col items-center justify-center gap-1">
             <div className="text-sm leading-tight text-slate-900 dark:text-slate-100 w-full text-center truncate px-1">
                 <span className="font-black">{player.cognome}</span> <span className="font-normal text-slate-600 dark:text-slate-400">{player.nome}</span>
@@ -219,7 +218,7 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
   );
 }
 
-// 2. TOKEN CAMPO (Visualizza cognome anche se in panchina)
+// 2. TOKEN FIELD
 function DraggableFieldToken({ player, slotId, isBench = false }: { player: any, slotId: string, isBench?: boolean }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
       id: `field-token-${slotId}`,
@@ -255,7 +254,6 @@ function DraggableFieldToken({ player, slotId, isBench = false }: { player: any,
                         </div>
                     )}
                 </div>
-                {/* Etichetta Cognome - Visibile anche in panchina ora */}
                 <div className={`mt-1 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2 py-0.5 rounded-full shadow-lg truncate border border-white/20 leading-tight ${isBench ? 'text-[8px] max-w-[55px]' : 'text-[10px] max-w-[90px]'}`}>
                     {player.cognome}
                 </div>
@@ -264,7 +262,7 @@ function DraggableFieldToken({ player, slotId, isBench = false }: { player: any,
     )
 }
 
-// 3. SLOT GENERATORE
+// 3. SLOT GENERATOR
 function FormationSlot({ slot, playerInSlot, onRemove, isBench = false }: { slot: any, playerInSlot: any, onRemove: () => void, isBench?: boolean }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${slot.id}`,
@@ -302,8 +300,6 @@ function FormationSlot({ slot, playerInSlot, onRemove, isBench = false }: { slot
     </div>
   )
 }
-
-// --- PAGINA PRINCIPALE ---
 
 export default function SquadraPage() {
   const [players, setPlayers] = useState<any[]>([])
@@ -347,7 +343,6 @@ export default function SquadraPage() {
     setFilteredPlayers(result);
   }, [searchTerm, filterStatus, players]);
 
-  // CALCOLO U35 (Escluso Portiere e Panchina)
   const u35Count = Object.keys(lineup)
     .filter(slotId => !slotId.startsWith('P') && slotId !== 'POR') 
     .reduce((acc, slotId) => {
@@ -357,7 +352,6 @@ export default function SquadraPage() {
 
   const isTooManyU35 = u35Count > 2;
 
-  // CAMBIO MODULO CON PERSISTENZA
   const handleModuleChange = (newModule: string) => {
       const oldLineup = { ...lineup };
       const newFormSlots = FORMATIONS[newModule];
@@ -388,7 +382,6 @@ export default function SquadraPage() {
       setLineup(newLineup);
   }
 
-  // --- DRAG & DROP LOGIC ---
   const handleDragStart = (event: DragStartEvent) => {
       const { active } = event;
       setActivePlayer(active.data.current?.player);
@@ -415,7 +408,7 @@ export default function SquadraPage() {
                 const newState = { ...prev };
                 if (playerInTarget) {
                     newState[targetSlotId] = player;
-                    newState[sourceSlotId] = playerInTarget; // SWAP
+                    newState[sourceSlotId] = playerInTarget;
                 } else {
                     delete newState[sourceSlotId];
                     newState[targetSlotId] = player;
@@ -451,13 +444,10 @@ export default function SquadraPage() {
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="container max-w-7xl mx-auto p-2 pb-24 lg:flex lg:gap-6 lg:items-start">
             
-            {/* ZONA SUPERIORE (CAMPO) */}
             <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
                 
-                {/* BARRA CONTROLLI */}
                 <div className="bg-card border rounded-lg p-2 flex items-center justify-between gap-2 shadow-sm relative">
                     
-                    {/* SINISTRA: Modulo */}
                     <Select value={module} onValueChange={handleModuleChange}>
                         <SelectTrigger className="w-[110px] h-9 text-xs font-bold border-border bg-background">
                             <SelectValue placeholder="Modulo" />
@@ -467,7 +457,6 @@ export default function SquadraPage() {
                         </SelectContent>
                     </Select>
                     
-                    {/* CENTRO: Contatore U35 */}
                     <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
                         <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black border transition-colors ${isTooManyU35 ? 'bg-red-100 text-red-600 border-red-300 animate-pulse' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                            {isTooManyU35 ? <AlertCircle className="h-3 w-3" /> : <span className="h-2 w-2 rounded-full bg-blue-500"></span>}
@@ -475,7 +464,6 @@ export default function SquadraPage() {
                         </div>
                     </div>
                     
-                    {/* DESTRA: Bottoni Azione */}
                     <div className="flex gap-2">
                         <Button 
                             variant="destructive" 
@@ -495,7 +483,7 @@ export default function SquadraPage() {
                     </div>
                 </div>
 
-                {/* CAMPO DA GIOCO */}
+                {/* FIELD */}
                 <div ref={fieldRef} className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="relative flex-1 max-w-[450px] mx-auto aspect-[3/4] bg-gradient-to-b from-green-600 via-green-600 to-green-700 rounded-lg overflow-hidden shadow-2xl border-[3px] border-white/20 ring-1 ring-black/10">
                         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, #000 39px, #000 40px)'}}></div>
@@ -534,7 +522,7 @@ export default function SquadraPage() {
                 </div>
             </div>
 
-            {/* ZONA INFERIORE (LISTA GIOCATORI) */}
+            {/* PLAYERS LIST */}
             <div className="flex-1 flex flex-col gap-3 min-h-0">
                 
                 {/* Filtri */}
@@ -561,7 +549,6 @@ export default function SquadraPage() {
                     </div>
                 </div>
 
-                {/* Lista (ALTEZZA AUMENTATA A 140px PER PADDING ABBONDANTE) */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2">
                     {filteredPlayers.map(player => (
                         <div key={player.id} className="h-[140px]"> 

@@ -202,10 +202,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <Pencil className="h-3 w-3" /> Modifica
                     </Button>
                     
-                    {/* Bottone Elimina ROSSO */}
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700">
+                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-purple-600 hover:bg-purple-700 text-white border-none">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </AlertDialogTrigger>
@@ -213,12 +212,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione totale.
+                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Annulla</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina per sempre</AlertDialogAction>
+                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
@@ -229,8 +228,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       <div className="p-4 max-w-lg mx-auto space-y-6">
         
         <div className="text-center space-y-3 mt-2">
-            
-            {/* Logo Avversario */}
+
             {event.tipo === 'PARTITA' && opponentLogo && (
                 <div className="flex justify-center mb-2">
                     <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white">
@@ -249,7 +247,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'd MMM yyyy', {locale: it})}</span>
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> Inizio: {format(new Date(event.data_ora), 'HH:mm')}</span>
-                    {/* Visualizzazione Data Fine */}
                     {event.data_fine_ora && (
                         <span className="flex items-center gap-1 font-medium opacity-70">Fine: {format(new Date(event.data_fine_ora), 'HH:mm')}</span>
                     )}
@@ -274,7 +271,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         <Separator />
 
-        {/* VOTO */}
         {!event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4">
@@ -311,13 +307,11 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </Card>
         )}
 
-        {/* LISTA CONVOCAZIONI */}
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
                 <div className="flex justify-between items-end">
                     <div className="flex items-center gap-2">
                         <h3 className="font-bold text-lg">Presenze ({presenti.length})</h3>
-                        {/* Contatore U35 */}
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-200">
                             di cui {u35Presenti} U35
                         </span>
@@ -363,7 +357,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                         {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1">
-                                        {/* RUOLO AGGIUNTO */}
                                         <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">{p.ruolo?.substring(0,3)}</p>
                                         <p className={`text-[10px] font-bold ${statusColor}`}>{statusText}</p>
                                     </div>

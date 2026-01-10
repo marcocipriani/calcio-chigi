@@ -39,7 +39,11 @@ export function SiteHeader() {
         
         <Link href="/" className="flex items-center gap-3 active:scale-95 transition-transform">
             <div className="h-10 w-10 relative">
-                <img src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" alt="Logo" className="object-contain h-full w-full" />
+                <img 
+                    src="/icon.png" 
+                    alt="Logo Circolo Chigi" 
+                    className="object-contain h-full w-full" 
+                />
             </div>
             <div className="leading-tight">
                 <h1 className="font-black text-slate-900 dark:text-slate-100 text-sm tracking-tight">CIRCOLO CHIGI</h1>

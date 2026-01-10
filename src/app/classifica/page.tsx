@@ -11,13 +11,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { calculateStandings } from "@/lib/utils";
 import { Team, Event } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ClassificaPage() {
   const [standings, setStandings] = useState<any[]>([]);
@@ -67,7 +67,6 @@ export default function ClassificaPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
         (payload) => {
-           console.log("Cambio rilevato, ricalcolo classifica...", payload);
            fetchData();
         }
       )
@@ -104,7 +103,21 @@ export default function ClassificaPage() {
       });
   };
 
-  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin text-primary" /></div>;
+  if (loading) return (
+    <div className="container max-w-5xl mx-auto p-1 pb-24">
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden p-4 space-y-4">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-6 w-16" />
+            </div>
+            <div className="space-y-2">
+                {[...Array(8)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+            </div>
+        </div>
+    </div>
+  );
 
   return (
     <div className="container max-w-5xl mx-auto p-1 pb-24">

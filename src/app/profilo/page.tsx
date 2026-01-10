@@ -11,11 +11,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon } from 'lucide-react'
+import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears } from "date-fns"
 import { AppCredits } from '@/components/AppCredits' 
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -142,7 +143,7 @@ export default function ProfilePage() {
           const updatedProfile = { ...originalData, ...updates, is_captain: formData.is_captain, is_manager: formData.is_manager };
           setOriginalData(updatedProfile);
           setHasChanges(false);
-          toast.success("Profilo aggiornato.");
+          toast.success("Profilo aggiornato con successo.");
       }
       setLoading(false)
   }
@@ -157,7 +158,19 @@ export default function ProfilePage() {
   const isU35Preview = currentAge !== null && currentAge < 35;
   const isManager = myProfile?.is_manager;
 
-  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin text-primary" /></div>
+  if (loading) return (
+    <div className="min-h-screen bg-background pb-20">
+        <div className="container max-w-md mx-auto p-4 space-y-6">
+            <div className="flex flex-col items-center gap-4 py-6">
+                <Skeleton className="h-28 w-28 rounded-full shadow-xl" />
+            </div>
+            <div className="space-y-4">
+                <Skeleton className="h-[250px] w-full rounded-xl" />
+                <Skeleton className="h-[100px] w-full rounded-xl" />
+            </div>
+        </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-background pb-20">

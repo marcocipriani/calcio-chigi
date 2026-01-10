@@ -15,6 +15,7 @@ import { EventDialog } from '@/components/EventDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Helper per calcolo età
 const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
@@ -37,7 +38,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // 1. Caricamento Iniziale
   useEffect(() => {
     loadAllData();
 
@@ -46,7 +46,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       .on(
         'postgres_changes',
         {
-          event: '*', // Insert, Update, Delete
+          event: '*', 
           schema: 'public',
           table: 'attendance',
           filter: `event_id=eq.${id}`,
@@ -220,13 +220,64 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       return score(b.status) - score(a.status);
   });
 
-  if (loading) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-muted-foreground" /></div>;
+  if (loading) return (
+    <div className="min-h-screen bg-background pb-20">
+       <div className="p-4 sticky top-14 z-40 shadow-md bg-slate-900 flex items-center justify-between h-16">
+          <Skeleton className="h-8 w-8 rounded-full bg-slate-700" />
+          <Skeleton className="h-6 w-32 bg-slate-700" />
+          <Skeleton className="h-8 w-8 rounded-full bg-slate-700" />
+       </div>
+       <div className="p-4 max-w-lg mx-auto space-y-6">
+          <div className="flex flex-col items-center gap-4">
+             <Skeleton className="h-20 w-20 rounded-full" />
+             <Skeleton className="h-8 w-48" />
+             <Skeleton className="h-4 w-32" />
+          </div>
+          <Separator />
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <div className="space-y-2">
+             {[...Array(6)].map((_,i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+          </div>
+       </div>
+    </div>
+  );
+
   if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
   const isCancelled = event.cancellato;
   const presenti = roster.filter(p => p.status === 'PRESENTE');
   const infortunati = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
   const u35Presenti = presenti.filter(p => isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
+
+  let scoreBlock = null;
+  if (event.tipo === 'PARTITA' && event.giocata) {
+      const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
+      const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
+      const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);
+      
+      let resultColor = "text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400";
+      let resultText = "PAREGGIO";
+
+      if (golNoi > golLoro) {
+          resultColor = "text-emerald-700 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400";
+          resultText = "VITTORIA";
+      } else if (golNoi < golLoro) {
+          resultColor = "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400";
+          resultText = "SCONFITTA";
+      }
+
+      scoreBlock = (
+          <div className="flex flex-col items-center mt-2 animate-in zoom-in duration-300">
+              <div className={`px-6 py-2 rounded-2xl font-mono text-4xl font-black tracking-tighter ${resultColor} border border-transparent shadow-sm`}>
+                  {event.gol_casa} - {event.gol_ospite}
+              </div>
+              <Badge variant="outline" className={`mt-1 text-[10px] font-bold border-0 ${resultColor.replace('bg-', 'text-').replace('text-', 'bg-').split(' ')[0] + '/10'}`}>
+                  {resultText}
+              </Badge>
+          </div>
+      );
+  }
+  // ------------------------
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
@@ -296,8 +347,10 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>
                 {event.avversario || "Allenamento"}
             </h2>
+
+            {scoreBlock}
             
-            <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground pt-2">
                 <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'd MMM yyyy', {locale: it})}</span>
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> Inizio: {format(new Date(event.data_ora), 'HH:mm')}</span>

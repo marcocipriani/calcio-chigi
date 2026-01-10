@@ -25,10 +25,13 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Briefcase, Quote, AlertCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Briefcase, Quote, AlertCircle, Plus, Settings, Pencil } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
-// --- MODULI ---
+// --- COSTANTI MODULI ---
 const FORMATIONS: any = {
   "4-4-2": [
     { id: 'POR', role: 'PT', top: '88%', left: '50%' },
@@ -66,11 +69,12 @@ const isU35Func = (dob: string) => { const age = getAge(dob); return age !== nul
 // --- COMPONENTI ---
 
 // 1. CARD LISTA ROSA
-function DraggableListCard({ player, isSelected }: { player: any, isSelected: boolean }) {
+function DraggableListCard({ player, isSelected, isManager, onEditPlayer, isMobile }: { player: any, isSelected: boolean, isManager: boolean, onEditPlayer: (p: any) => void, isMobile: boolean }) {
+  // Se è mobile, disabilitiamo il drag. Se desktop, lo abilitiamo.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `list-${player.id}`,
     data: { player, source: 'list' },
-    disabled: isSelected
+    disabled: isSelected || isMobile // DISABILITATO SU MOBILE
   });
 
   const style = transform ? {
@@ -87,6 +91,7 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
   return (
     <div ref={setNodeRef} style={style} className={`h-full relative group ${isSelected ? 'opacity-40 grayscale' : ''}`}>
       
+      {/* Tasto INFO */}
       <Dialog>
           <DialogTrigger asChild>
               <Button 
@@ -100,15 +105,23 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
           </DialogTrigger>
           <DialogContent className="max-w-sm rounded-xl">
             <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                    <Avatar className="h-18 w-18 border-2 border-primary/20"><AvatarImage src={player.avatar_url} className="object-cover"/><AvatarFallback>{player.cognome[0]}</AvatarFallback></Avatar>
-                    <div className="flex flex-col">
-                        <span className="text-xl font-black">{player.cognome}</span>
-                        <span className="text-sm text-muted-foreground font-medium">{player.nome}</span>
-                    </div>
-                </DialogTitle>
+                <div className="flex justify-between items-start">
+                    <DialogTitle className="flex items-center gap-3">
+                        <Avatar className="h-16 w-16 border-2 border-primary/20"><AvatarImage src={player.avatar_url} className="object-cover"/><AvatarFallback>{player.cognome[0]}</AvatarFallback></Avatar>
+                        <div className="flex flex-col">
+                            <span className="text-xl font-black">{player.cognome}</span>
+                            <span className="text-sm text-muted-foreground font-medium">{player.nome}</span>
+                        </div>
+                    </DialogTitle>
+                    {isManager && (
+                        <Button size="sm" variant="outline" className="gap-2 text-purple-600 border-purple-200 hover:bg-purple-50" onClick={() => onEditPlayer(player)}>
+                            <Pencil className="h-3 w-3" /> Modifica
+                        </Button>
+                    )}
+                </div>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm mt-2">
+                {/* ... Dettagli invariati ... */}
                 <div className="col-span-2 flex items-center gap-2 text-muted-foreground border-b pb-2">
                     <Mail className="h-4 w-4" /> <span className="text-foreground select-all">{player.email}</span>
                 </div>
@@ -121,30 +134,19 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
                     <span className="text-[10px] uppercase font-bold text-muted-foreground">Ruolo</span>
                     <span className="font-bold">{player.ruolo}</span>
                 </div>
-
+                {/* ... altri campi ... */}
                 <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Dipartimento</span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Reparto</span>
                     <span className="font-medium flex items-center gap-1"><Briefcase className="h-3 w-3" /> {player.dipartimento || '-'}</span>
                 </div>
                 <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground">Maglia</span>
                     <span className="font-black flex items-center gap-1"><Shirt className="h-3 w-3" /> {player.numero_maglia || '-'}</span>
                 </div>
-
-                <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Taglia</span>
-                    <span className="font-medium flex items-center gap-1"><Ruler className="h-3 w-3" /> {player.taglia_divisa || '-'}</span>
-                </div>
                 <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground">Tessera ASI</span>
                     <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1 rounded w-fit flex items-center gap-1"><CreditCard className="h-3 w-3" /> {player.tessera_asi || 'N/A'}</span>
                 </div>
-
-                {player.motto && (
-                    <div className="col-span-2 bg-muted/30 p-2 rounded-lg italic text-xs text-center mt-2 flex items-center justify-center gap-1">
-                        <Quote className="h-3 w-3 text-muted-foreground/50" /> {player.motto}
-                    </div>
-                )}
 
                 {player.note_mediche && player.note_mediche !== 'OK' && (
                     <div className="col-span-2 bg-red-50 text-red-700 p-2 rounded-lg text-xs border border-red-200 mt-1 flex items-start gap-2">
@@ -170,9 +172,8 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
         ${isU35 && !isInjured ? 'border-l-4 border-l-blue-500' : ''}
       `}>
         
-        {/* Avatar */}
         <div className="relative shrink-0">
-            <Avatar className="h-14 w-14 border-2 border-slate-100 shadow-sm">
+            <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
                 <AvatarImage src={player.avatar_url} className="object-cover" />
                 <AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
             </Avatar>
@@ -182,34 +183,21 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
                 </div>
             )}
             {player.is_captain && (
-                <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[10px]">
-                    C
-                </div>
+                <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[10px]">C</div>
             )}
         </div>
         
-        {/* Info */}
         <div className="flex-1 w-full min-w-0 flex flex-col items-center justify-center gap-1">
             <div className="text-sm leading-tight text-slate-900 dark:text-slate-100 w-full text-center truncate px-1">
                 <span className="font-black">{player.cognome}</span> <span className="font-normal text-slate-600 dark:text-slate-400">{player.nome}</span>
             </div>
             
             <div className="flex items-center justify-center gap-2 w-full">
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">
-                    {player.ruolo?.substring(0, 3)}
-                </span>
-
-                {isU35 && (
-                    <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 shadow-none font-bold">
-                        U35
-                    </Badge>
-                )}
-
+                <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{player.ruolo?.substring(0, 3)}</span>
+                {isU35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 shadow-none font-bold">U35</Badge>}
                 <div className="relative flex items-center justify-center h-5 w-5 text-slate-800 dark:text-slate-300">
                     <Shirt className="h-4 w-4 fill-current opacity-20" /> 
-                    <span className="absolute text-[9px] font-black leading-none text-foreground pb-[1px]">
-                        {player.numero_maglia || '-'}
-                    </span>
+                    <span className="absolute text-[9px] font-black leading-none text-foreground pb-[1px]">{player.numero_maglia || '-'}</span>
                 </div>
             </div>
         </div>
@@ -218,11 +206,13 @@ function DraggableListCard({ player, isSelected }: { player: any, isSelected: bo
   );
 }
 
-// 2. TOKEN FIELD
-function DraggableFieldToken({ player, slotId, isBench = false }: { player: any, slotId: string, isBench?: boolean }) {
+// 2. TOKEN CAMPO
+function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false }: { player: any, slotId: string, isBench?: boolean, isMobile?: boolean }) {
+    // Se mobile, niente drag.
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
       id: `field-token-${slotId}`,
-      data: { player, source: 'field', fromSlotId: slotId, isBench }
+      data: { player, source: 'field', fromSlotId: slotId, isBench },
+      disabled: isMobile
     });
   
     const style = transform ? {
@@ -244,14 +234,10 @@ function DraggableFieldToken({ player, slotId, isBench = false }: { player: any,
                     </Avatar>
                     
                     {isU35 && (
-                        <div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">
-                            U35
-                        </div>
+                        <div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>
                     )}
                     {player.is_captain && (
-                        <div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[10px]">
-                            C
-                        </div>
+                        <div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[10px]">C</div>
                     )}
                 </div>
                 <div className={`mt-1 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2 py-0.5 rounded-full shadow-lg truncate border border-white/20 leading-tight ${isBench ? 'text-[8px] max-w-[55px]' : 'text-[10px] max-w-[90px]'}`}>
@@ -262,44 +248,47 @@ function DraggableFieldToken({ player, slotId, isBench = false }: { player: any,
     )
 }
 
-// 3. SLOT GENERATOR
-function FormationSlot({ slot, playerInSlot, onRemove, isBench = false }: { slot: any, playerInSlot: any, onRemove: () => void, isBench?: boolean }) {
+// 3. SLOT GENERATORE
+function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false }: { slot: any, playerInSlot: any, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${slot.id}`,
     data: { slotId: slot.id }
   });
 
   const baseStyle = isBench 
-    ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" // h-16 per contenere avatar+nome
+    ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" 
     : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-all duration-200 z-10";
 
   const displayRole = slot.id.replace(/[0-9]/g, '');
 
   return (
     <div 
-        ref={setNodeRef}
-        className={`${baseStyle} ${isOver ? 'scale-110 border-blue-500 bg-blue-500/20' : ''}`}
+        ref={isMobile ? null : setNodeRef} // Disabilita droppable su mobile
+        className={`${baseStyle} ${isOver && !isMobile ? 'scale-110 border-blue-500 bg-blue-500/20' : ''}`}
         style={!isBench ? { top: slot.top, left: slot.left } : {}}
+        onClick={isMobile ? onMobileClick : undefined} // Su mobile, il click apre il selettore
     >
         {playerInSlot ? (
             <div className="relative">
-                <DraggableFieldToken player={playerInSlot} slotId={slot.id} isBench={isBench} />
+                <DraggableFieldToken player={playerInSlot} slotId={slot.id} isBench={isBench} isMobile={isMobile} />
                 <button 
                     onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-[2px] h-5 w-5 flex items-center justify-center shadow-md z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-[2px] h-5 w-5 flex items-center justify-center shadow-md z-30 opacity-100 transition-opacity"
                     title="Rimuovi"
                 >
                     <X className="h-3 w-3" />
                 </button>
             </div>
         ) : (
-            <div className={`${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors ${isOver ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5'}`}>
+            <div className={`${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${isOver && !isMobile ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5 hover:bg-white/10'}`}>
                 {isBench ? <UserPlus className="h-4 w-4 text-slate-300" /> : <span className="text-[10px] font-black text-white/40 tracking-wider">{displayRole}</span>}
             </div>
         )}
     </div>
   )
 }
+
+// --- PAGINA PRINCIPALE ---
 
 export default function SquadraPage() {
   const [players, setPlayers] = useState<any[]>([])
@@ -312,6 +301,16 @@ export default function SquadraPage() {
   const [lineup, setLineup] = useState<Record<string, any>>({})
   const [activePlayer, setActivePlayer] = useState<any>(null)
   
+  // Stati Manager e Mobile
+  const [isManager, setIsManager] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileSlotToFill, setMobileSlotToFill] = useState<string | null>(null) // ID dello slot cliccato su mobile
+  
+  // Dialogs
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
+  const [editingPlayer, setEditingPlayer] = useState<any>(null)
+  const [newPlayer, setNewPlayer] = useState({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' })
+
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }) 
@@ -320,12 +319,13 @@ export default function SquadraPage() {
   const fieldRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function getPlayers() {
-      const { data } = await supabase.from('profiles').select('*').order('cognome', { ascending: true })
-      setPlayers(data || [])
-      setLoading(false)
-    }
+    checkManager()
     getPlayers()
+    // Rilevamento Mobile semplificato (width < 1024px, che è il breakpoint 'lg' di tailwind usato per il layout)
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, [])
 
   useEffect(() => {
@@ -343,6 +343,67 @@ export default function SquadraPage() {
     setFilteredPlayers(result);
   }, [searchTerm, filterStatus, players]);
 
+  async function checkManager() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
+        if (profile?.is_manager) setIsManager(true)
+    }
+  }
+
+  async function getPlayers() {
+    const { data } = await supabase.from('profiles').select('*').order('cognome', { ascending: true })
+    setPlayers(data || [])
+    setLoading(false)
+  }
+
+  // --- CRUD PLAYERS ---
+  const handleAddPlayer = async () => {
+      const { error } = await supabase.from('profiles').insert([{ ...newPlayer, note_mediche: 'OK' }]);
+      if(error) alert("Errore: " + error.message);
+      else {
+          setIsAddPlayerOpen(false);
+          setNewPlayer({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' });
+          getPlayers();
+      }
+  }
+
+  const handleUpdatePlayer = async () => {
+      if(!editingPlayer) return;
+      const { error } = await supabase.from('profiles').update({
+          nome: editingPlayer.nome,
+          cognome: editingPlayer.cognome,
+          ruolo: editingPlayer.ruolo,
+          numero_maglia: editingPlayer.numero_maglia,
+          data_nascita: editingPlayer.data_nascita || null,
+          note_mediche: editingPlayer.note_mediche
+      }).eq('id', editingPlayer.id);
+
+      if(error) alert("Errore: " + error.message);
+      else {
+          setEditingPlayer(null);
+          getPlayers();
+      }
+  }
+
+  const handleDeletePlayer = async () => {
+      if(!editingPlayer) return;
+      const { error } = await supabase.from('profiles').delete().eq('id', editingPlayer.id);
+      if(error) alert("Errore eliminazione: " + error.message);
+      else {
+          // Rimuovi anche dalla formazione se presente
+          const newLineup = { ...lineup };
+          Object.keys(newLineup).forEach(key => {
+              if(newLineup[key].id === editingPlayer.id) delete newLineup[key];
+          });
+          setLineup(newLineup);
+          
+          setEditingPlayer(null);
+          getPlayers();
+      }
+  }
+
+  // CALCOLO U35
   const u35Count = Object.keys(lineup)
     .filter(slotId => !slotId.startsWith('P') && slotId !== 'POR') 
     .reduce((acc, slotId) => {
@@ -352,36 +413,30 @@ export default function SquadraPage() {
 
   const isTooManyU35 = u35Count > 2;
 
+  // GESTIONE CAMBIO MODULO
   const handleModuleChange = (newModule: string) => {
       const oldLineup = { ...lineup };
       const newFormSlots = FORMATIONS[newModule];
       const newLineup: Record<string, any> = {};
 
-      if (oldLineup['POR']) {
-          newLineup['POR'] = oldLineup['POR'];
-          delete oldLineup['POR'];
-      }
+      if (oldLineup['POR']) { newLineup['POR'] = oldLineup['POR']; delete oldLineup['POR']; }
 
       Object.keys(oldLineup).forEach(key => {
-          if (key.startsWith('P')) {
-              newLineup[key] = oldLineup[key];
-              delete oldLineup[key];
-          }
+          if (key.startsWith('P')) { newLineup[key] = oldLineup[key]; delete oldLineup[key]; }
       });
 
       const remainingPlayers = Object.values(oldLineup);
       const remainingSlots = newFormSlots.filter((s:any) => s.id !== 'POR');
 
       remainingPlayers.forEach((player, index) => {
-          if (index < remainingSlots.length) {
-              newLineup[remainingSlots[index].id] = player;
-          }
+          if (index < remainingSlots.length) newLineup[remainingSlots[index].id] = player;
       });
 
       setModule(newModule);
       setLineup(newLineup);
   }
 
+  // --- DRAG & DROP LOGIC ---
   const handleDragStart = (event: DragStartEvent) => {
       const { active } = event;
       setActivePlayer(active.data.current?.player);
@@ -397,7 +452,6 @@ export default function SquadraPage() {
         const targetSlotId = over.data.current?.slotId;
         const player = active.data.current?.player;
         const source = active.data.current?.source;
-
         const playerInTarget = lineup[targetSlotId];
 
         if (source === 'list') {
@@ -408,7 +462,7 @@ export default function SquadraPage() {
                 const newState = { ...prev };
                 if (playerInTarget) {
                     newState[targetSlotId] = player;
-                    newState[sourceSlotId] = playerInTarget;
+                    newState[sourceSlotId] = playerInTarget; // SWAP
                 } else {
                     delete newState[sourceSlotId];
                     newState[targetSlotId] = player;
@@ -417,6 +471,24 @@ export default function SquadraPage() {
             });
         }
     }
+  }
+
+  // --- MOBILE SLOT FILL LOGIC ---
+  const handleMobileSlotClick = (slotId: string) => {
+      setMobileSlotToFill(slotId);
+  }
+
+  const handleMobilePlayerSelect = (player: any) => {
+      if (mobileSlotToFill) {
+          // Se il giocatore è già altrove, lo togliamo da lì
+          const existingSlot = Object.keys(lineup).find(key => lineup[key].id === player.id);
+          const newLineup = { ...lineup };
+          if (existingSlot) delete newLineup[existingSlot];
+          
+          newLineup[mobileSlotToFill] = player;
+          setLineup(newLineup);
+          setMobileSlotToFill(null);
+      }
   }
 
   const removePlayerFromSlot = (slotId: string) => {
@@ -444,17 +516,14 @@ export default function SquadraPage() {
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="container max-w-7xl mx-auto p-2 pb-24 lg:flex lg:gap-6 lg:items-start">
             
+            {/* ZONA SUPERIORE (CAMPO) */}
             <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
                 
+                {/* BARRA CONTROLLI */}
                 <div className="bg-card border rounded-lg p-2 flex items-center justify-between gap-2 shadow-sm relative">
-                    
                     <Select value={module} onValueChange={handleModuleChange}>
-                        <SelectTrigger className="w-[110px] h-9 text-xs font-bold border-border bg-background">
-                            <SelectValue placeholder="Modulo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {Object.keys(FORMATIONS).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}
-                        </SelectContent>
+                        <SelectTrigger className="w-[110px] h-9 text-xs font-bold border-border bg-background"><SelectValue placeholder="Modulo" /></SelectTrigger>
+                        <SelectContent>{Object.keys(FORMATIONS).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
                     </Select>
                     
                     <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -465,34 +534,21 @@ export default function SquadraPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                        <Button 
-                            variant="destructive" 
-                            size="icon" 
-                            onClick={() => setLineup({})} 
-                            className="h-9 w-9 rounded-md shadow-sm"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                            onClick={downloadImage} 
-                            size="icon" 
-                            className="h-9 w-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                        >
-                            <Download className="h-4 w-4" />
-                        </Button>
+                        <Button variant="destructive" size="icon" onClick={() => setLineup({})} className="h-9 w-9 rounded-md shadow-sm"><Trash2 className="h-4 w-4" /></Button>
+                        <Button onClick={downloadImage} size="icon" className="h-9 w-9 rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm"><Download className="h-4 w-4" /></Button>
                     </div>
                 </div>
 
-                {/* FIELD */}
+                {/* CAMPO DA GIOCO */}
                 <div ref={fieldRef} className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="relative flex-1 max-w-[450px] mx-auto aspect-[3/4] bg-gradient-to-b from-green-600 via-green-600 to-green-700 rounded-lg overflow-hidden shadow-2xl border-[3px] border-white/20 ring-1 ring-black/10">
+                        {/* Linee Campo */}
                         <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, #000 39px, #000 40px)'}}></div>
                         <div className="absolute inset-4 border-2 border-white/60 rounded-sm pointer-events-none"></div>
                         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/60 pointer-events-none"></div>
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-white/60 rounded-full bg-green-600/0 pointer-events-none"></div>
                         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-t-0 border-white/60 bg-white/5 pointer-events-none"></div>
                         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-b-0 border-white/60 bg-white/5 pointer-events-none"></div>
-                        
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-15 pointer-events-none">
                             <img src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" className="w-32 h-32 grayscale brightness-200" />
                         </div>
@@ -503,6 +559,8 @@ export default function SquadraPage() {
                                 slot={slot} 
                                 playerInSlot={lineup[slot.id]} 
                                 onRemove={() => removePlayerFromSlot(slot.id)}
+                                onMobileClick={() => handleMobileSlotClick(slot.id)}
+                                isMobile={isMobile}
                             />
                         ))}
                     </div>
@@ -515,56 +573,157 @@ export default function SquadraPage() {
                                 slot={slot} 
                                 playerInSlot={lineup[slot.id]} 
                                 onRemove={() => removePlayerFromSlot(slot.id)}
+                                onMobileClick={() => handleMobileSlotClick(slot.id)}
                                 isBench={true}
+                                isMobile={isMobile}
                             />
                         ))}
                     </div>
                 </div>
             </div>
 
-            {/* PLAYERS LIST */}
+            {/* ZONA INFERIORE (LISTA GIOCATORI) */}
             <div className="flex-1 flex flex-col gap-3 min-h-0">
                 
-                {/* Filtri */}
+                {/* Filtri & Azioni */}
                 <div className="bg-card border rounded-lg p-2 shadow-sm space-y-2 shrink-0">
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input 
-                            placeholder="Cerca giocatore..." 
-                            className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input placeholder="Cerca giocatore..." className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        </div>
+                        {isManager && (
+                            <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="h-8 w-8 p-0 bg-purple-600 hover:bg-purple-700 rounded-full shadow"><Plus className="h-4 w-4 text-white" /></Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-sm rounded-xl">
+                                    <DialogHeader><DialogTitle>Nuovo Giocatore</DialogTitle></DialogHeader>
+                                    <div className="grid gap-3 py-2">
+                                        <Input placeholder="Nome" value={newPlayer.nome} onChange={(e) => setNewPlayer({...newPlayer, nome: e.target.value})} />
+                                        <Input placeholder="Cognome" value={newPlayer.cognome} onChange={(e) => setNewPlayer({...newPlayer, cognome: e.target.value})} />
+                                        <Input placeholder="Email (per login)" value={newPlayer.email} onChange={(e) => setNewPlayer({...newPlayer, email: e.target.value})} />
+                                        <Select value={newPlayer.ruolo} onValueChange={(val) => setNewPlayer({...newPlayer, ruolo: val})}>
+                                            <SelectTrigger><SelectValue placeholder="Ruolo" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="PORTIERE">Portiere</SelectItem>
+                                                <SelectItem value="DIFENSORE">Difensore</SelectItem>
+                                                <SelectItem value="CENTROCAMPISTA">Centrocampista</SelectItem>
+                                                <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <DialogFooter><Button onClick={handleAddPlayer} className="w-full bg-purple-600">Salva</Button></DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                     </div>
+                    
                     <div className="flex bg-muted p-0.5 rounded-md">
                         {['ALL', 'OK', 'KO'].map(status => (
-                            <button 
-                                key={status}
-                                onClick={() => setFilterStatus(status as any)} 
-                                className={`flex-1 py-1 rounded-sm text-[9px] font-bold transition-all ${filterStatus === status ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
-                            >
+                            <button key={status} onClick={() => setFilterStatus(status as any)} className={`flex-1 py-1 rounded-sm text-[9px] font-bold transition-all ${filterStatus === status ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}>
                                 {status === 'ALL' ? 'Tutti' : status === 'OK' ? 'Disponibili' : 'Infortunati'}
                             </button>
                         ))}
                     </div>
                 </div>
 
+                {/* Lista */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2">
                     {filteredPlayers.map(player => (
                         <div key={player.id} className="h-[140px]"> 
                             <DraggableListCard 
                                 player={player} 
                                 isSelected={isPlayerSelected(player.id)}
+                                isManager={isManager}
+                                onEditPlayer={setEditingPlayer}
+                                isMobile={isMobile}
                             />
                         </div>
                     ))}
-                    {filteredPlayers.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground text-xs col-span-full">
-                            Nessun giocatore trovato.
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {/* MODALE DIALOG EDIT GIOCATORE (Per Manager) */}
+            <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
+                <DialogContent className="max-w-sm rounded-xl">
+                    <DialogHeader><DialogTitle>Modifica {editingPlayer?.cognome}</DialogTitle></DialogHeader>
+                    {editingPlayer && (
+                        <div className="grid gap-3 py-2">
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input placeholder="Nome" value={editingPlayer.nome} onChange={(e) => setEditingPlayer({...editingPlayer, nome: e.target.value})} />
+                                <Input placeholder="Cognome" value={editingPlayer.cognome} onChange={(e) => setEditingPlayer({...editingPlayer, cognome: e.target.value})} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Input type="number" placeholder="Maglia" value={editingPlayer.numero_maglia} onChange={(e) => setEditingPlayer({...editingPlayer, numero_maglia: e.target.value})} />
+                                <Select value={editingPlayer.ruolo} onValueChange={(val) => setEditingPlayer({...editingPlayer, ruolo: val})}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="PORTIERE">Portiere</SelectItem>
+                                        <SelectItem value="DIFENSORE">Difensore</SelectItem>
+                                        <SelectItem value="CENTROCAMPISTA">Centrocampista</SelectItem>
+                                        <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Input type="date" value={editingPlayer.data_nascita || ''} onChange={(e) => setEditingPlayer({...editingPlayer, data_nascita: e.target.value})} />
+                            <Input placeholder="Note Mediche" value={editingPlayer.note_mediche} onChange={(e) => setEditingPlayer({...editingPlayer, note_mediche: e.target.value})} />
+                        </div>
+                    )}
+                    <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Eliminare {editingPlayer?.cognome}?</AlertDialogTitle>
+                                    <AlertDialogDescription>Questa azione è irreversibile e rimuoverà il giocatore dalla rosa.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeletePlayer} className="bg-red-600">Elimina</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        <Button onClick={handleUpdatePlayer} className="flex-1 bg-purple-600">Salva Modifiche</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* MOBILE PLAYER SELECTOR DIALOG */}
+            <Dialog open={!!mobileSlotToFill} onOpenChange={(open) => !open && setMobileSlotToFill(null)}>
+                <DialogContent className="max-w-sm rounded-xl max-h-[80vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Seleziona Giocatore</DialogTitle>
+                        <DialogDescription>Tocca per inserire nel campo</DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="overflow-y-auto pr-2 custom-scrollbar space-y-2 flex-1">
+                        {/* Mostra prima i disponibili, poi gli altri. Esclude quelli già selezionati (opzionale, o mostra come disabilitati) */}
+                        {filteredPlayers.map(p => {
+                            const isSelected = isPlayerSelected(p.id);
+                            return (
+                                <div 
+                                    key={p.id} 
+                                    onClick={() => !isSelected && handleMobilePlayerSelect(p)}
+                                    className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${isSelected ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                >
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarImage src={p.avatar_url} />
+                                        <AvatarFallback>{p.cognome[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                        <p className="font-bold text-sm">{p.cognome} {p.nome}</p>
+                                        <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
+                                    </div>
+                                    {isSelected ? <Badge variant="secondary" className="text-[9px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <DragOverlay>
                {activePlayer ? (

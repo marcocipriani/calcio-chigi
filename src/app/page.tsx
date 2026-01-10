@@ -27,8 +27,7 @@ export default function Home() {
   useEffect(() => {
     fetchData();
 
-    // --- REALTIME SUBSCRIPTION (Nuova aggiunta) ---
-    // Ascolta modifiche, inserimenti o cancellazioni sulla tabella 'events'
+    // REALTIME SUBSCRIPTION
     const channel = supabase
       .channel('public:events')
       .on(
@@ -45,13 +44,11 @@ export default function Home() {
     }
   }, []);
 
-  // Gestione aggiornamento live dalla Subscription
   const handleRealtimeUpdate = (payload: any) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
       setEvents((currentEvents) => {
           if (eventType === 'INSERT') {
-              // Aggiungi e riordina
               return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
           } 
           if (eventType === 'UPDATE') {
@@ -91,60 +88,44 @@ export default function Home() {
     setLoading(false);
   }
 
-  // LOGICHE MANAGER
   const handleCreateNew = () => {
       setEditingEvent(null);
       setDialogOpen(true);
   }
 
   const handleEditEvent = (event: any) => {
-      // Importante: per evitare errori di idratazione o riferimenti, passiamo una copia
       setEditingEvent({ ...event });
       setDialogOpen(true);
   }
 
-  // SALVATAGGIO CON UI OTTIMISTICA
   const handleSaveEvent = async (eventData: any) => {
-      // 1. Backup stato attuale per eventuale rollback
       const previousEvents = [...events];
 
-      // 2. Aggiornamento Ottimistico Locale (Immediato)
       if (editingEvent) {
-          // UPDATE: Aggiorna subito la lista locale
           setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...eventData } : e));
       } else {
-          // CREATE: Aggiungiamo un evento temporaneo per dare feedback visivo (senza ID reale ancora)
-          // Nota: Per semplicità, nel create spesso si aspetta il ritorno del DB per avere l'ID,
-          // ma qui ci affidiamo al Realtime o al reload veloce. Per ora, lasciamo il create standard
-          // o gestiamo il caricamento. Per coerenza ottimistica su Edit:
+            setEvents(prev => [...prev, eventData].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
       }
 
-      // 3. Chiamata al Database
       let error = null;
       if (editingEvent) {
-          // UPDATE
           const res = await supabase
             .from('events')
             .update(eventData)
             .eq('id', editingEvent.id);
           error = res.error;
       } else {
-          // CREATE
           const res = await supabase
             .from('events')
             .insert([eventData]);
           error = res.error;
       }
 
-      // 4. Gestione Errori (Rollback)
       if(error) {
           alert("Errore: " + error.message);
-          setEvents(previousEvents); // Torna indietro se fallisce
+          setEvents(previousEvents);
       } else {
-          // Se successo, non serve fare nulla se abbiamo Realtime attivo, 
-          // oppure possiamo fare fetchData() per sicurezza (ma Realtime è più veloce).
-          // Per sicurezza, un refresh silenzioso dei dati "completi" (es. join attendance) è utile.
-          // fetchData(); // Facoltativo con Realtime
+            setDialogOpen(false);
       }
   }
 
@@ -154,25 +135,19 @@ export default function Home() {
     return team?.logo_url;
   }
 
-  // --- FILTRI ---
-  
-  // Data di ieri (inizio giornata)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   yesterday.setHours(0,0,0,0);
 
   const now = new Date();
 
-  // Filtra eventi miei o generali
   const myEvents = events.filter(e => {
     if (e.tipo === 'ALLENAMENTO') return true;
     return !e.avversario?.includes(' vs '); 
   });
 
-  // LOGICA CALENDARIO: Da Ieri in poi
   const futureRaw = myEvents.filter(e => new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
   
-  // LOGICA STORICO: Solo passati e giocati
   const pastRaw = myEvents.filter(e => new Date(e.data_ora) < yesterday && e.giocata === true).reverse();
 
   const applyTypeFilter = (list: any[]) => {
@@ -183,7 +158,6 @@ export default function Home() {
   const visibleFutureEvents = applyTypeFilter(futureRaw);
   const visiblePastEvents = applyTypeFilter(pastRaw);
 
-  // Calcolo Countdown Prossima Partita
   const nextMatch = visibleFutureEvents.find(e => e.tipo === 'PARTITA' && new Date(e.data_ora) > now);
   
   const getCountdownLabel = (dateStr: string) => {
@@ -205,11 +179,10 @@ export default function Home() {
       
       <div className="pb-2 flex justify-between items-end">
         <div>
-            <h2 className="text-3xl font-black text-foreground tracking-tight">Il calendario</h2>
+            <h2 className="text-3xl font-black text-foreground tracking-tight">Calendario</h2>
             <p className="text-sm text-muted-foreground font-medium">Gli impegni della squadra</p>
         </div>
-        
-        {/* COUNTDOWN BADGE */}
+
         {nextMatch && (
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
@@ -276,7 +249,6 @@ export default function Home() {
                         visibleFutureEvents.map(event => (
                         <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02] relative group">
                             
-                            {/* Evidenzia Next Match */}
                             {event.id === nextMatch?.id && (
                                 <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-20">
                                     <span className="bg-red-600 text-white border-2 border-background shadow-md text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -330,7 +302,6 @@ export default function Home() {
           </Button>
       )}
 
-      {/* MODALE DI GESTIONE */}
       <EventDialog 
         open={dialogOpen} 
         onOpenChange={setDialogOpen}

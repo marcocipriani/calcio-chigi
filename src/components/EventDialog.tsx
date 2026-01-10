@@ -23,6 +23,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
   const [tipo, setTipo] = useState('ALLENAMENTO')
   const [dateStr, setDateStr] = useState('')
   const [timeStr, setTimeStr] = useState('')
+  const [endTimeStr, setEndTimeStr] = useState('')
   const [luogo, setLuogo] = useState('')
   const [avversario, setAvversario] = useState('')
   const [note, setNote] = useState('')
@@ -36,21 +37,28 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         if (eventToEdit) {
             try {
                 const d = new Date(eventToEdit.data_ora)
-                const localTime = d.toLocaleTimeString('it-IT', { hour12: false }).slice(0, 5); 
+                const localTime = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); 
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 const localDate = `${year}-${month}-${day}`;
 
+                let endLocalTime = '';
+                if (eventToEdit.data_fine_ora) {
+                    const de = new Date(eventToEdit.data_fine_ora);
+                    endLocalTime = de.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                }
+
                 setTipo(eventToEdit.tipo || 'ALLENAMENTO')
                 setDateStr(localDate)
                 setTimeStr(localTime)
+                setEndTimeStr(endLocalTime)
                 setLuogo(eventToEdit.luogo || '')
                 setAvversario(eventToEdit.avversario || '')
                 setNote(eventToEdit.note || '')
                 setGiocata(eventToEdit.giocata || false)
-                setGolNostri(String(eventToEdit.gol_nostri ?? 0))
-                setGolAvversario(String(eventToEdit.gol_avversario ?? 0))
+                setGolNostri(String(eventToEdit.gol_casa ?? 0))
+                setGolAvversario(String(eventToEdit.gol_ospite ?? 0))
                 setCancellato(eventToEdit.cancellato || false)
             } catch (e) {
                 console.error("Errore parsing data evento", e);
@@ -64,6 +72,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             setTipo('ALLENAMENTO')
             setDateStr(`${year}-${month}-${day}`)
             setTimeStr('21:00')
+            setEndTimeStr('')
             setLuogo('C.S. CAVALIERI')
             setAvversario('')
             setNote('')
@@ -80,27 +89,26 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
     setLoading(true)
     
     try {
-        // 1. Costruzione Data ISO
-        if (!dateStr || !timeStr) throw new Error("Data e ora sono obbligatorie");
+        if (!dateStr || !timeStr) throw new Error("Data e ora inizio sono obbligatorie");
         
-        // Creiamo la data combinando stringa input
-        const combinedString = `${dateStr}T${timeStr}:00`;
-        const dateObj = new Date(combinedString);
+        const startDateTime = new Date(`${dateStr}T${timeStr}`);
         
-        if (isNaN(dateObj.getTime())) {
-            throw new Error("Data non valida");
+        let endDateTime = null;
+        if (endTimeStr) {
+            endDateTime = new Date(`${dateStr}T${endTimeStr}`);
         }
+        
+        if (isNaN(startDateTime.getTime())) throw new Error("Data non valida");
 
-        // 2. Sanitizzazione Numeri
         const safeInt = (val: string) => {
             const parsed = parseInt(val, 10);
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        // 3. Costruzione Payload
         const payload: any = {
             tipo,
-            data_ora: dateObj.toISOString(),
+            data_ora: startDateTime.toISOString(),
+            data_fine_ora: endDateTime ? endDateTime.toISOString() : null,
             luogo,
             note: note || null,
             giocata,
@@ -110,21 +118,18 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         if (tipo === 'PARTITA') {
             payload.avversario = avversario || "Avversario";
             if (giocata) {
-                payload.gol_nostri = safeInt(golNostri);
-                payload.gol_avversario = safeInt(golAvversario);
+                payload.gol_casa = safeInt(golNostri);
+                payload.gol_ospite = safeInt(golAvversario);
             } else {
-                payload.gol_nostri = null;
-                payload.gol_avversario = null;
+                payload.gol_casa = null;
+                payload.gol_ospite = null;
             }
         } else {
-            // Allenamento
             payload.avversario = null;
-            payload.gol_nostri = null;
-            payload.gol_avversario = null;
+            payload.gol_casa = null;
+            payload.gol_ospite = null;
             payload.giocata = false;
         }
-
-        console.log("📤 Invio Payload:", payload); // DEBUG
 
         await onSave(payload)
         onOpenChange(false)
@@ -157,20 +162,25 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                     </SelectContent>
                 </Select>
             </div>
-            <div className="flex flex-col gap-2 justify-center items-end border p-2 rounded-md bg-muted/20">
-                <Label className="text-xs text-muted-foreground cursor-pointer font-bold" htmlFor="canc-switch">Evento Annullato?</Label>
+            <div className="flex flex-col gap-2 justify-center items-end border p-2 rounded-md bg-muted/20 border-red-200">
+                <Label className="text-xs text-red-600 cursor-pointer font-bold" htmlFor="canc-switch">Annullato</Label>
                 <Switch id="canc-switch" checked={cancellato} onCheckedChange={setCancellato} />
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label>Data</Label>
+            <Input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} required className="block w-full" />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-                <Label>Data</Label>
-                <Input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} required className="block w-full" />
+                <Label>Inizio</Label>
+                <Input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} required className="block w-full" />
             </div>
             <div className="space-y-2">
-                <Label>Ora</Label>
-                <Input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} required className="block w-full" />
+                <Label>Fine (Opzionale)</Label>
+                <Input type="time" value={endTimeStr} onChange={(e) => setEndTimeStr(e.target.value)} className="block w-full" />
             </div>
           </div>
 
@@ -182,8 +192,8 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           {tipo === 'PARTITA' && (
              <div className="space-y-4 border rounded-lg p-3 bg-muted/30 mt-2">
                 <div className="space-y-2">
-                    <Label>Avversario</Label>
-                    <Input value={avversario} onChange={(e) => setAvversario(e.target.value)} placeholder="Nome Squadra" />
+                    <Label>Avversario / Titolo</Label>
+                    <Input value={avversario} onChange={(e) => setAvversario(e.target.value)} placeholder="Es: vs Real Madrid" />
                 </div>
                 
                 <div className="flex items-center justify-between">
@@ -194,11 +204,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 {giocata && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Gol Nostri</Label>
+                            <Label>Gol Casa</Label>
                             <Input type="number" value={golNostri} onChange={(e) => setGolNostri(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Gol Avversario</Label>
+                            <Label>Gol Ospite</Label>
                             <Input type="number" value={golAvversario} onChange={(e) => setGolAvversario(e.target.value)} />
                         </div>
                     </div>
@@ -217,7 +227,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-700">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salva Modifiche
             </Button>

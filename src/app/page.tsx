@@ -108,11 +108,10 @@ export default function Home() {
   return (
     <main className="container max-w-md mx-auto px-4 py-4 space-y-4 pb-20">
       
-      {/* Intestazione */}
       <div className="pb-2 flex justify-between items-end">
         <div>
-            <h2 className="text-3xl font-black text-foreground tracking-tight">Il Tuo Calendario</h2>
-            <p className="text-sm text-muted-foreground font-medium">Gestione impegni ufficiali</p>
+            <h2 className="text-3xl font-black text-foreground tracking-tight">Il calendario</h2>
+            <p className="text-sm text-muted-foreground font-medium">Gli impegni della squadra</p>
         </div>
       </div>
 
@@ -122,7 +121,6 @@ export default function Home() {
         </div>
       ) : (
         <>
-            {/* Chips Filtri */}
             <div className="flex items-center gap-3 overflow-x-auto pb-3 scrollbar-hide">
             <Button 
                 variant={filter === 'ALL' ? 'default' : 'outline'}
@@ -150,7 +148,6 @@ export default function Home() {
             </Button>
             </div>
 
-            {/* TABS */}
             <Tabs defaultValue="upcoming" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-6 h-14 bg-muted/50 p-1.5 rounded-2xl backdrop-blur-sm dark:bg-slate-900/50 border dark:border-slate-800">
                     <TabsTrigger value="upcoming" className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-xl gap-2 transition-all">
@@ -208,10 +205,9 @@ export default function Home() {
         </>
       )}
 
-      {/* FAB: Crea Nuovo Evento (Solo Manager) */}
       {isManager && (
           <Button 
-            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-2xl bg-primary hover:bg-primary/90 z-50 flex items-center justify-center"
+            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center"
             onClick={handleCreateNew}
           >
               <Plus className="h-8 w-8 text-white" />

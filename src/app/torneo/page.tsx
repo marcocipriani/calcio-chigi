@@ -23,6 +23,7 @@ const COMUNICATI = [
     { id: 102, data: "14/10/2025", titolo: "CIRCOLARE n. 2", url: "https://cdn.enjore.com/source/doc/comunicate/113994-circolare-n-2-del-14102025_tIZN.pdf" },
     { id: 2, data: "11/10/2025", titolo: "Comunicato n. 2", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-2-11-10-2025_ifIS.pdf" },
     { id: 101, data: "06/10/2025", titolo: "CIRCOLARE n. 1", url: "https://cdn.enjore.com/source/doc/comunicate/113994-circolare-n-1-del-06102025_84fG.pdf" },
+    { id: 1, data: "01/10/2025", titolo: "Regolamento", url: "https://cdn.enjore.com/source/doc/tournament_doc/113994-zFUMr1Pcin-regolamento.pdf" },
 ];
 
 export default function TorneoPage() {
@@ -39,21 +40,22 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
+        // 1. Check Manager
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
             const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
             if (profile?.is_manager) setIsManager(true)
         }
 
+        // 2. Load Teams
         const { data: teamsData } = await supabase.from('teams').select('nome, logo_url')
         const tMap: Record<string, string> = {}
         if (teamsData) {
-            teamsData.forEach(t => {
-                tMap[t.nome] = t.logo_url
-            })
+            teamsData.forEach(t => { tMap[t.nome] = t.logo_url })
             setTeamsMap(tMap)
         }
 
+        // 3. Load Matches
         const { data } = await supabase
             .from('events')
             .select('*')
@@ -67,12 +69,29 @@ export default function TorneoPage() {
             setGiornate(uniqueG)
 
             const today = new Date();
-            const nextMatch = data.find(m => new Date(m.data_ora) >= today);
+            today.setHours(0,0,0,0); // Azzera orario per confronto corretto
+
+            // Filtra solo le partite del Circolo Chigi
+            const chigiMatches = data.filter(m => 
+                m.squadra_casa?.toLowerCase().includes('chigi') || 
+                m.squadra_ospite?.toLowerCase().includes('chigi')
+            );
+
+            // Cerca la prima partita futura (o oggi) del Chigi
+            const nextChigiMatch = chigiMatches.find(m => new Date(m.data_ora) >= today);
             
-            if (nextMatch && nextMatch.giornata) {
-                setSelectedGiornata(nextMatch.giornata);
+            if (nextChigiMatch && nextChigiMatch.giornata) {
+                // Se c'è una partita futura del Chigi, seleziona quella giornata
+                setSelectedGiornata(nextChigiMatch.giornata);
             } else {
-                setSelectedGiornata(uniqueG[uniqueG.length - 1]);
+                // Altrimenti prendi la prima partita futura GENERALE del torneo
+                const generalNextMatch = data.find(m => new Date(m.data_ora) >= today);
+                if (generalNextMatch) {
+                    setSelectedGiornata(generalNextMatch.giornata);
+                } else {
+                    // Se il torneo è finito, mostra l'ultima giornata
+                    setSelectedGiornata(uniqueG[uniqueG.length - 1]);
+                }
             }
         }
         setLoading(false)
@@ -150,7 +169,6 @@ export default function TorneoPage() {
             </div>
         </div>
 
-        {/* TAB CLASSIFICA */}
         <Tabs defaultValue="classifica" className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-12 bg-muted/50 p-1 rounded-xl mb-6">
                 <TabsTrigger value="classifica" className="rounded-lg font-bold gap-2">
@@ -224,7 +242,6 @@ export default function TorneoPage() {
                                         </div>
                                         
                                         <div className="flex-1 space-y-2">
-                                            {/* SQUADRA CASA */}
                                             <div className="flex justify-between items-center">
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-5 w-5 bg-transparent">
@@ -240,7 +257,6 @@ export default function TorneoPage() {
                                                 </span>
                                             </div>
 
-                                            {/* SQUADRA OSPITE */}
                                             <div className="flex justify-between items-center">
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-5 w-5 bg-transparent">

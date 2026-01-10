@@ -11,13 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Save, AlertTriangle, Crown, Settings, LogOut, RotateCcw, User, Users, Ruler, X, CalendarIcon, Shirt, CreditCard } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Loader2, AlertTriangle, Crown, Settings, LogOut, RotateCcw, User, Users, Ruler, X, CalendarIcon, Shirt, CreditCard, Search, Plus } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears, format } from "date-fns"
 import { it } from 'date-fns/locale'
-
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || "v1.0.0";
+import { AppCredits } from '@/components/AppCredits'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -27,6 +27,10 @@ export default function ProfilePage() {
   const [allPlayers, setAllPlayers] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("me")
+
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
+  const [newPlayer, setNewPlayer] = useState({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE' })
 
   const [originalData, setOriginalData] = useState<any>(null)
   const [hasChanges, setHasChanges] = useState(false)
@@ -90,11 +94,15 @@ export default function ProfilePage() {
       if (!editingId) loadFormData(profile)
       
       if (profile.is_manager) {
-          const { data: players } = await supabase.from('profiles').select('*').order('cognome')
-          setAllPlayers(players || [])
+          fetchTeamList()
       }
     }
     setLoading(false)
+  }
+
+  async function fetchTeamList() {
+      const { data: players } = await supabase.from('profiles').select('*').order('cognome')
+      setAllPlayers(players || [])
   }
 
   const loadFormData = (profile: any) => {
@@ -163,11 +171,30 @@ export default function ProfilePage() {
           setHasChanges(false);
           
           if (myProfile?.is_manager) {
-             const { data: players } = await supabase.from('profiles').select('*').order('cognome')
-             setAllPlayers(players || [])
+             fetchTeamList();
           }
       }
       setLoading(false)
+  }
+
+  const handleAddPlayer = async () => {
+      if(!newPlayer.nome || !newPlayer.cognome || !newPlayer.email) return alert("Compila i campi obbligatori");
+      
+      const { error } = await supabase.from('profiles').insert([{
+          nome: newPlayer.nome,
+          cognome: newPlayer.cognome,
+          email: newPlayer.email,
+          ruolo: newPlayer.ruolo,
+          note_mediche: 'OK'
+      }]);
+
+      if(error) {
+          alert("Errore creazione: " + error.message);
+      } else {
+          setIsAddPlayerOpen(false);
+          setNewPlayer({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE' });
+          fetchTeamList();
+      }
   }
 
   const handleLogout = async () => {
@@ -179,6 +206,11 @@ export default function ProfilePage() {
   const isU35Preview = currentAge !== null && currentAge < 35;
   const isMe = editingId === myProfile?.id;
   const isManager = myProfile?.is_manager;
+
+  const filteredPlayers = allPlayers.filter(p => 
+      p.cognome?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin text-primary" /></div>
 
@@ -211,7 +243,6 @@ export default function ProfilePage() {
                     </TabsList>
                 )}
 
-                {/* --- TAB: EDITOR PROFILO --- */}
                 <TabsContent value="me" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                     
                     {!isMe && (
@@ -369,7 +400,7 @@ export default function ProfilePage() {
                         </Card>
                     )}
 
-                    <div className="pt-4 flex justify-center pb-8">
+                    <div className="pt-4 flex justify-center pb-2">
                         <Button 
                             variant="destructive" 
                             size="lg"
@@ -380,30 +411,72 @@ export default function ProfilePage() {
                         </Button>
                     </div>
 
-                    <div className="w-full flex flex-col items-center justify-center py-6 border-t border-border/50 gap-1 mt-4">
-                        <p className="text-[11px] text-muted-foreground font-medium">
-                            Calcio Circolo Chigi v.{APP_VERSION}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                            Dev: <span className="font-bold">Marco Cipriani</span>
-                        </p>
-                        <div className="pt-2">
-                             <code className="text-[9px] text-muted-foreground/30 font-mono select-all bg-muted/30 px-2 py-1 rounded">
-                                 UID: {myProfile?.id || "LOADING..."}
-                             </code>
-                        </div>
-                    </div>
+                    <AppCredits />
+
                 </TabsContent>
 
-                {/* --- TAB: LISTA GIOCATORI (GESTORE) --- */}
                 <TabsContent value="team" className="space-y-4">
-                    <div className="bg-purple-100 dark:bg-purple-900/20 p-3 rounded-lg text-xs font-medium text-purple-800 dark:text-purple-200 flex items-center gap-2 border border-purple-200 dark:border-purple-800">
-                        <Settings className="h-4 w-4" />
-                        Modalità Gestore: Clicca su un giocatore per modificarlo.
+                    
+                    <div className="flex gap-2 sticky top-0 bg-background z-10 py-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Cerca giocatore..." 
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="bg-purple-600 hover:bg-purple-700 text-white gap-1 px-3">
+                                    <Plus className="h-5 w-5" /> <span className="hidden sm:inline">Nuovo</span>
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-sm rounded-xl">
+                                <DialogHeader>
+                                    <DialogTitle>Aggiungi Giocatore</DialogTitle>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Nome *</Label>
+                                            <Input value={newPlayer.nome} onChange={(e) => setNewPlayer({...newPlayer, nome: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Cognome *</Label>
+                                            <Input value={newPlayer.cognome} onChange={(e) => setNewPlayer({...newPlayer, cognome: e.target.value})} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Email (Per login) *</Label>
+                                        <Input type="email" value={newPlayer.email} onChange={(e) => setNewPlayer({...newPlayer, email: e.target.value})} placeholder="email@esempio.com" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Ruolo</Label>
+                                        <Select value={newPlayer.ruolo} onValueChange={(val) => setNewPlayer({...newPlayer, ruolo: val})}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="PORTIERE">Portiere</SelectItem>
+                                                <SelectItem value="DIFENSORE">Difensore</SelectItem>
+                                                <SelectItem value="CENTROCAMPISTA">Centrocampista</SelectItem>
+                                                <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={handleAddPlayer} className="w-full bg-purple-600">Crea Profilo</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                     
                     <div className="space-y-3 pb-4">
-                        {allPlayers.map(p => {
+                        {filteredPlayers.length === 0 && (
+                            <p className="text-center text-muted-foreground py-8">Nessun giocatore trovato.</p>
+                        )}
+                        {filteredPlayers.map(p => {
                             const age = p.data_nascita ? differenceInYears(new Date(), new Date(p.data_nascita)) : null;
                             const isU35 = age !== null && age < 35;
                             const formattedDob = p.data_nascita ? format(new Date(p.data_nascita), 'dd/MM/yy', {locale: it}) : 'N.D.';
@@ -462,26 +535,13 @@ export default function ProfilePage() {
                         </Button>
                     </div>
 
-                    <div className="w-full flex flex-col items-center justify-center py-6 border-t border-border/50 gap-1 mt-4">
-                        <p className="text-[11px] text-muted-foreground font-medium">
-                            Calcio Circolo Chigi {APP_VERSION}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                            Dev: <span className="font-bold">Marco Cipriani</span>
-                        </p>
-                        <div className="pt-2">
-                             <code className="text-[9px] text-muted-foreground/30 font-mono select-all bg-muted/30 px-2 py-1 rounded">
-                                 UID: {myProfile?.id || "LOADING..."}
-                             </code>
-                        </div>
-                    </div>
+                    <AppCredits />
                 </TabsContent>
             </Tabs>
         </div>
 
-        {/* POPUP FLUTTUANTE SALVATAGGIO */}
         {hasChanges && (
-            <div className="fixed bottom-10 left-0 right-0 z-50 flex justify-center px-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+            <div className="fixed bottom-24 left-0 right-0 z-50 flex justify-center px-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
                 <div className={`
                     p-2 pl-4 pr-2 rounded-full shadow-2xl flex items-center justify-between border-2 border-white/20 backdrop-blur-md w-full max-w-xs
                     ${isManager ? 'bg-purple-600 text-white shadow-purple-500/40' : 'bg-primary text-primary-foreground shadow-blue-500/40'}

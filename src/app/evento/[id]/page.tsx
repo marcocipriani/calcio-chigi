@@ -3,9 +3,9 @@
 import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,6 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { EventDialog } from '@/components/EventDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+
+// Helper per calcolo età
+const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
+const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
 
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
@@ -20,6 +25,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   
   // Dati
   const [event, setEvent] = useState<any>(null);
+  const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
   const [roster, setRoster] = useState<any[]>([]); 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isManager, setIsManager] = useState(false);
@@ -30,13 +36,11 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // 1. Caricamento dati
   useEffect(() => {
     loadAllData();
   }, [id]);
 
   async function loadAllData() {
-    // A. Utente e profilo
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
     
@@ -56,16 +60,32 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         }
     }
 
-    // B. Evento
     const { data: eventData } = await supabase
       .from('events')
       .select('*')
       .eq('id', id)
       .single();
-    setEvent(eventData);
+    
+    if (eventData) {
+        setEvent(eventData);
+        
+        // Cerca logo avversario se è una partita
+        if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
+            const opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') 
+                ? eventData.squadra_ospite 
+                : eventData.squadra_casa;
+            
+            const { data: teamData } = await supabase
+                .from('teams')
+                .select('logo_url')
+                .ilike('nome', `%${opponentName}%`)
+                .maybeSingle();
+            
+            if (teamData) setOpponentLogo(teamData.logo_url);
+        }
+    }
 
-    // C. Presenze
-    const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url').order('cognome');
+    const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url, data_nascita').order('cognome');
     const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status').eq('event_id', id);
 
     if (allProfiles) {
@@ -75,7 +95,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             return { ...p, status: vote?.status || null };
         });
         
-        // Ordine: Presenti > Infortunati > Null > Assenti
         mergedRoster.sort((a, b) => {
             const score = (s: string) => {
                 if (s === 'PRESENTE') return 4;
@@ -92,7 +111,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     setLoading(false);
   }
 
-  // 2. Voto Utente
   const handleVote = async (status: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE') => {
     if (!currentUser || !myProfileId) return alert("Devi essere loggato e collegato alla rosa.");
 
@@ -112,7 +130,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
-  // 3. Voto Manager
   const handleManagerOverride = async (profileId: string, newStatus: string) => {
       updateRosterLocal(profileId, newStatus);
       if (newStatus === "RESET") {
@@ -126,21 +143,16 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       setRoster(prev => prev.map(p => p.id === pid ? { ...p, status: status === 'RESET' ? null : status } : p));
   };
 
-  // 4. Modifica Evento (Manager)
   const handleEventUpdate = async (updatedData: any) => {
-      console.log("Tentativo aggiornamento ID:", id);
-      console.log("Dati:", updatedData);
-
       const { data, error } = await supabase
         .from('events')
         .update(updatedData)
         .eq('id', id)
-        .select(); // <--- FONDAMENTALE: Ci restituisce i dati modificati
+        .select(); 
       
       if (error) {
           alert("Errore DB: " + error.message);
       } else if (!data || data.length === 0) {
-          // ECCO IL COLPEVOLE: Nessuna riga aggiornata = Permessi RLS bloccati
           alert("ATTENZIONE: Modifica non salvata! Sembra che tu non abbia i permessi di Manager nel database.");
       } else {
           setEvent({ ...event, ...updatedData });
@@ -149,23 +161,28 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       }
   };
 
-  if (loading) return (
-    <div className="flex justify-center items-center h-screen bg-background">
-        <div className="animate-pulse text-muted-foreground font-bold">Caricamento...</div>
-    </div>
-  );
+  const handleDeleteEvent = async () => {
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) {
+          alert("Errore eliminazione: " + error.message);
+      } else {
+          router.push('/torneo'); 
+      }
+  }
 
+  if (loading) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-muted-foreground" /></div>;
   if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
   const isCancelled = event.cancellato;
   const presenti = roster.filter(p => p.status === 'PRESENTE');
   const infortunati = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
+  
+  const u35Presenti = presenti.filter(p => isU35Func(p.data_nascita)).length;
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       
-      {/* Header */}
-      <div className={`p-4 sticky top-0 z-10 shadow-md flex items-center justify-between transition-colors
+      <div className={`p-4 sticky top-14 z-40 shadow-md flex items-center justify-between transition-colors
           ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
             <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20">
@@ -180,25 +197,63 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </div>
             
             {isManager && (
-                <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8">
-                    <Pencil className="h-3 w-3" /> Modifica
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none">
+                        <Pencil className="h-3 w-3" /> Modifica
+                    </Button>
+                    
+                    {/* Bottone Elimina ROSSO */}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione totale.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina per sempre</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
             )}
       </div>
 
       <div className="p-4 max-w-lg mx-auto space-y-6">
         
-        {/* Info Evento */}
         <div className="text-center space-y-3 mt-2">
             
+            {/* Logo Avversario */}
+            {event.tipo === 'PARTITA' && opponentLogo && (
+                <div className="flex justify-center mb-2">
+                    <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white">
+                        <AvatarImage src={opponentLogo} className="object-contain p-1" />
+                        <AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback>
+                    </Avatar>
+                </div>
+            )}
+
             <h2 className={`text-3xl font-black uppercase leading-none tracking-tight 
                 ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>
                 {event.avversario || "Allenamento"}
             </h2>
             
-            <div className="flex justify-center items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground">
                 <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'd MMM yyyy', {locale: it})}</span>
-                <span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'HH:mm')}</span>
+                <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> Inizio: {format(new Date(event.data_ora), 'HH:mm')}</span>
+                    {/* Visualizzazione Data Fine */}
+                    {event.data_fine_ora && (
+                        <span className="flex items-center gap-1 font-medium opacity-70">Fine: {format(new Date(event.data_fine_ora), 'HH:mm')}</span>
+                    )}
+                </div>
             </div>
             
             <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold">
@@ -214,12 +269,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 </div>
             )}
 
-            {isCancelled && <p className="text-red-500 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">QUESTO EVENTO È STATO ANNULLATO</p>}
+            {isCancelled && <p className="text-red-500 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
         </div>
 
         <Separator />
 
-        {/* SEZIONE VOTO */}
+        {/* VOTO */}
         {!event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4">
@@ -258,9 +313,17 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         {/* LISTA CONVOCAZIONI */}
         <div>
-            <div className="flex justify-between items-end mb-4 border-b pb-2">
-                <h3 className="font-bold text-lg">Presenze ({presenti.length})</h3>
-                {infortunati.length > 0 && <span className="text-xs text-yellow-600 font-bold bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">{infortunati.length} Infortunati</span>}
+            <div className="flex flex-col mb-4 border-b pb-2 gap-2">
+                <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg">Presenze ({presenti.length})</h3>
+                        {/* Contatore U35 */}
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-200">
+                            di cui {u35Presenti} U35
+                        </span>
+                    </div>
+                    {infortunati.length > 0 && <span className="text-xs text-yellow-600 font-bold bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">{infortunati.length} Infortunati</span>}
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -285,6 +348,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         statusColor = "text-yellow-600 dark:text-yellow-400";
                     }
 
+                    const isU35Player = isU35Func(p.data_nascita);
+
                     return (
                         <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass}`}>
                             <div className="flex items-center gap-3">
@@ -293,18 +358,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                     <AvatarFallback>{p.nome[0]}{p.cognome[0]}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="font-bold text-sm leading-none">{p.cognome} {p.nome}</p>
-                                    <p className={`text-[10px] font-bold mt-1 ${statusColor}`}>{statusText}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold text-sm leading-none">{p.cognome} {p.nome}</p>
+                                        {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {/* RUOLO AGGIUNTO */}
+                                        <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">{p.ruolo?.substring(0,3)}</p>
+                                        <p className={`text-[10px] font-bold ${statusColor}`}>{statusText}</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* SELECTOR GESTORE */}
                             {isManager ? (
                                 <Select 
                                     value={status || "RESET"} 
                                     onValueChange={(val) => handleManagerOverride(p.id, val)}
                                 >
-                                    <SelectTrigger className="h-7 w-[110px] text-[10px] font-bold bg-background">
+                                    <SelectTrigger className="h-7 w-[110px] text-[10px] font-bold bg-background border-purple-200 focus:ring-purple-500">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>

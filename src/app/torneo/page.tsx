@@ -7,12 +7,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Loader2, CalendarDays, Trophy, Settings, FileText, Download, Pencil } from 'lucide-react'
+import { Loader2, CalendarDays, Trophy, FileText, Download, Pencil } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import ClassificaPage from '../classifica/page'
+import { EventDialog } from '@/components/EventDialog'
 
 const COMUNICATI = [
     { id: 8, data: "06/12/2025", titolo: "Comunicato n. 8", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-8-06-12-2025_sn25.pdf" },
@@ -35,6 +36,9 @@ export default function TorneoPage() {
   
   const [giornate, setGiornate] = useState<number[]>([])
   const [selectedGiornata, setSelectedGiornata] = useState<number | null>(null)
+  
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<any>(null)
   
   const daysScrollRef = useRef<HTMLDivElement>(null)
 
@@ -69,27 +73,21 @@ export default function TorneoPage() {
             setGiornate(uniqueG)
 
             const today = new Date();
-            today.setHours(0,0,0,0); // Azzera orario per confronto corretto
-
-            // Filtra solo le partite del Circolo Chigi
+            today.setHours(0,0,0,0); 
             const chigiMatches = data.filter(m => 
                 m.squadra_casa?.toLowerCase().includes('chigi') || 
                 m.squadra_ospite?.toLowerCase().includes('chigi')
             );
 
-            // Cerca la prima partita futura (o oggi) del Chigi
             const nextChigiMatch = chigiMatches.find(m => new Date(m.data_ora) >= today);
             
             if (nextChigiMatch && nextChigiMatch.giornata) {
-                // Se c'è una partita futura del Chigi, seleziona quella giornata
                 setSelectedGiornata(nextChigiMatch.giornata);
             } else {
-                // Altrimenti prendi la prima partita futura GENERALE del torneo
                 const generalNextMatch = data.find(m => new Date(m.data_ora) >= today);
                 if (generalNextMatch) {
                     setSelectedGiornata(generalNextMatch.giornata);
                 } else {
-                    // Se il torneo è finito, mostra l'ultima giornata
                     setSelectedGiornata(uniqueG[uniqueG.length - 1]);
                 }
             }
@@ -110,6 +108,29 @@ export default function TorneoPage() {
         }
     }
   }, [selectedGiornata])
+
+  const handleEditEvent = (event: any) => {
+    setEditingEvent({ ...event });
+    setDialogOpen(true);
+  }
+
+  const handleSaveEvent = async (eventData: any) => {
+    let payload = { ...eventData };
+    if (editingEvent && !payload.data_ora) {
+        payload.data_ora = editingEvent.data_ora;
+    }
+
+    setMatches(prev => prev.map(m => m.id === editingEvent.id ? { ...m, ...payload } : m));
+
+    const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id);
+
+    if (error) {
+        alert("Errore salvataggio: " + error.message);
+    }
+    
+    setDialogOpen(false);
+    setEditingEvent(null);
+  }
 
   if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>
 
@@ -227,7 +248,7 @@ export default function TorneoPage() {
                             
                             return (
                                 <Card key={match.id} className={`border-l-4 ${isChigi ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10' : 'border-l-slate-300'}`}>
-                                    <CardContent className="p-4 flex items-center gap-4">
+                                    <CardContent className="p-4 flex items-center gap-4 relative">
                                         
                                         <div className="flex flex-col items-center justify-center w-12 text-center border-r pr-4">
                                             <span className="text-lg font-black leading-none">
@@ -280,6 +301,21 @@ export default function TorneoPage() {
                                                 </Badge>
                                             </div>
                                         )}
+                                        
+                                        {isManager && (
+                                            <Button 
+                                                size="icon" 
+                                                variant="ghost" 
+                                                className="absolute bottom-1 right-1 h-6 w-6 text-muted-foreground hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEditEvent(match);
+                                                }}
+                                            >
+                                                <Pencil className="h-3 w-3" />
+                                            </Button>
+                                        )}
+
                                     </CardContent>
                                 </Card>
                             )
@@ -289,6 +325,13 @@ export default function TorneoPage() {
 
             </TabsContent>
         </Tabs>
+
+        <EventDialog 
+            open={dialogOpen} 
+            onOpenChange={setDialogOpen}
+            eventToEdit={editingEvent}
+            onSave={handleSaveEvent}
+        />
     </div>
   )
 }

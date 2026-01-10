@@ -19,30 +19,96 @@ import { it } from 'date-fns/locale';
 
 export default function ClassificaPage() {
   const [standings, setStandings] = useState<any[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [matches, setMatches] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchData() {
-      const { data: standingsData } = await supabase
-        .from('standings')
-        .select(`*, teams ( nome, logo_url, slug )`)
-        .order('punti', { ascending: false })
-        .order('gol_fatti', { ascending: false });
+      try {
+        const { data: teamsData } = await supabase
+          .from('teams')
+          .select('id, nome, logo_url, slug');
 
-      const { data: matchesData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('tipo', 'PARTITA')
-        .eq('giocata', true)
-        .order('data_ora', { ascending: false });
+        const { data: matchesData } = await supabase
+          .from('events')
+          .select('*')
+          .eq('tipo', 'PARTITA')
+          .eq('giocata', true)
+          .order('data_ora', { ascending: false });
 
-      setMatches(matchesData || []);
-      setStandings(standingsData || []);
-      setLoading(false);
+        if (teamsData && matchesData) {
+          setMatches(matchesData);
+          const calculatedStandings = calculateStandings(teamsData, matchesData);
+          setStandings(calculatedStandings);
+        }
+      } catch (error) {
+        console.error("Errore fetch:", error);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
   }, []);
+
+  const calculateStandings = (teams: any[], matches: any[]) => {
+    const stats: Record<string, any> = {};
+
+    teams.forEach(team => {
+      stats[team.nome] = {
+        id: team.id,
+        teamData: team,
+        punti: 0,
+        giocate: 0,
+        vinte: 0,
+        nulle: 0,
+        perse: 0,
+        gol_fatti: 0,
+        gol_subiti: 0,
+      };
+    });
+
+    matches.forEach(match => {
+      const casa = match.squadra_casa;
+      const ospite = match.squadra_ospite;
+      
+      const golCasa = Number(match.gol_casa) || 0;
+      const golOspite = Number(match.gol_ospite) || 0;
+
+      if (stats[casa] && stats[ospite]) {
+        stats[casa].giocate += 1;
+        stats[ospite].giocate += 1;
+        stats[casa].gol_fatti += golCasa;
+        stats[casa].gol_subiti += golOspite;
+        stats[ospite].gol_fatti += golOspite;
+        stats[ospite].gol_subiti += golCasa;
+
+        if (golCasa > golOspite) {
+          stats[casa].punti += 3;
+          stats[casa].vinte += 1;
+          stats[ospite].perse += 1;
+        } else if (golCasa < golOspite) {
+          stats[ospite].punti += 3;
+          stats[ospite].vinte += 1;
+          stats[casa].perse += 1;
+        } else {
+          stats[casa].punti += 1;
+          stats[casa].nulle += 1;
+          stats[ospite].punti += 1;
+          stats[ospite].nulle += 1;
+        }
+      }
+    });
+
+    return Object.values(stats).sort((a, b) => {
+      if (b.punti !== a.punti) return b.punti - a.punti;
+
+      const diffA = a.gol_fatti - a.gol_subiti;
+      const diffB = b.gol_fatti - b.gol_subiti;
+      if (diffB !== diffA) return diffB - diffA;
+
+      return b.gol_fatti - a.gol_fatti;
+    });
+  };
 
   const getForm = (teamName: string) => {
       const teamMatches = matches.filter(m => 
@@ -51,14 +117,22 @@ export default function ClassificaPage() {
 
       return teamMatches.map(m => {
           let result = 'N'; 
+          const golCasa = Number(m.gol_casa);
+          const golOspite = Number(m.gol_ospite);
+
           if (m.squadra_casa === teamName) {
-              if (m.gol_casa > m.gol_ospite) result = 'V';
-              else if (m.gol_casa < m.gol_ospite) result = 'P';
+              if (golCasa > golOspite) result = 'V';
+              else if (golCasa < golOspite) result = 'P';
           } else {
-              if (m.gol_ospite > m.gol_casa) result = 'V';
-              else if (m.gol_ospite < m.gol_casa) result = 'P';
+              if (golOspite > golCasa) result = 'V';
+              else if (golOspite < golCasa) result = 'P';
           }
-          return { result, date: m.data_ora, score: `${m.gol_casa}-${m.gol_ospite}`, opponent: m.squadra_casa === teamName ? m.squadra_ospite : m.squadra_casa };
+          return { 
+            result, 
+            date: m.data_ora, 
+            score: `${golCasa}-${golOspite}`, 
+            opponent: m.squadra_casa === teamName ? m.squadra_ospite : m.squadra_casa 
+          };
       });
   };
 
@@ -93,18 +167,18 @@ export default function ClassificaPage() {
             </TableHeader>
             <TableBody>
                 {standings.map((row, index) => {
-                const isMyTeam = row.teams.slug === 'chigi';
+                const isMyTeam = row.teamData.slug === 'chigi';
                 const diff = row.gol_fatti - row.gol_subiti;
                 const winPct = row.giocate > 0 ? Math.round((row.vinte / row.giocate) * 100) : 0;
-                const form = getForm(row.teams.nome);
+                const form = getForm(row.teamData.nome);
 
                 return (
                     <TableRow key={row.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}>
                     <TableCell className="text-center text-sm text-muted-foreground p-2 font-medium">{index + 1}</TableCell>
                     <TableCell className="p-2">
                         <div className="flex items-center gap-3">
-                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teams.logo_url} className="object-contain" /><AvatarFallback>{row.teams.nome[0]}</AvatarFallback></Avatar>
-                        <span className={`text-xs font-bold uppercase ${isMyTeam ? 'text-amber-600' : ''}`}>{row.teams.nome}</span>
+                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} className="object-contain" /><AvatarFallback>{row.teamData.nome[0]}</AvatarFallback></Avatar>
+                        <span className={`text-xs font-bold uppercase ${isMyTeam ? 'text-amber-600' : ''}`}>{row.teamData.nome}</span>
                         </div>
                     </TableCell>
                     <TableCell className="text-center font-black text-lg bg-muted/5">{row.punti}</TableCell>

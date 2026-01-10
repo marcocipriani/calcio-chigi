@@ -32,27 +32,35 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
   const [golAvversario, setGolAvversario] = useState<string>('0')
   const [cancellato, setCancellato] = useState(false)
 
+  const parseDateTimeSafe = (isoString: string) => {
+    try {
+        const d = new Date(isoString);
+        const localIso = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString();
+        return {
+            date: localIso.slice(0, 10),
+            time: localIso.slice(11, 16)
+        };
+    } catch (e) {
+        return { date: '', time: '' };
+    }
+  };
+
   useEffect(() => {
     if (open) {
         if (eventToEdit) {
             try {
-                const d = new Date(eventToEdit.data_ora)
-                const localTime = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); 
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const localDate = `${year}-${month}-${day}`;
+                const { date, time } = parseDateTimeSafe(eventToEdit.data_ora);
 
-                let endLocalTime = '';
+                let endTime = '';
                 if (eventToEdit.data_fine_ora) {
-                    const de = new Date(eventToEdit.data_fine_ora);
-                    endLocalTime = de.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                    const parsedEnd = parseDateTimeSafe(eventToEdit.data_fine_ora);
+                    endTime = parsedEnd.time;
                 }
 
                 setTipo(eventToEdit.tipo || 'ALLENAMENTO')
-                setDateStr(localDate)
-                setTimeStr(localTime)
-                setEndTimeStr(endLocalTime)
+                setDateStr(date)
+                setTimeStr(time)
+                setEndTimeStr(endTime)
                 setLuogo(eventToEdit.luogo || '')
                 setAvversario(eventToEdit.avversario || '')
                 setNote(eventToEdit.note || '')
@@ -64,13 +72,12 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 console.error("Errore parsing data evento", e);
             }
         } else {
+            // Default: Oggi alle 21:00
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
+            const { date } = parseDateTimeSafe(now.toISOString());
             
             setTipo('ALLENAMENTO')
-            setDateStr(`${year}-${month}-${day}`)
+            setDateStr(date)
             setTimeStr('21:00')
             setEndTimeStr('')
             setLuogo('C.S. CAVALIERI')
@@ -107,7 +114,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
 
         const payload: any = {
             tipo,
-            data_ora: startDateTime.toISOString(),
+            data_ora: startDateTime.toISOString(), // Qui viene generata la data. Non può essere null.
             data_fine_ora: endDateTime ? endDateTime.toISOString() : null,
             luogo,
             note: note || null,

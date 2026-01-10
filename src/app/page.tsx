@@ -213,7 +213,7 @@ export default function Home() {
         {nextMatch && (
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
-                <div className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
+                <div className="bg-red-600 text-primary-foreground px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
                     <Clock className="h-3 w-3" />
                     {getCountdownLabel(nextMatch.data_ora)}
                 </div>

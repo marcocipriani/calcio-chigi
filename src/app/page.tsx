@@ -25,13 +25,15 @@ import {
 } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Event, Team } from "@/lib/types";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
 
 export default function Home() {
-  const [events, setEvents] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('ACTIVITY');
@@ -39,7 +41,7 @@ export default function Home() {
   
   const [isManager, setIsManager] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -94,7 +96,7 @@ export default function Home() {
 
     const { data: teamsData } = await supabase
       .from('teams')
-      .select('nome, logo_url');
+      .select('id, nome, logo_url');
 
     setEvents(eventsData || []);
     setTeams(teamsData || []);
@@ -106,26 +108,33 @@ export default function Home() {
       setDialogOpen(true);
   }
 
-  const handleEditEvent = (event: any) => {
+  const handleEditEvent = (event: Event) => {
       setEditingEvent({ ...event });
       setDialogOpen(true);
   }
 
-  const handleSaveEvent = async (eventData: any) => {
+  const handleSaveEvent = async (eventData: Partial<Event>) => {
       const previousEvents = [...events];
 
+      let payload = { ...eventData };
+      if (editingEvent && !payload.data_ora) {
+          payload.data_ora = editingEvent.data_ora;
+      }
+
       if (editingEvent) {
-          setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...eventData } : e));
+          // @ts-ignore
+          setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...payload } : e));
       } else {
-            setEvents(prev => [...prev, eventData].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
+            // @ts-ignore
+            setEvents(prev => [...prev, payload].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
       }
 
       let error = null;
       if (editingEvent) {
-          const res = await supabase.from('events').update(eventData).eq('id', editingEvent.id);
+          const res = await supabase.from('events').update(payload).eq('id', editingEvent.id);
           error = res.error;
       } else {
-          const res = await supabase.from('events').insert([eventData]);
+          const res = await supabase.from('events').insert([payload]);
           error = res.error;
       }
 
@@ -137,7 +146,7 @@ export default function Home() {
       }
   }
 
-  const getLogo = (teamName: string) => {
+  const getLogo = (teamName?: string | null) => {
     if (!teamName) return null;
     const team = teams.find(t => t.nome && teamName.toLowerCase().includes(t.nome.toLowerCase()));
     return team?.logo_url;
@@ -153,7 +162,7 @@ export default function Home() {
     return !e.avversario?.includes(' vs '); 
   });
 
-  const applyTypeFilter = (list: any[]) => {
+  const applyTypeFilter = (list: Event[]) => {
     if (filter === 'ALL') return list;
     return list.filter(e => e.tipo === filter);
   };
@@ -251,8 +260,8 @@ export default function Home() {
                                                                 ${isCancelled 
                                                                     ? 'bg-slate-200 text-slate-500' 
                                                                     : (isMatch 
-                                                                        ? 'bg-white border border-blue-600' // Bordo blu per le partite
-                                                                        : 'bg-orange-500 text-white border border-transparent') // Arancione per allenamenti
+                                                                        ? 'bg-white border border-blue-600' 
+                                                                        : 'bg-orange-500 text-white border border-transparent')
                                                                 }
                                                             `}
                                                         >
@@ -319,7 +328,6 @@ export default function Home() {
 
           <div className="flex items-center justify-between gap-2 py-2">
               
-              {/* FILTRI CAPSULE RAGGRUPPATE */}
               <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-full overflow-hidden">
                 <Button 
                     variant="ghost"
@@ -382,8 +390,10 @@ export default function Home() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-[120px] w-full rounded-xl" />
+          <Skeleton className="h-[120px] w-full rounded-xl" />
+          <Skeleton className="h-[120px] w-full rounded-xl" />
         </div>
       ) : (
         <>
@@ -417,20 +427,21 @@ export default function Home() {
                                         <div key={event.id} className="relative w-full mt-6 mb-2">
                                             {/* Badge centrato sul bordo superiore */}
                                             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-                                                <span className="bg-[#D32F2F] text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
+                                                <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
                                                     Next Match
                                                 </span>
                                             </div>
-                                            {/* Card con bordo rosso fissato, bg-white e flex per riempire lo spazio */}
+                
                                             <Link 
                                                 href={`/evento/${event.id}`} 
-                                                className="flex flex-col w-full bg-white border-2 border-[#D32F2F] rounded-xl shadow-sm overflow-hidden transform transition-all duration-200 hover:scale-[1.02]"
+                                                className="block w-full transform transition-all duration-200 hover:scale-[1.02]"
                                             >
                                                 <EventCard 
                                                     event={event} 
                                                     opponentLogo={getLogo(event.avversario)} 
                                                     isManager={isManager}
                                                     onEdit={handleEditEvent}
+                                                    className="border-2 border-red-600 dark:border-red-600 shadow-lg shadow-red-500/10"
                                                 />
                                             </Link>
                                         </div>
@@ -444,6 +455,7 @@ export default function Home() {
                                             opponentLogo={getLogo(event.avversario)} 
                                             isManager={isManager}
                                             onEdit={handleEditEvent}
+                                            className='mb-3'
                                         />
                                     </Link>
                                 )
@@ -467,6 +479,7 @@ export default function Home() {
                                         opponentLogo={getLogo(event.avversario)} 
                                         isManager={isManager}
                                         onEdit={handleEditEvent}
+                                        className="mb-3"
                                     />
                                 </Link>
                             ))

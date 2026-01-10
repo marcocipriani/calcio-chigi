@@ -6,15 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Event } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface EventProps {
   event: Event;
   opponentLogo?: string | null;
   isManager?: boolean;
   onEdit?: (event: Event) => void;
+  className?: string;
 }
 
-export function EventCard({ event, opponentLogo, isManager, onEdit }: EventProps) {
+export function EventCard({ event, opponentLogo, isManager, onEdit, className }: EventProps) {
   const date = new Date(event.data_ora);
   const isMatch = event.tipo === 'PARTITA';
   const isPlayed = event.giocata === true;
@@ -47,15 +49,22 @@ export function EventCard({ event, opponentLogo, isManager, onEdit }: EventProps
   }
 
   return (
-    <Card className={`mb-3 border shadow-sm relative overflow-hidden transition-all group dark:border-slate-800 
-        ${isCancelled ? 'opacity-60 grayscale' : ''} 
-        ${!isCancelled && (isMatch ? 'hover:border-blue-500/50' : 'hover:border-amber-500/50')}
-    `}>
+    <Card className={cn(
+        "border shadow-sm relative overflow-hidden transition-all group dark:border-slate-800",
+        isCancelled ? 'opacity-60 grayscale' : '',
+        !isCancelled && (isMatch ? 'hover:border-blue-500/50' : 'hover:border-amber-500/50'),
+        className
+    )}>
       <CardContent className="p-0">
         
-        <div className={`px-4 py-3 flex justify-between items-center border-b dark:border-slate-800 
-            ${isCancelled ? 'bg-slate-100 dark:bg-slate-900 border-l-4 border-l-slate-400' : (isMatch ? 'border-l-4 border-l-blue-600 bg-blue-50/50 dark:bg-blue-900/10' : 'border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/10')}
-        `}>
+        <div className={cn(
+            "px-4 py-3 flex justify-between items-center border-b dark:border-slate-800",
+            isCancelled 
+                ? 'bg-slate-100 dark:bg-slate-900 border-l-4 border-l-slate-400' 
+                : (isMatch 
+                    ? 'border-l-4 border-l-blue-600 bg-blue-50/50 dark:bg-blue-900/10' 
+                    : 'border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-900/10')
+        )}>
             <div className="flex items-center gap-2">
                 {isCancelled ? (
                     <Ban className="h-5 w-5 text-red-500" />

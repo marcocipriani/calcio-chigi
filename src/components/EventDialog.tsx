@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
 import { Event } from "@/lib/types"
+import { toast } from "sonner"
 
 interface EventDialogProps {
   open: boolean
@@ -99,7 +100,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
     setLoading(true)
     
     try {
-        if (!dateStr || !timeStr) throw new Error("Data e ora inizio sono obbligatorie");
+        if (!dateStr || !timeStr) {
+            toast.error("Data e ora sono obbligatorie");
+            setLoading(false);
+            return;
+        }
         
         const startDateTime = new Date(`${dateStr}T${timeStr}`);
         let endDateTime = null;
@@ -107,7 +112,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             endDateTime = new Date(`${dateStr}T${endTimeStr}`);
         }
         
-        if (isNaN(startDateTime.getTime())) throw new Error("Data non valida");
+        if (isNaN(startDateTime.getTime())) {
+             toast.error("Formato data non valido");
+             setLoading(false);
+             return;
+        }
 
         const safeInt = (val: string) => {
             const parsed = parseInt(val, 10);
@@ -142,10 +151,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         }
 
         await onSave(payload)
+        toast.success(eventToEdit ? "Evento modificato!" : "Evento creato!");
         onOpenChange(false)
     } catch (error: any) {
         console.error("❌ Errore Submit:", error)
-        alert(`Errore: ${error.message}`)
+        toast.error(`Errore: ${error.message}`);
     } finally {
         setLoading(false)
     }

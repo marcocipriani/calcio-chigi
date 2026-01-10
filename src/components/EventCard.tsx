@@ -48,6 +48,14 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
     }
   }
 
+  const badgeColorClass = isMatch 
+    ? "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800" // Partita: BLU
+    : "border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800"; // Allenamento: ARANCIONE
+    
+  const dotColorClass = isMatch 
+    ? "bg-blue-500" 
+    : "bg-orange-500";
+
   return (
     <Card className={cn(
         "border shadow-sm relative overflow-hidden transition-all group dark:border-slate-800",
@@ -173,10 +181,10 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                     </div>
                     
                     {activeCount > 0 && (
-                        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 gap-1.5 ml-2 pr-2.5 py-1 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                        <Badge variant="outline" className={`gap-1.5 ml-2 pr-2.5 py-1 ${badgeColorClass}`}>
                             <span className="flex h-2 w-2 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColorClass}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${dotColorClass}`}></span>
                             </span>
                             <span className="font-bold">{activeCount} Presenti</span>
                         </Badge>

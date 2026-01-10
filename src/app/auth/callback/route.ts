@@ -2,12 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'
-
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/' 
+  const next = searchParams.get('next') ?? '/'
 
   if (code) {
     const cookieStore = await cookies()
@@ -32,7 +30,7 @@ export async function GET(request: Request) {
         },
       }
     )
-
+    
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
@@ -47,10 +45,9 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}${next}`)
       }
     } else {
-        console.error("Errore Auth:", error.message)
-        return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+       console.error('Auth Callback Error:', error)
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=NoCodeProvided`)
+  return NextResponse.redirect(`${origin}/login?error=AuthError`)
 }

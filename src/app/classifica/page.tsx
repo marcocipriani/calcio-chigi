@@ -16,99 +16,67 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { calculateStandings } from "@/lib/utils";
+import { Team, Event } from "@/lib/types";
 
 export default function ClassificaPage() {
   const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [matches, setMatches] = useState<any[]>([]);
+  const [matches, setMatches] = useState<Event[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+
+  async function fetchData() {
+    try {
+      let currentTeams = teams;
+      if (currentTeams.length === 0) {
+          const { data: teamsData } = await supabase
+            .from('teams')
+            .select('id, nome, logo_url, slug');
+          
+          if (teamsData) {
+            currentTeams = teamsData;
+            setTeams(teamsData);
+          }
+      }
+
+      const { data: matchesData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('tipo', 'PARTITA')
+        .eq('giocata', true)
+        .order('data_ora', { ascending: false });
+
+      if (currentTeams.length > 0 && matchesData) {
+        setMatches(matchesData);
+        const calculatedStandings = calculateStandings(currentTeams, matchesData);
+        setStandings(calculatedStandings);
+      }
+    } catch (error) {
+      console.error("Errore fetch:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data: teamsData } = await supabase
-          .from('teams')
-          .select('id, nome, logo_url, slug');
-
-        const { data: matchesData } = await supabase
-          .from('events')
-          .select('*')
-          .eq('tipo', 'PARTITA')
-          .eq('giocata', true)
-          .order('data_ora', { ascending: false });
-
-        if (teamsData && matchesData) {
-          setMatches(matchesData);
-          const calculatedStandings = calculateStandings(teamsData, matchesData);
-          setStandings(calculatedStandings);
-        }
-      } catch (error) {
-        console.error("Errore fetch:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchData();
-  }, []);
 
-  const calculateStandings = (teams: any[], matches: any[]) => {
-    const stats: Record<string, any> = {};
-
-    teams.forEach(team => {
-      stats[team.nome] = {
-        id: team.id,
-        teamData: team,
-        punti: 0,
-        giocate: 0,
-        vinte: 0,
-        nulle: 0,
-        perse: 0,
-        gol_fatti: 0,
-        gol_subiti: 0,
-      };
-    });
-
-    matches.forEach(match => {
-      const casa = match.squadra_casa;
-      const ospite = match.squadra_ospite;
-      
-      const golCasa = Number(match.gol_casa) || 0;
-      const golOspite = Number(match.gol_ospite) || 0;
-
-      if (stats[casa] && stats[ospite]) {
-        stats[casa].giocate += 1;
-        stats[ospite].giocate += 1;
-        stats[casa].gol_fatti += golCasa;
-        stats[casa].gol_subiti += golOspite;
-        stats[ospite].gol_fatti += golOspite;
-        stats[ospite].gol_subiti += golCasa;
-
-        if (golCasa > golOspite) {
-          stats[casa].punti += 3;
-          stats[casa].vinte += 1;
-          stats[ospite].perse += 1;
-        } else if (golCasa < golOspite) {
-          stats[ospite].punti += 3;
-          stats[ospite].vinte += 1;
-          stats[casa].perse += 1;
-        } else {
-          stats[casa].punti += 1;
-          stats[casa].nulle += 1;
-          stats[ospite].punti += 1;
-          stats[ospite].nulle += 1;
+    const channel = supabase
+      .channel('public:events:standings')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        (payload) => {
+           console.log("Cambio rilevato, ricalcolo classifica...", payload);
+           fetchData();
         }
-      }
-    });
+      )
+      .subscribe();
 
-    return Object.values(stats).sort((a, b) => {
-      if (b.punti !== a.punti) return b.punti - a.punti;
-
-      const diffA = a.gol_fatti - a.gol_subiti;
-      const diffB = b.gol_fatti - b.gol_subiti;
-      if (diffB !== diffA) return diffB - diffA;
-
-      return b.gol_fatti - a.gol_fatti;
-    });
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    }
+  }, []);
 
   const getForm = (teamName: string) => {
       const teamMatches = matches.filter(m => 
@@ -140,7 +108,7 @@ export default function ClassificaPage() {
 
   return (
     <div className="container max-w-5xl mx-auto p-1 pb-24">
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in duration-500">
         <TooltipProvider>
         <div className="overflow-x-auto">
             <Table>
@@ -200,7 +168,7 @@ export default function ClassificaPage() {
                     
                     <TableCell className="p-2">
                         <div className="flex items-center justify-center gap-1.5">
-                            {form.map((m, i) => {
+                            {form.map((m: any, i: number) => {
                                 let colorClass = "bg-slate-100 text-slate-400 border-slate-200";
                                 if (m.result === 'V') colorClass = "bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800";
                                 if (m.result === 'N') colorClass = "bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";

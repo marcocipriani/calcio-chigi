@@ -23,6 +23,7 @@ export function AppCredits() {
             <Github className="h-3 w-3" />
             GitHub Repo
         </a>
+
     </div>
   )
 }

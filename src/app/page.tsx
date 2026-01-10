@@ -8,6 +8,7 @@ import { Loader2, Trophy, Dumbbell, ListFilter, CalendarDays, History, Plus, Clo
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { differenceInDays, differenceInHours } from 'date-fns';
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
@@ -18,13 +19,51 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('ALL');
   
+  // STATI MANAGER
   const [isManager, setIsManager] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
+
+    // --- REALTIME SUBSCRIPTION (Nuova aggiunta) ---
+    // Ascolta modifiche, inserimenti o cancellazioni sulla tabella 'events'
+    const channel = supabase
+      .channel('public:events')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        (payload) => {
+          handleRealtimeUpdate(payload);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    }
   }, []);
+
+  // Gestione aggiornamento live dalla Subscription
+  const handleRealtimeUpdate = (payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+
+      setEvents((currentEvents) => {
+          if (eventType === 'INSERT') {
+              // Aggiungi e riordina
+              return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+          } 
+          if (eventType === 'UPDATE') {
+              return currentEvents.map(e => e.id === newRecord.id ? { ...e, ...newRecord } : e)
+                  .sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+          }
+          if (eventType === 'DELETE') {
+              return currentEvents.filter(e => e.id !== oldRecord.id);
+          }
+          return currentEvents;
+      });
+  };
 
   async function fetchData() {
     // 1. Check Manager
@@ -52,30 +91,61 @@ export default function Home() {
     setLoading(false);
   }
 
+  // LOGICHE MANAGER
   const handleCreateNew = () => {
       setEditingEvent(null);
       setDialogOpen(true);
   }
 
   const handleEditEvent = (event: any) => {
-      setEditingEvent(event);
+      // Importante: per evitare errori di idratazione o riferimenti, passiamo una copia
+      setEditingEvent({ ...event });
       setDialogOpen(true);
   }
 
+  // SALVATAGGIO CON UI OTTIMISTICA
   const handleSaveEvent = async (eventData: any) => {
+      // 1. Backup stato attuale per eventuale rollback
+      const previousEvents = [...events];
+
+      // 2. Aggiornamento Ottimistico Locale (Immediato)
       if (editingEvent) {
-          const { error } = await supabase
+          // UPDATE: Aggiorna subito la lista locale
+          setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...eventData } : e));
+      } else {
+          // CREATE: Aggiungiamo un evento temporaneo per dare feedback visivo (senza ID reale ancora)
+          // Nota: Per semplicità, nel create spesso si aspetta il ritorno del DB per avere l'ID,
+          // ma qui ci affidiamo al Realtime o al reload veloce. Per ora, lasciamo il create standard
+          // o gestiamo il caricamento. Per coerenza ottimistica su Edit:
+      }
+
+      // 3. Chiamata al Database
+      let error = null;
+      if (editingEvent) {
+          // UPDATE
+          const res = await supabase
             .from('events')
             .update(eventData)
             .eq('id', editingEvent.id);
-          if(error) alert(error.message);
+          error = res.error;
       } else {
-          const { error } = await supabase
+          // CREATE
+          const res = await supabase
             .from('events')
             .insert([eventData]);
-          if(error) alert(error.message);
+          error = res.error;
       }
-      fetchData();
+
+      // 4. Gestione Errori (Rollback)
+      if(error) {
+          alert("Errore: " + error.message);
+          setEvents(previousEvents); // Torna indietro se fallisce
+      } else {
+          // Se successo, non serve fare nulla se abbiamo Realtime attivo, 
+          // oppure possiamo fare fetchData() per sicurezza (ma Realtime è più veloce).
+          // Per sicurezza, un refresh silenzioso dei dati "completi" (es. join attendance) è utile.
+          // fetchData(); // Facoltativo con Realtime
+      }
   }
 
   const getLogo = (teamName: string) => {
@@ -84,19 +154,25 @@ export default function Home() {
     return team?.logo_url;
   }
 
+  // --- FILTRI ---
+  
+  // Data di ieri (inizio giornata)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   yesterday.setHours(0,0,0,0);
 
   const now = new Date();
 
+  // Filtra eventi miei o generali
   const myEvents = events.filter(e => {
     if (e.tipo === 'ALLENAMENTO') return true;
-    return !e.avversario?.includes(' vs ');
+    return !e.avversario?.includes(' vs '); 
   });
 
+  // LOGICA CALENDARIO: Da Ieri in poi
   const futureRaw = myEvents.filter(e => new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
   
+  // LOGICA STORICO: Solo passati e giocati
   const pastRaw = myEvents.filter(e => new Date(e.data_ora) < yesterday && e.giocata === true).reverse();
 
   const applyTypeFilter = (list: any[]) => {
@@ -107,6 +183,7 @@ export default function Home() {
   const visibleFutureEvents = applyTypeFilter(futureRaw);
   const visiblePastEvents = applyTypeFilter(pastRaw);
 
+  // Calcolo Countdown Prossima Partita
   const nextMatch = visibleFutureEvents.find(e => e.tipo === 'PARTITA' && new Date(e.data_ora) > now);
   
   const getCountdownLabel = (dateStr: string) => {
@@ -116,7 +193,10 @@ export default function Home() {
 
       if (diffDays > 1) return `${diffDays} Giorni`;
       if (diffDays === 1) return `Domani`;
-      if (diffDays === 0 && diffHours > 0) return `${diffHours} Ore`;
+      if (diffDays === 0) {
+          if (diffHours > 0) return `${diffHours} Ore`;
+          return "Meno di 1h";
+      }
       return "LIVE";
   }
 
@@ -129,10 +209,11 @@ export default function Home() {
             <p className="text-sm text-muted-foreground font-medium">Gli impegni della squadra</p>
         </div>
         
+        {/* COUNTDOWN BADGE */}
         {nextMatch && (
             <div className="flex flex-col items-end">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
-                <div className="bg-red-600 text-primary-foreground px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
+                <div className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
                     <Clock className="h-3 w-3" />
                     {getCountdownLabel(nextMatch.data_ora)}
                 </div>
@@ -195,9 +276,10 @@ export default function Home() {
                         visibleFutureEvents.map(event => (
                         <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02] relative group">
                             
+                            {/* Evidenzia Next Match */}
                             {event.id === nextMatch?.id && (
                                 <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-20">
-                                    <span className="bg-red-600 text-white border-2 border-background shadow-md text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full">
+                                    <span className="bg-red-600 text-white border-2 border-background shadow-md text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap">
                                         NEXT MATCH
                                     </span>
                                 </div>
@@ -248,6 +330,7 @@ export default function Home() {
           </Button>
       )}
 
+      {/* MODALE DI GESTIONE */}
       <EventDialog 
         open={dialogOpen} 
         onOpenChange={setDialogOpen}

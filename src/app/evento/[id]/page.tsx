@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, SignalHigh } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,9 +36,55 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
+  // 1. Caricamento Iniziale
   useEffect(() => {
     loadAllData();
+
+    // --- REALTIME SUBSCRIPTION (Reattività Massima) ---
+    // Ascolta i cambiamenti sulla tabella 'attendance' per questo evento specifico
+    const channel = supabase
+      .channel(`event_attendance_${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Insert, Update, Delete
+          schema: 'public',
+          table: 'attendance',
+          filter: `event_id=eq.${id}`,
+        },
+        (payload) => {
+          // Quando arriva un cambiamento dal DB (anche mio o di altri), aggiorno la lista
+          handleRealtimeUpdate(payload);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    }
   }, [id]);
+
+  // Gestione aggiornamento live senza ricaricare tutto
+  const handleRealtimeUpdate = async (payload: any) => {
+      const { new: newRecord, old: oldRecord, eventType } = payload;
+      
+      // Se è un DELETE
+      if (eventType === 'DELETE' && oldRecord) {
+          setRoster(prev => prev.map(p => 
+              p.id === oldRecord.profile_id ? { ...p, status: null } : p
+          ));
+          if (oldRecord.profile_id === myProfileId) setUserStatus(null);
+          return;
+      }
+
+      // Se è INSERT o UPDATE
+      if (newRecord) {
+          setRoster(prev => prev.map(p => 
+              p.id === newRecord.profile_id ? { ...p, status: newRecord.status } : p
+          ));
+          if (newRecord.profile_id === myProfileId) setUserStatus(newRecord.status);
+      }
+  };
 
   async function loadAllData() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -47,12 +93,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     let currentPid = null;
 
     if (user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, is_manager')
-            .eq('user_id', user.id)
-            .single();
-        
+        const { data: profile } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).single();
         if (profile) {
             currentPid = profile.id;
             setIsManager(profile.is_manager);
@@ -60,31 +101,18 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         }
     }
 
-    const { data: eventData } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data: eventData } = await supabase.from('events').select('*').eq('id', id).single();
     
     if (eventData) {
         setEvent(eventData);
-        
-        // Cerca logo avversario se è una partita
         if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
-            const opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') 
-                ? eventData.squadra_ospite 
-                : eventData.squadra_casa;
-            
-            const { data: teamData } = await supabase
-                .from('teams')
-                .select('logo_url')
-                .ilike('nome', `%${opponentName}%`)
-                .maybeSingle();
-            
+            const opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') ? eventData.squadra_ospite : eventData.squadra_casa;
+            const { data: teamData } = await supabase.from('teams').select('logo_url').ilike('nome', `%${opponentName}%`).maybeSingle();
             if (teamData) setOpponentLogo(teamData.logo_url);
         }
     }
 
+    // Carica Roster Base
     const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url, data_nascita').order('cognome');
     const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status').eq('event_id', id);
 
@@ -94,7 +122,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             if (p.id === currentPid) setUserStatus(vote?.status || null);
             return { ...p, status: vote?.status || null };
         });
-        
         mergedRoster.sort((a, b) => {
             const score = (s: string) => {
                 if (s === 'PRESENTE') return 4;
@@ -104,38 +131,59 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             };
             return score(b.status) - score(a.status);
         });
-
         setRoster(mergedRoster);
     }
-
     setLoading(false);
   }
 
-  const handleVote = async (status: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE') => {
+  // 2. Voto Utente (OPTIMISTIC UI)
+  const handleVote = async (newStatus: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE') => {
     if (!currentUser || !myProfileId) return alert("Devi essere loggato e collegato alla rosa.");
 
-    setUserStatus(status);
-    updateRosterLocal(myProfileId, status);
+    // 1. SALVA STATO PRECEDENTE (per rollback)
+    const prevStatus = userStatus;
+    
+    // 2. AGGIORNAMENTO OTTIMISTICO (Immediato)
+    setUserStatus(newStatus);
+    updateRosterLocal(myProfileId, newStatus);
 
+    // 3. CHIAMATA AL SERVER (Background)
     const { error } = await supabase.from('attendance').upsert({
         event_id: id,
         profile_id: myProfileId,
-        status: status
+        status: newStatus
       }, { onConflict: 'event_id, profile_id' });
 
+    // 4. GESTIONE ERRORE (Rollback)
     if (error) {
         console.error(error);
-        alert("Errore salvataggio");
-        loadAllData();
+        setUserStatus(prevStatus); // Torna indietro
+        updateRosterLocal(myProfileId, prevStatus);
+        alert("Errore di connessione: voto non salvato.");
     }
   };
 
+  // 3. Voto Manager (OPTIMISTIC UI)
   const handleManagerOverride = async (profileId: string, newStatus: string) => {
+      // Trova stato precedente
+      const player = roster.find(p => p.id === profileId);
+      const prevStatus = player?.status;
+
+      // Aggiorna subito UI
       updateRosterLocal(profileId, newStatus);
+
+      let error = null;
       if (newStatus === "RESET") {
-          await supabase.from('attendance').delete().match({ event_id: id, profile_id: profileId });
+          const res = await supabase.from('attendance').delete().match({ event_id: id, profile_id: profileId });
+          error = res.error;
       } else {
-          await supabase.from('attendance').upsert({ event_id: id, profile_id: profileId, status: newStatus }, { onConflict: 'event_id, profile_id' });
+          const res = await supabase.from('attendance').upsert({ event_id: id, profile_id: profileId, status: newStatus }, { onConflict: 'event_id, profile_id' });
+          error = res.error;
+      }
+
+      if (error) {
+          updateRosterLocal(profileId, prevStatus); // Rollback
+          alert("Errore aggiornamento manager.");
       }
   };
 
@@ -144,20 +192,20 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   };
 
   const handleEventUpdate = async (updatedData: any) => {
+      // Optimistic Update Evento
+      const prevEvent = { ...event };
+      setEvent({ ...event, ...updatedData });
+      setEditDialogOpen(false);
+
       const { data, error } = await supabase
         .from('events')
         .update(updatedData)
         .eq('id', id)
         .select(); 
       
-      if (error) {
-          alert("Errore DB: " + error.message);
-      } else if (!data || data.length === 0) {
-          alert("ATTENZIONE: Modifica non salvata! Sembra che tu non abbia i permessi di Manager nel database.");
-      } else {
-          setEvent({ ...event, ...updatedData });
-          setEditDialogOpen(false);
-          alert("Evento aggiornato con successo!");
+      if (error || !data) {
+          setEvent(prevEvent); // Rollback
+          alert("Errore salvataggio evento.");
       }
   };
 
@@ -170,14 +218,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       }
   }
 
+  // Sorting dinamico per visualizzazione (Presenti in alto)
+  const sortedRoster = [...roster].sort((a, b) => {
+      const score = (s: string) => {
+          if (s === 'PRESENTE') return 4;
+          if (s === 'INFORTUNATO_PRESENTE') return 3;
+          if (!s) return 2; 
+          return 1;
+      };
+      return score(b.status) - score(a.status);
+  });
+
   if (loading) return <div className="flex justify-center items-center h-screen bg-background"><Loader2 className="animate-spin text-muted-foreground" /></div>;
   if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
   const isCancelled = event.cancellato;
   const presenti = roster.filter(p => p.status === 'PRESENTE');
   const infortunati = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
-  
-  const u35Presenti = presenti.filter(p => isU35Func(p.data_nascita)).length;
+  const u35Presenti = presenti.filter(p => isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
@@ -189,9 +247,16 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <div>
-                    <h1 className="font-bold text-lg leading-none">
-                        {isCancelled ? 'ANNULLATO' : (event.tipo === 'PARTITA' ? 'Match Day' : 'Allenamento')}
-                    </h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="font-bold text-lg leading-none">
+                            {isCancelled ? 'ANNULLATO' : (event.tipo === 'PARTITA' ? 'Match Day' : 'Allenamento')}
+                        </h1>
+                        {/* Indicatore Realtime */}
+                        <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                    </div>
                     <p className="text-xs opacity-70">Gestione presenze</p>
                 </div>
             </div>
@@ -204,7 +269,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-purple-600 hover:bg-purple-700 text-white border-none">
+                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </AlertDialogTrigger>
@@ -212,12 +277,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione.
+                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione totale.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Annulla</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction>
+                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina per sempre</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
@@ -227,8 +292,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="p-4 max-w-lg mx-auto space-y-6">
         
+        {/* Info Evento */}
         <div className="text-center space-y-3 mt-2">
-
             {event.tipo === 'PARTITA' && opponentLogo && (
                 <div className="flex justify-center mb-2">
                     <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white">
@@ -271,6 +336,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         <Separator />
 
+        {/* SEZIONE VOTO */}
         {!event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4">
@@ -307,21 +373,25 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </Card>
         )}
 
+        {/* LISTA CONVOCAZIONI */}
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
                 <div className="flex justify-between items-end">
                     <div className="flex items-center gap-2">
                         <h3 className="font-bold text-lg">Presenze ({presenti.length})</h3>
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-200">
-                            di cui {u35Presenti} U35
-                        </span>
+                        {event.tipo === 'PARTITA' && (
+                            <span className={`text-xs font-bold px-2 py-1 rounded flex items-center gap-1 ${u35Presenti > 2 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                U35: {u35Presenti} 
+                                {u35Presenti > 2 && <AlertCircle className="h-3 w-3" />}
+                            </span>
+                        )}
                     </div>
                     {infortunati.length > 0 && <span className="text-xs text-yellow-600 font-bold bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">{infortunati.length} Infortunati</span>}
                 </div>
             </div>
 
             <div className="space-y-2">
-                {roster.map((p) => {
+                {sortedRoster.map((p) => {
                     const status = p.status;
                     let borderClass = "border-l-4 border-l-slate-300 dark:border-l-slate-600"; 
                     let bgClass = "bg-card";
@@ -345,7 +415,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     const isU35Player = isU35Func(p.data_nascita);
 
                     return (
-                        <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass}`}>
+                        <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-all duration-300`}>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
                                     <AvatarImage src={p.avatar_url} />

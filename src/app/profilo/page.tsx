@@ -535,6 +535,12 @@ export default function ProfilePage() {
                         </Button>
                     </div>
 
+                    <div className="flex justify-center">
+                        <code className="text-[9px] text-muted-foreground/30 font-mono select-all bg-muted/30 px-2 py-1 rounded">
+                            UID: {myProfile?.id || "LOADING..."}
+                        </code>
+                    </div>
+
                     <AppCredits />
                 </TabsContent>
             </Tabs>

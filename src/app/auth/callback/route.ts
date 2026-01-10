@@ -32,8 +32,10 @@ export async function GET(request: Request) {
     
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
+    } else {
+        console.error("Errore Login Supabase:", error.message)
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  return NextResponse.redirect(`${origin}/login?error=AuthCodeError`)
 }

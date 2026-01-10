@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/lib/ServiceWorkerRegister";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -55,6 +56,7 @@ export default function RootLayout({
             <main className="pt-16 pb-safe min-h-screen"> 
               {children}
             </main>
+            <Toaster />
             <BottomNav />
         </ThemeProvider>
       </body>

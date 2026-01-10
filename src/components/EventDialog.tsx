@@ -9,22 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
+import { Event } from "@/lib/types"
 
 interface EventDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  eventToEdit?: any
-  onSave: (eventData: any) => Promise<void>
+  eventToEdit?: Event | null
+  onSave: (eventData: Partial<Event>) => Promise<void>
 }
 
 export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDialogProps) {
   const [loading, setLoading] = useState(false)
   
-  const [tipo, setTipo] = useState('ALLENAMENTO')
+  const [tipo, setTipo] = useState<'ALLENAMENTO' | 'PARTITA'>('ALLENAMENTO')
   const [dateStr, setDateStr] = useState('')
   const [timeStr, setTimeStr] = useState('')
   const [endTimeStr, setEndTimeStr] = useState('')
   const [luogo, setLuogo] = useState('')
+  const [tipoCampo, setTipoCampo] = useState<'a8' | 'a11' | null>(null)
   const [avversario, setAvversario] = useState('')
   const [note, setNote] = useState('')
   const [giocata, setGiocata] = useState(false)
@@ -62,6 +64,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 setTimeStr(time)
                 setEndTimeStr(endTime)
                 setLuogo(eventToEdit.luogo || '')
+                setTipoCampo(eventToEdit.tipo_campo || null)
                 setAvversario(eventToEdit.avversario || '')
                 setNote(eventToEdit.note || '')
                 setGiocata(eventToEdit.giocata || false)
@@ -69,10 +72,9 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 setGolAvversario(String(eventToEdit.gol_ospite ?? 0))
                 setCancellato(eventToEdit.cancellato || false)
             } catch (e) {
-                console.error("Errore parsing data evento", e);
+                console.error("Errore parsing", e);
             }
         } else {
-            // Default: Oggi alle 21:00
             const now = new Date();
             const { date } = parseDateTimeSafe(now.toISOString());
             
@@ -81,6 +83,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             setTimeStr('21:00')
             setEndTimeStr('')
             setLuogo('C.S. CAVALIERI')
+            setTipoCampo(null)
             setAvversario('')
             setNote('')
             setGiocata(false)
@@ -99,7 +102,6 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         if (!dateStr || !timeStr) throw new Error("Data e ora inizio sono obbligatorie");
         
         const startDateTime = new Date(`${dateStr}T${timeStr}`);
-        
         let endDateTime = null;
         if (endTimeStr) {
             endDateTime = new Date(`${dateStr}T${endTimeStr}`);
@@ -112,11 +114,12 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        const payload: any = {
+        const payload: Partial<Event> = {
             tipo,
-            data_ora: startDateTime.toISOString(), // Qui viene generata la data. Non può essere null.
+            data_ora: startDateTime.toISOString(),
             data_fine_ora: endDateTime ? endDateTime.toISOString() : null,
             luogo,
+            tipo_campo: tipo === 'ALLENAMENTO' ? tipoCampo : null,
             note: note || null,
             giocata,
             cancellato
@@ -161,7 +164,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select value={tipo} onValueChange={setTipo}>
+                <Select value={tipo} onValueChange={(v: 'ALLENAMENTO'|'PARTITA') => setTipo(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="PARTITA">Partita</SelectItem>
@@ -195,6 +198,22 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             <Label>Luogo</Label>
             <Input value={luogo} onChange={(e) => setLuogo(e.target.value)} required />
           </div>
+
+          {tipo === 'ALLENAMENTO' && (
+              <div className="space-y-2">
+                <Label>Tipo Campo</Label>
+                <Select value={tipoCampo || "none"} onValueChange={(v) => setTipoCampo(v === "none" ? null : v as 'a8'|'a11')}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Seleziona..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="none">Non specificato</SelectItem>
+                        <SelectItem value="a8">Campo a 8</SelectItem>
+                        <SelectItem value="a11">Campo a 11</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+          )}
 
           {tipo === 'PARTITA' && (
              <div className="space-y-4 border rounded-lg p-3 bg-muted/30 mt-2">

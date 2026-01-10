@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { EventDialog } from '@/components/EventDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { toast } from "sonner";
 
 // Helper per calcolo età
 const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
@@ -40,8 +41,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   useEffect(() => {
     loadAllData();
 
-    // --- REALTIME SUBSCRIPTION (Reattività Massima) ---
-    // Ascolta i cambiamenti sulla tabella 'attendance' per questo evento specifico
     const channel = supabase
       .channel(`event_attendance_${id}`)
       .on(
@@ -53,7 +52,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           filter: `event_id=eq.${id}`,
         },
         (payload) => {
-          // Quando arriva un cambiamento dal DB (anche mio o di altri), aggiorno la lista
           handleRealtimeUpdate(payload);
         }
       )
@@ -64,11 +62,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     }
   }, [id]);
 
-  // Gestione aggiornamento live senza ricaricare tutto
   const handleRealtimeUpdate = async (payload: any) => {
       const { new: newRecord, old: oldRecord, eventType } = payload;
       
-      // Se è un DELETE
       if (eventType === 'DELETE' && oldRecord) {
           setRoster(prev => prev.map(p => 
               p.id === oldRecord.profile_id ? { ...p, status: null } : p
@@ -77,7 +73,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           return;
       }
 
-      // Se è INSERT o UPDATE
       if (newRecord) {
           setRoster(prev => prev.map(p => 
               p.id === newRecord.profile_id ? { ...p, status: newRecord.status } : p
@@ -112,7 +107,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         }
     }
 
-    // Carica Roster Base
     const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url, data_nascita').order('cognome');
     const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status').eq('event_id', id);
 
@@ -136,41 +130,38 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     setLoading(false);
   }
 
-  // 2. Voto Utente (OPTIMISTIC UI)
   const handleVote = async (newStatus: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE') => {
-    if (!currentUser || !myProfileId) return alert("Devi essere loggato e collegato alla rosa.");
+    if (!currentUser || !myProfileId) {
+        toast.error("Devi essere loggato per votare");
+        return;
+    }
 
-    // 1. SALVA STATO PRECEDENTE (per rollback)
     const prevStatus = userStatus;
     
-    // 2. AGGIORNAMENTO OTTIMISTICO (Immediato)
     setUserStatus(newStatus);
     updateRosterLocal(myProfileId, newStatus);
+    toast.success(newStatus === 'ASSENTE' ? "Segnato come assente" : "Presenza confermata!");
 
-    // 3. CHIAMATA AL SERVER (Background)
     const { error } = await supabase.from('attendance').upsert({
         event_id: id,
         profile_id: myProfileId,
         status: newStatus
       }, { onConflict: 'event_id, profile_id' });
 
-    // 4. GESTIONE ERRORE (Rollback)
     if (error) {
         console.error(error);
-        setUserStatus(prevStatus); // Torna indietro
+        setUserStatus(prevStatus);
         updateRosterLocal(myProfileId, prevStatus);
-        alert("Errore di connessione: voto non salvato.");
+        toast.error("Errore di connessione: voto non salvato.");
     }
   };
 
-  // 3. Voto Manager (OPTIMISTIC UI)
   const handleManagerOverride = async (profileId: string, newStatus: string) => {
-      // Trova stato precedente
       const player = roster.find(p => p.id === profileId);
       const prevStatus = player?.status;
 
-      // Aggiorna subito UI
       updateRosterLocal(profileId, newStatus);
+      toast.info(`Stato aggiornato per ${player?.cognome}`);
 
       let error = null;
       if (newStatus === "RESET") {
@@ -182,8 +173,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       }
 
       if (error) {
-          updateRosterLocal(profileId, prevStatus); // Rollback
-          alert("Errore aggiornamento manager.");
+          updateRosterLocal(profileId, prevStatus);
+          toast.error("Errore aggiornamento manager.");
       }
   };
 
@@ -192,10 +183,10 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   };
 
   const handleEventUpdate = async (updatedData: any) => {
-      // Optimistic Update Evento
       const prevEvent = { ...event };
       setEvent({ ...event, ...updatedData });
       setEditDialogOpen(false);
+      toast.success("Evento aggiornato.");
 
       const { data, error } = await supabase
         .from('events')
@@ -204,21 +195,21 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         .select(); 
       
       if (error || !data) {
-          setEvent(prevEvent); // Rollback
-          alert("Errore salvataggio evento.");
+          setEvent(prevEvent);
+          toast.error("Errore salvataggio evento.");
       }
   };
 
   const handleDeleteEvent = async () => {
       const { error } = await supabase.from('events').delete().eq('id', id);
       if (error) {
-          alert("Errore eliminazione: " + error.message);
+          toast.error("Errore eliminazione: " + error.message);
       } else {
+          toast.success("Evento eliminato.");
           router.push('/torneo'); 
       }
   }
 
-  // Sorting dinamico per visualizzazione (Presenti in alto)
   const sortedRoster = [...roster].sort((a, b) => {
       const score = (s: string) => {
           if (s === 'PRESENTE') return 4;
@@ -251,7 +242,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <h1 className="font-bold text-lg leading-none">
                             {isCancelled ? 'ANNULLATO' : (event.tipo === 'PARTITA' ? 'Match Day' : 'Allenamento')}
                         </h1>
-                        {/* Indicatore Realtime */}
                         <span className="flex h-2 w-2 relative">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -292,7 +282,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="p-4 max-w-lg mx-auto space-y-6">
         
-        {/* Info Evento */}
         <div className="text-center space-y-3 mt-2">
             {event.tipo === 'PARTITA' && opponentLogo && (
                 <div className="flex justify-center mb-2">
@@ -336,7 +325,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         <Separator />
 
-        {/* SEZIONE VOTO */}
         {!event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4">
@@ -373,7 +361,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </Card>
         )}
 
-        {/* LISTA CONVOCAZIONI */}
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
                 <div className="flex justify-between items-end">

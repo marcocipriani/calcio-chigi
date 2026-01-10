@@ -15,6 +15,7 @@ import { Loader2, AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarI
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears } from "date-fns"
 import { AppCredits } from '@/components/AppCredits' 
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -107,6 +108,7 @@ export default function ProfilePage() {
 
   const resetChanges = () => {
       if (originalData) loadFormData(originalData);
+      toast.info("Modifiche annullate");
   }
 
   const handleSave = async () => {
@@ -134,17 +136,20 @@ export default function ProfilePage() {
 
       const { error } = await supabase.from('profiles').update(updates).eq('id', myProfile.id)
 
-      if (error) alert("Errore salvataggio: " + error.message)
-      else {
+      if (error) {
+          toast.error("Errore salvataggio: " + error.message)
+      } else {
           const updatedProfile = { ...originalData, ...updates, is_captain: formData.is_captain, is_manager: formData.is_manager };
           setOriginalData(updatedProfile);
           setHasChanges(false);
+          toast.success("Profilo aggiornato.");
       }
       setLoading(false)
   }
 
   const handleLogout = async () => {
       await supabase.auth.signOut();
+      toast.info("Disconnessione effettuata");
       router.push('/login');
   }
 

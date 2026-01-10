@@ -159,10 +159,10 @@ export default function ProfilePage() {
         <div className="container max-w-md mx-auto p-4 space-y-6">
             
             <div className="flex justify-between items-center pt-2">
-                <h1 className="text-3xl font-black text-foreground tracking-tight">Il tuo Profilo</h1>
+                <h1 className="text-3xl font-black text-foreground tracking-tight">Profilo</h1>
                 {isManager && (
                     <Badge className="bg-purple-600 gap-1 px-3 py-1 text-white border-0 shadow-lg">
-                        <Settings className="h-3 w-3" /> ADMIN
+                        <User className="h-3 w-3" /> ADMIN
                     </Badge>
                 )}
             </div>

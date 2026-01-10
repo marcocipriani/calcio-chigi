@@ -83,8 +83,9 @@ export default function ClassificaPage() {
                 
                 <TableHead className="text-center text-[11px] font-bold border-r-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50">%V</TableHead>
                 
-                <TableHead className="text-center text-[11px] font-bold text-blue-500 hidden sm:table-cell">GF</TableHead>
-                <TableHead className="text-center text-[11px] font-bold text-orange-500 hidden sm:table-cell">GS</TableHead>
+                <TableHead className="text-center text-[11px] font-bold text-blue-500">GF</TableHead>
+                <TableHead className="text-center text-[11px] font-bold text-orange-500">GS</TableHead>
+                
                 <TableHead className="text-center text-[11px] font-bold border-r">+/-</TableHead>
                 
                 <TableHead className="text-center text-[10px] uppercase min-w-[110px]">Forma</TableHead>
@@ -118,8 +119,9 @@ export default function ClassificaPage() {
                         </Badge>
                     </TableCell>
 
-                    <TableCell className="text-center text-sm text-muted-foreground hidden sm:table-cell">{row.gol_fatti}</TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground hidden sm:table-cell">{row.gol_subiti}</TableCell>
+                    <TableCell className="text-center text-sm text-muted-foreground">{row.gol_fatti}</TableCell>
+                    <TableCell className="text-center text-sm text-muted-foreground">{row.gol_subiti}</TableCell>
+                    
                     <TableCell className={`text-center text-sm font-bold border-r ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-500' : ''}`}>{diff > 0 ? `+${diff}` : diff}</TableCell>
                     
                     <TableCell className="p-2">

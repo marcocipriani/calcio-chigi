@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Loader2, CalendarDays, Trophy, Settings, FileText, Download } from 'lucide-react'
+import { Loader2, CalendarDays, Trophy, Settings, FileText, Download, Pencil } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -163,7 +163,7 @@ export default function TorneoPage() {
                         size="icon"
                         className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
                     >
-                        <Settings className="h-5 w-5" />
+                        <Pencil className="h-5 w-5" />
                     </Button>
                 )}
             </div>

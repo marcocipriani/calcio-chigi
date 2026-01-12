@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon } from 'lucide-react'
+import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears } from "date-fns"
 import { AppCredits } from '@/components/AppCredits' 
@@ -36,6 +36,7 @@ export default function ProfilePage() {
     motto: '',
     note_mediche: '',
     taglia_divisa: '',
+    default_view: 'ACTIVITY',
     is_captain: false,
     is_manager: false
   })
@@ -83,6 +84,7 @@ export default function ProfilePage() {
         formData.dipartimento !== (originalData.dipartimento || '') ||
         formData.motto !== (originalData.motto || '') ||
         formData.taglia_divisa !== (originalData.taglia_divisa || '') ||
+        formData.default_view !== (originalData.default_view || 'ACTIVITY') ||
         (formData.note_mediche !== '' && formData.note_mediche !== (originalData.note_mediche === 'OK' ? '' : originalData.note_mediche)) ||
         (formData.note_mediche === '' && originalData.note_mediche !== 'OK' && originalData.note_mediche !== null && originalData.note_mediche !== '') ||
         formData.is_captain !== (originalData.is_captain || false) ||
@@ -102,6 +104,7 @@ export default function ProfilePage() {
           motto: profile.motto || '',
           note_mediche: profile.note_mediche === 'OK' ? '' : profile.note_mediche || '',
           taglia_divisa: profile.taglia_divisa || '',
+          default_view: profile.default_view || 'ACTIVITY',
           is_captain: profile.is_captain || false,
           is_manager: profile.is_manager || false
       };
@@ -132,6 +135,7 @@ export default function ProfilePage() {
             motto: formData.motto,
             taglia_divisa: formData.taglia_divisa,
             note_mediche: statusMedico,
+            default_view: formData.default_view
       }
 
       if (myProfile?.is_manager) {
@@ -281,7 +285,7 @@ export default function ProfilePage() {
                 <CardHeader className="pb-2">
                     <CardTitle className={`text-base flex items-center gap-2 ${formData.note_mediche && formData.note_mediche !== 'OK' ? 'text-red-600' : 'text-green-600'}`}>
                         <AlertTriangle className="h-4 w-4" />
-                        {formData.note_mediche && formData.note_mediche !== 'OK' ? 'Infermeria' : 'Stato Fisico: OK'}
+                        {formData.note_mediche && formData.note_mediche !== 'OK' ? 'Infermeria' : 'Stato fisico: OK'}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -291,6 +295,36 @@ export default function ProfilePage() {
                         onChange={(e) => setFormData({...formData, note_mediche: e.target.value})}
                         className="bg-background resize-none"
                     />
+                </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card border-border/50 border">
+                <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <LayoutTemplate className="h-5 w-5 text-primary" /> Preferenze utente
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    <Label className="mb-2 block">Vista calendario predefinita</Label>
+                    <p className="text-[10px] text-muted-foreground pt-1">Scegli come visualizzare gli eventi all'apertura dell'app.</p>
+                    <div className="grid grid-cols-2 gap-2 bg-muted/30 p-1.5 rounded-xl border">
+                        <Button 
+                            type="button"
+                            variant={formData.default_view === 'ACTIVITY' ? 'default' : 'ghost'} 
+                            className={`h-10 rounded-lg gap-2 ${formData.default_view === 'ACTIVITY' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
+                            onClick={() => setFormData({...formData, default_view: 'ACTIVITY'})}
+                        >
+                            <List className="h-4 w-4" /> Lista
+                        </Button>
+                        <Button 
+                            type="button"
+                            variant={formData.default_view === 'CALENDAR' ? 'default' : 'ghost'} 
+                            className={`h-10 rounded-lg gap-2 ${formData.default_view === 'CALENDAR' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
+                            onClick={() => setFormData({...formData, default_view: 'CALENDAR'})}
+                        >
+                            <CalendarDays className="h-4 w-4" /> Calendario
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 

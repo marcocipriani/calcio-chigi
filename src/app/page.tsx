@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState, useMemo } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 import { EventCard } from '@/components/EventCard';
 import { EventDialog } from '@/components/EventDialog'; 
-import { Loader2, Trophy, Dumbbell, CalendarDays, History, Plus, Clock, LayoutGrid, List, ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
+import { Trophy, Dumbbell, CalendarDays, History, Plus, Clock, List, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +43,11 @@ export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  ), [])
+
   useEffect(() => {
     fetchData();
 
@@ -60,7 +65,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     }
-  }, []);
+  }, [supabase]);
 
   const handleRealtimeUpdate = (payload: any) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
@@ -82,9 +87,25 @@ export default function Home() {
 
   async function fetchData() {
     const { data: { user } } = await supabase.auth.getUser();
+    
     if (user) {
-        const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single();
-        if (profile?.is_manager) setIsManager(true);
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('is_manager, default_view')
+            .eq('user_id', user.id)
+            .single();
+        
+        if (error) {
+            console.error("❌ Errore caricamento profilo:", error);
+        }
+
+        if (profile) {
+            if (profile.is_manager) setIsManager(true);
+            
+            if (profile.default_view) {
+                setViewMode(profile.default_view as ViewMode);
+            }
+        }
     }
 
     const { data: eventsData, error } = await supabase
@@ -369,20 +390,28 @@ export default function Home() {
 
               <div className="flex items-center bg-muted/50 p-1 rounded-xl shrink-0">
                   <Button 
-                    variant={viewMode === 'ACTIVITY' ? 'secondary' : 'ghost'} 
+                    variant="ghost" 
                     size="sm" 
-                    className={`h-8 w-9 p-0 rounded-lg transition-all ${viewMode === 'ACTIVITY' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-transparent'}`}
+                    className={`h-8 w-9 p-0 rounded-lg transition-all border border-transparent
+                        ${viewMode === 'ACTIVITY' 
+                            ? 'bg-slate-800 text-white shadow-sm' 
+                            : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
+                        }`}
                     onClick={() => setViewMode('ACTIVITY')}
                   >
                       <List className="h-4 w-4" />
                   </Button>
                   <Button 
-                    variant={viewMode === 'CALENDAR' ? 'secondary' : 'ghost'} 
+                    variant="ghost" 
                     size="sm" 
-                    className={`h-8 w-9 p-0 rounded-lg transition-all ${viewMode === 'CALENDAR' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:bg-transparent'}`}
+                    className={`h-8 w-9 p-0 rounded-lg transition-all border border-transparent
+                        ${viewMode === 'CALENDAR' 
+                            ? 'bg-slate-800 text-white shadow-sm' 
+                            : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
+                        }`}
                     onClick={() => setViewMode('CALENDAR')}
                   >
-                      <LayoutGrid className="h-4 w-4" />
+                      <CalendarDays className="h-4 w-4" />
                   </Button>
               </div>
 

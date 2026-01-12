@@ -1,37 +1,50 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { Sun, Moon, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { supabase } from "@/lib/supabase"
+import { createBrowserClient } from '@supabase/ssr'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function SiteHeader() {
   const { setTheme, theme } = useTheme()
   const [profile, setProfile] = useState<any>(null)
+  const [hasSession, setHasSession] = useState(false) 
   const [mounted, setMounted] = useState(false)
 
-  // avoid mismatch theme hydration
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  ), [])
+
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    async function loadProfile() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
+      
       if (user) {
+        setHasSession(true)
+        
         const { data } = await supabase
           .from('profiles')
           .select('nome, cognome, avatar_url')
           .eq('user_id', user.id)
           .single()
-        setProfile(data)
+        
+        if (data) {
+          setProfile(data)
+        }
       }
     }
-    loadProfile()
-  }, [])
+    loadData()
+  }, [supabase])
+
+  const profileLink = (profile || hasSession) ? "/profilo" : "/login"
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-16 shadow-sm">
@@ -68,16 +81,16 @@ export function SiteHeader() {
             )}
             
             {/* Profile / Login */}
-            <Link href={profile ? "/profilo" : "/login"}>
+            <Link href={profileLink}>
                 {profile ? (
                     <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 cursor-pointer transition-transform hover:scale-105">
                         <AvatarImage src={profile.avatar_url} className="object-cover" />
                         <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
-                            {profile.nome?.[0]}
+                            {profile.nome?.[0] || "U"}
                         </AvatarFallback>
                     </Avatar>
                 ) : (
-                    <Button variant="ghost" size="icon" className="text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                    <Button variant="ghost" size="icon" className={`rounded-full ${hasSession ? 'text-green-600 bg-green-50' : 'text-blue-600 hover:bg-blue-50'}`}>
                         <UserCircle className="h-7 w-7" />
                     </Button>
                 )}

@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, useMemo } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -15,8 +15,8 @@ import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon } fro
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears } from "date-fns"
 import { AppCredits } from '@/components/AppCredits' 
-import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -40,9 +40,36 @@ export default function ProfilePage() {
     is_manager: false
   })
 
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  ), [])
+
   useEffect(() => {
+    const loadData = async () => {
+        setLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          router.replace('/login')
+          return
+        }
+    
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+    
+        if (profile) {
+          setMyProfile(profile)
+          loadFormData(profile)
+        }
+        setLoading(false)
+      }
+
     loadData()
-  }, [])
+  }, [supabase, router])
 
   useEffect(() => {
     if (!originalData) return;
@@ -63,29 +90,6 @@ export default function ProfilePage() {
 
     setHasChanges(isDifferent);
   }, [formData, originalData])
-
-
-  async function loadData() {
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push('/login')
-      return
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profile) {
-      setMyProfile(profile)
-      loadFormData(profile)
-    }
-    setLoading(false)
-  }
 
   const loadFormData = (profile: any) => {
       const initialData = {
@@ -151,7 +155,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
       await supabase.auth.signOut();
       toast.info("Disconnessione effettuata");
-      router.push('/login');
+      router.replace('/login');
   }
 
   const currentAge = formData.data_nascita ? differenceInYears(new Date(), new Date(formData.data_nascita)) : null;

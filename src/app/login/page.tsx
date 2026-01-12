@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
+import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -12,11 +13,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const router = useRouter()
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_KEY!
   ), [])
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace('/')
+      }
+    }
+    checkUser()
+  }, [supabase, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,9 +109,7 @@ export default function LoginPage() {
                 
                 <Button className="w-full h-11 font-bold text-base shadow-lg shadow-primary/20" type="submit" disabled={loading}>
                     {loading ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Attendere...
-                        </>
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Attendere...</>
                     ) : (
                         'Invia il link di accesso'
                     )}

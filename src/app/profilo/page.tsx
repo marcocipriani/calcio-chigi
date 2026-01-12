@@ -11,12 +11,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays } from 'lucide-react'
+import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays, Shirt, Briefcase, CreditCard, ShieldCheck, Quote, Mail } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
-import { differenceInYears } from "date-fns"
+import { differenceInYears, format } from "date-fns"
+import { it } from 'date-fns/locale'
 import { AppCredits } from '@/components/AppCredits' 
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
+
+import { BOMBER_TAGS } from "@/lib/constants"
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -33,11 +36,13 @@ export default function ProfilePage() {
     data_nascita: '',
     ruolo: '',
     dipartimento: '',
-    motto: '',
+    numero_maglia: '',
+    tessera_asi: '',
+    tags: [] as string[],
     note_mediche: '',
     taglia_divisa: '',
     default_view: 'ACTIVITY',
-    is_captain: false,
+    is_staff: false,
     is_manager: false
   })
 
@@ -82,12 +87,14 @@ export default function ProfilePage() {
         formData.data_nascita !== (originalData.data_nascita || '') ||
         formData.ruolo !== (originalData.ruolo || '') ||
         formData.dipartimento !== (originalData.dipartimento || '') ||
-        formData.motto !== (originalData.motto || '') ||
+        formData.numero_maglia !== (originalData.numero_maglia || '') ||
+        formData.tessera_asi !== (originalData.tessera_asi || '') ||
         formData.taglia_divisa !== (originalData.taglia_divisa || '') ||
         formData.default_view !== (originalData.default_view || 'ACTIVITY') ||
+        JSON.stringify(formData.tags.sort()) !== JSON.stringify((originalData.tags || []).sort()) ||
         (formData.note_mediche !== '' && formData.note_mediche !== (originalData.note_mediche === 'OK' ? '' : originalData.note_mediche)) ||
         (formData.note_mediche === '' && originalData.note_mediche !== 'OK' && originalData.note_mediche !== null && originalData.note_mediche !== '') ||
-        formData.is_captain !== (originalData.is_captain || false) ||
+        formData.is_staff !== (originalData.is_staff || false) ||
         formData.is_manager !== (originalData.is_manager || false);
 
     setHasChanges(isDifferent);
@@ -101,11 +108,13 @@ export default function ProfilePage() {
           data_nascita: profile.data_nascita || '',
           ruolo: profile.ruolo || '',
           dipartimento: profile.dipartimento || '',
-          motto: profile.motto || '',
+          numero_maglia: profile.numero_maglia || '',
+          tessera_asi: profile.tessera_asi || '',
+          tags: profile.tags || [],
           note_mediche: profile.note_mediche === 'OK' ? '' : profile.note_mediche || '',
           taglia_divisa: profile.taglia_divisa || '',
           default_view: profile.default_view || 'ACTIVITY',
-          is_captain: profile.is_captain || false,
+          is_staff: profile.is_staff || false,
           is_manager: profile.is_manager || false
       };
 
@@ -117,6 +126,15 @@ export default function ProfilePage() {
   const resetChanges = () => {
       if (originalData) loadFormData(originalData);
       toast.info("Modifiche annullate");
+  }
+
+  const handleToggleTag = (tag: string) => {
+      const currentTags = formData.tags || [];
+      if (currentTags.includes(tag)) {
+          setFormData({...formData, tags: currentTags.filter(t => t !== tag)});
+      } else {
+          setFormData({...formData, tags: [...currentTags, tag]});
+      }
   }
 
   const handleSave = async () => {
@@ -132,14 +150,16 @@ export default function ProfilePage() {
             data_nascita: dataNascitaPayload,
             ruolo: formData.ruolo,
             dipartimento: formData.dipartimento,
-            motto: formData.motto,
+            numero_maglia: formData.numero_maglia,
+            tessera_asi: formData.tessera_asi,
             taglia_divisa: formData.taglia_divisa,
+            tags: formData.tags,
             note_mediche: statusMedico,
             default_view: formData.default_view
       }
 
       if (myProfile?.is_manager) {
-          updates.is_captain = formData.is_captain
+          updates.is_staff = formData.is_staff
           updates.is_manager = formData.is_manager
       }
 
@@ -148,7 +168,7 @@ export default function ProfilePage() {
       if (error) {
           toast.error("Errore salvataggio: " + error.message)
       } else {
-          const updatedProfile = { ...originalData, ...updates, is_captain: formData.is_captain, is_manager: formData.is_manager };
+          const updatedProfile = { ...originalData, ...updates, is_staff: formData.is_staff, is_manager: formData.is_manager };
           setOriginalData(updatedProfile);
           setHasChanges(false);
           toast.success("Profilo aggiornato con successo.");
@@ -188,7 +208,7 @@ export default function ProfilePage() {
                 <h1 className="text-3xl font-black text-foreground tracking-tight">Profilo</h1>
                 {isManager && (
                     <Badge className="bg-purple-600 gap-1 px-3 py-1 text-white border-0 shadow-lg">
-                        <User className="h-3 w-3" /> ADMIN
+                        <User className="h-3 w-3" /> GESTORE
                     </Badge>
                 )}
             </div>
@@ -201,11 +221,6 @@ export default function ProfilePage() {
                             {formData.nome?.[0]}{formData.cognome?.[0]}
                         </AvatarFallback>
                     </Avatar>
-                    {formData.is_captain && (
-                        <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-950 p-1.5 rounded-full border-4 border-background shadow-sm z-10">
-                            <Crown className="h-5 w-5 fill-current" />
-                        </div>
-                    )}
                     {isU35Preview && (
                         <div className="absolute -bottom-2 -left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-4 border-background shadow-sm z-10">
                             U35
@@ -221,36 +236,23 @@ export default function ProfilePage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Nome</Label>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nome</Label>
                             <Input value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Cognome</Label>
-                            <Input value={formData.cognome} onChange={(e) => setFormData({...formData, cognome: e.target.value})} className="font-bold" />
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Email</Label>
-                            <Input value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Data di Nascita</Label>
-                            <div className="relative">
-                                <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input type="date" className="pl-9" value={formData.data_nascita} onChange={(e) => setFormData({...formData, data_nascita: e.target.value})} />
-                            </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Cognome</Label>
+                            <Input value={formData.cognome} onChange={(e) => setFormData({...formData, cognome: e.target.value})} className="font-bold text-lg" />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>Ruolo</Label>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Ruolo</Label>
                             <Select value={formData.ruolo} onValueChange={(val) => setFormData({...formData, ruolo: val})}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="font-bold"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="PORTIERE">Portiere</SelectItem>
                                     <SelectItem value="DIFENSORE">Difensore</SelectItem>
@@ -259,25 +261,60 @@ export default function ProfilePage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Dipartimento</Label>
-                            <Input value={formData.dipartimento} onChange={(e) => setFormData({...formData, dipartimento: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t mt-2">
-                        <div className="col-span-2 space-y-2">
-                            <Label>Motto</Label>
-                            <Input value={formData.motto} onChange={(e) => setFormData({...formData, motto: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Taglia</Label>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Dipartimento</Label>
                             <div className="relative">
-                                <Ruler className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input value={formData.taglia_divisa} onChange={(e) => setFormData({...formData, taglia_divisa: e.target.value})} className="pl-8 text-center" />
+                                <Briefcase className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input className="pl-9" value={formData.dipartimento} onChange={(e) => setFormData({...formData, dipartimento: e.target.value})} />
                             </div>
                         </div>
                     </div>
+
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Email</Label>
+                        <div className="relative">
+                            <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="pl-9" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-baseline">
+                                <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di Nascita</Label>
+                                {currentAge !== null && <span className="text-[10px] font-bold text-blue-600">{currentAge} anni</span>}
+                            </div>
+                            <div className="relative">
+                                <CalendarIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input type="date" className="pl-9" value={formData.data_nascita} onChange={(e) => setFormData({...formData, data_nascita: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label>
+                            <div className="relative">
+                                <CreditCard className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input className="pl-9" value={formData.tessera_asi} onChange={(e) => setFormData({...formData, tessera_asi: e.target.value})} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label>
+                            <div className="relative">
+                                <Shirt className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input className="pl-9 text-lg font-black" type="number" value={formData.numero_maglia} onChange={(e) => setFormData({...formData, numero_maglia: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label>
+                            <div className="relative">
+                                <Ruler className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input className="pl-9 text-center font-bold" value={formData.taglia_divisa} onChange={(e) => setFormData({...formData, taglia_divisa: e.target.value})} />
+                            </div>
+                        </div>
+                    </div>
+
                 </CardContent>
             </Card>
 
@@ -301,17 +338,42 @@ export default function ProfilePage() {
             <Card className="border-none shadow-sm bg-card border-border/50 border">
                 <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                        <LayoutTemplate className="h-5 w-5 text-primary" /> Preferenze utente
+                        <Quote className="h-5 w-5 text-primary" /> Caratteristiche
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <p className="text-xs text-muted-foreground">Scegli i tag che più ti rappresentano in campo e fuori.</p>
+                    <div className="flex flex-wrap gap-2">
+                        {BOMBER_TAGS.map((tag) => {
+                            const isActive = formData.tags.includes(tag);
+                            return (
+                                <Badge 
+                                    key={tag} 
+                                    variant={isActive ? "default" : "outline"}
+                                    className={`cursor-pointer transition-all ${isActive ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-slate-100'}`}
+                                    onClick={() => handleToggleTag(tag)}
+                                >
+                                    {tag}
+                                </Badge>
+                            )
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-card border-border/50 border">
+                <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Settings className="h-5 w-5 text-primary" /> Preferenze app
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                    <Label className="mb-2 block">Vista calendario predefinita</Label>
-                    <p className="text-[10px] text-muted-foreground pt-1">Scegli come visualizzare gli eventi all'apertura dell'app.</p>
+                    <Label className="mb-2 block text-xs uppercase text-muted-foreground font-bold tracking-wider">Vista calendario predefinita</Label>
                     <div className="grid grid-cols-2 gap-2 bg-muted/30 p-1.5 rounded-xl border">
                         <Button 
                             type="button"
                             variant={formData.default_view === 'ACTIVITY' ? 'default' : 'ghost'} 
-                            className={`h-10 rounded-lg gap-2 ${formData.default_view === 'ACTIVITY' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
+                            className={`h-9 rounded-lg gap-2 ${formData.default_view === 'ACTIVITY' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
                             onClick={() => setFormData({...formData, default_view: 'ACTIVITY'})}
                         >
                             <List className="h-4 w-4" /> Lista
@@ -319,7 +381,7 @@ export default function ProfilePage() {
                         <Button 
                             type="button"
                             variant={formData.default_view === 'CALENDAR' ? 'default' : 'ghost'} 
-                            className={`h-10 rounded-lg gap-2 ${formData.default_view === 'CALENDAR' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
+                            className={`h-9 rounded-lg gap-2 ${formData.default_view === 'CALENDAR' ? 'shadow-md' : 'text-muted-foreground hover:bg-muted'}`}
                             onClick={() => setFormData({...formData, default_view: 'CALENDAR'})}
                         >
                             <CalendarDays className="h-4 w-4" /> Calendario
@@ -332,13 +394,13 @@ export default function ProfilePage() {
                 <Card className="border-purple-200 bg-purple-50 dark:bg-purple-950/20">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-purple-700 dark:text-purple-300 flex items-center gap-2 text-sm uppercase tracking-wider">
-                            <Settings className="h-4 w-4" /> Permessi Avanzati
+                            <ShieldCheck className="h-4 w-4" /> Area Tecnica (Admin)
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
-                            <Label className="cursor-pointer font-medium" htmlFor="capt-check">Staff</Label>
-                            <Switch id="capt-check" checked={formData.is_captain} onCheckedChange={(checked) => setFormData({...formData, is_captain: checked})} />
+                            <Label className="cursor-pointer font-medium" htmlFor="staff-check">Staff</Label>
+                            <Switch id="staff-check" checked={formData.is_staff} onCheckedChange={(checked) => setFormData({...formData, is_staff: checked})} />
                         </div>
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
                             <Label className="cursor-pointer font-medium" htmlFor="man-check">Gestore</Label>

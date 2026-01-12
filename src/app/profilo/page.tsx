@@ -337,7 +337,7 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
-                            <Label className="cursor-pointer font-medium" htmlFor="capt-check">Capitano</Label>
+                            <Label className="cursor-pointer font-medium" htmlFor="capt-check">Staff</Label>
                             <Switch id="capt-check" checked={formData.is_captain} onCheckedChange={(checked) => setFormData({...formData, is_captain: checked})} />
                         </div>
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">

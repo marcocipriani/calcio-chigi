@@ -521,7 +521,7 @@ export default function Home() {
 
       {isManager && (
           <Button 
-            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+            className="fixed bottom-24 right-4 h-14 w-14 rounded-md shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
             onClick={handleCreateNew}
           >
               <Plus className="h-8 w-8 text-white" />

@@ -367,7 +367,7 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
         onClick={onMobileClick}
     >
         {playerInSlot ? (
-            <div className="relative">
+            <div className="relative group">
                 <Popover>
                     <PopoverTrigger asChild>
                         <div className="cursor-pointer">
@@ -400,6 +400,17 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                         </div>
                     </PopoverContent>
                 </Popover>
+
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove();
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95"
+                    title="Rimuovi dal campo"
+                >
+                    <X className="h-3 w-3 stroke-[3]" />
+                </button>
             </div>
         ) : (
             <div className={`${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${isOver && !isMobile ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5 hover:bg-white/10'}`}>
@@ -792,7 +803,7 @@ export default function SquadraPage() {
             
             <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
                 
-                <div className="bg-card border rounded-lg p-2 flex flex-wrap items-center gap-2 shadow-sm relative h-14">
+                <div className="bg-card border rounded-lg p-2 flex flex-wrap items-center gap-2 shadow-sm relative h-14 mb-2">
                     
                     <div className="flex items-center gap-2">
                         <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-md p-0.5 border border-slate-200">
@@ -989,7 +1000,6 @@ export default function SquadraPage() {
                             </div>
 
                             <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-                                
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
                                     
                                     <div className="space-y-1">

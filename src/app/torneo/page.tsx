@@ -1,19 +1,21 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Loader2, CalendarDays, Trophy, FileText, Download, Pencil } from 'lucide-react'
+import { Input } from "@/components/ui/input" 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
+import { Loader2, CalendarDays, Trophy, FileText, Download, Pencil, Save } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import ClassificaPage from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
+import { toast } from "sonner" 
 
 const COMUNICATI = [
     { id: 8, data: "06/12/2025", titolo: "Comunicato n. 8", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-8-06-12-2025_sn25.pdf" },
@@ -36,11 +38,19 @@ export default function TorneoPage() {
   
   const [giornate, setGiornate] = useState<number[]>([])
   const [selectedGiornata, setSelectedGiornata] = useState<number | null>(null)
-  
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<any>(null)
-  
+
+  const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
+  const [tempScores, setTempScores] = useState<Record<string, {casa: string, ospite: string}>>({})
+
   const daysScrollRef = useRef<HTMLDivElement>(null)
+
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  ), [])
 
   useEffect(() => {
     async function init() {
@@ -95,7 +105,7 @@ export default function TorneoPage() {
         setLoading(false)
     }
     init()
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
     if (selectedGiornata && daysScrollRef.current) {
@@ -130,6 +140,47 @@ export default function TorneoPage() {
     
     setDialogOpen(false);
     setEditingEvent(null);
+  }
+
+  const handleOpenScoreDialog = () => {
+    const currentDayMatches = matches.filter(m => m.giornata === selectedGiornata);
+    const initialScores: Record<string, {casa: string, ospite: string}> = {};
+    
+    currentDayMatches.forEach(m => {
+        initialScores[m.id] = {
+            casa: m.gol_casa !== null ? m.gol_casa.toString() : '',
+            ospite: m.gol_ospite !== null ? m.gol_ospite.toString() : ''
+        };
+    });
+    
+    setTempScores(initialScores);
+    setScoreDialogOpen(true);
+  }
+
+  const handleSaveScore = async (matchId: string) => {
+      const s = tempScores[matchId];
+      if (!s) return;
+
+      const golCasa = s.casa === '' ? null : parseInt(s.casa);
+      const golOspite = s.ospite === '' ? null : parseInt(s.ospite);
+
+      setMatches(prev => prev.map(m => 
+          m.id === matchId 
+          ? { ...m, gol_casa: golCasa, gol_ospite: golOspite, giocata: (golCasa !== null && golOspite !== null) } 
+          : m
+      ));
+
+      const { error } = await supabase.from('events').update({
+          gol_casa: golCasa,
+          gol_ospite: golOspite,
+          giocata: (golCasa !== null && golOspite !== null)
+      }).eq('id', matchId);
+
+      if (error) {
+          toast.error("Errore: " + error.message);
+      } else {
+          toast.success("Risultato salvato");
+      }
   }
 
   if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>
@@ -180,7 +231,7 @@ export default function TorneoPage() {
 
                 {isManager && (
                     <Button 
-                        onClick={() => router.push('/risultati')}
+                        onClick={handleOpenScoreDialog}
                         size="icon"
                         className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
                     >
@@ -267,7 +318,7 @@ export default function TorneoPage() {
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-5 w-5 bg-transparent">
                                                         <AvatarImage src={teamsMap[match.squadra_casa]} className="object-contain"/>
-                                                        <AvatarFallback className="text-[8px]">{match.squadra_casa[0]}</AvatarFallback>
+                                                        <AvatarFallback className="text-[8px]">{match.squadra_casa?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
                                                         {match.squadra_casa}
@@ -282,7 +333,7 @@ export default function TorneoPage() {
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="h-5 w-5 bg-transparent">
                                                         <AvatarImage src={teamsMap[match.squadra_ospite]} className="object-contain"/>
-                                                        <AvatarFallback className="text-[8px]">{match.squadra_ospite[0]}</AvatarFallback>
+                                                        <AvatarFallback className="text-[8px]">{match.squadra_ospite?.[0]}</AvatarFallback>
                                                     </Avatar>
                                                     <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
                                                         {match.squadra_ospite}
@@ -332,6 +383,58 @@ export default function TorneoPage() {
             eventToEdit={editingEvent}
             onSave={handleSaveEvent}
         />
+
+        <Dialog open={scoreDialogOpen} onOpenChange={setScoreDialogOpen}>
+            <DialogContent className="max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Aggiorna Risultati</DialogTitle>
+                    <DialogDescription>Inserisci i gol per la giornata {selectedGiornata}</DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-2">
+                    {currentMatches.map(match => {
+                        const s = tempScores[match.id] || { casa: '', ospite: '' };
+                        return (
+                            <div key={match.id} className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border flex flex-col gap-3">
+                                <div className="text-[10px] text-muted-foreground font-bold uppercase text-center">
+                                    {format(new Date(match.data_ora), 'dd/MM HH:mm')} - {match.luogo}
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex-1 flex flex-col items-center gap-1">
+                                        <span className="text-xs font-bold text-center leading-tight h-8 flex items-center justify-center">{match.squadra_casa}</span>
+                                        <Input 
+                                            type="number" 
+                                            className="h-10 w-14 text-center font-bold text-lg" 
+                                            value={s.casa}
+                                            onChange={(e) => setTempScores({
+                                                ...tempScores, 
+                                                [match.id]: { ...s, casa: e.target.value }
+                                            })}
+                                        />
+                                    </div>
+                                    <div className="font-black text-muted-foreground">-</div>
+                                    <div className="flex-1 flex flex-col items-center gap-1">
+                                        <span className="text-xs font-bold text-center leading-tight h-8 flex items-center justify-center">{match.squadra_ospite}</span>
+                                        <Input 
+                                            type="number" 
+                                            className="h-10 w-14 text-center font-bold text-lg" 
+                                            value={s.ospite}
+                                            onChange={(e) => setTempScores({
+                                                ...tempScores, 
+                                                [match.id]: { ...s, ospite: e.target.value }
+                                            })}
+                                        />
+                                    </div>
+                                    <Button size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700 shrink-0" onClick={() => handleSaveScore(match.id)}>
+                                        <Save className="h-4 w-4 text-white" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
   )
 }

@@ -402,11 +402,11 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                 </Popover>
 
                 <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRemove();
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onRemove(); 
                     }}
-                    className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95"
+                    className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 opacity-100 transition-transform active:scale-95"
                     title="Rimuovi dal campo"
                 >
                     <X className="h-3 w-3 stroke-[3]" />
@@ -626,7 +626,13 @@ export default function SquadraPage() {
   }
 
   const handleAddPlayer = async () => {
-      const { error } = await supabaseBrowser.from('profiles').insert([{ ...newPlayer, note_mediche: 'OK' }]);
+      const payload = { 
+          ...newPlayer, 
+          note_mediche: 'OK', 
+          data_nascita: newPlayer.data_nascita ? newPlayer.data_nascita : null,
+          numero_maglia: newPlayer.numero_maglia ? parseInt(newPlayer.numero_maglia.toString()) : null
+      };
+      const { error } = await supabaseBrowser.from('profiles').insert([payload]);
       if(error) alert("Errore: " + error.message);
       else {
           setIsAddPlayerOpen(false);
@@ -830,9 +836,14 @@ export default function SquadraPage() {
                     </div>
 
                     <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black border transition-colors whitespace-nowrap ${isU35Warning ? 'bg-red-100 text-red-600 border-red-300 animate-pulse' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                           {isU35Warning ? <AlertCircle className="h-3 w-3" /> : <span className="h-2 w-2 rounded-full bg-blue-500"></span>}
-                           U35: Campo {u35FieldCount}/2, Tot {u35TotalCount}/4
+                        <div className={`flex flex-col items-center justify-center px-3 py-1 rounded-md border transition-colors shadow-sm bg-card h-10 min-w-[100px] ${isU35Warning ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}>
+                            <div className="flex items-center gap-1">
+                                <span className={`h-1.5 w-1.5 rounded-full ${isU35Warning ? 'bg-red-500' : 'bg-blue-500'}`}></span>
+                                <span className={`text-[8px] font-black uppercase tracking-wider ${isU35Warning ? 'text-red-700' : 'text-slate-500'}`}>Under 35</span>
+                            </div>
+                            <div className={`text-[8px] font-bold leading-none mt-0.5 ${isU35Warning ? 'text-red-600' : 'text-slate-700'}`}>
+                                Campo <span className="text-sm">{u35FieldCount}</span>/2 <span className="text-slate-300 mx-0.5">|</span> Tot <span className="text-sm">{u35TotalCount}</span>/4
+                            </div>
                         </div>
                     </div>
 
@@ -921,6 +932,15 @@ export default function SquadraPage() {
                                                 <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Data di nascita</Label>
+                                            <Input type="date" value={newPlayer.data_nascita} onChange={(e) => setNewPlayer({...newPlayer, data_nascita: e.target.value})} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Numero maglia</Label>
+                                            <Input type="number" placeholder="Maglia" value={newPlayer.numero_maglia} onChange={(e) => setNewPlayer({...newPlayer, numero_maglia: e.target.value})} />
+                                        </div>
+
                                     </div>
                                     <DialogFooter><Button onClick={handleAddPlayer} className="w-full bg-purple-600">Salva</Button></DialogFooter>
                                 </DialogContent>

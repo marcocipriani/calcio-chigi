@@ -18,6 +18,7 @@ import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
 const COMUNICATI = [
+    { id: 9, data: "10/01/2026", titolo: "Comunicato n. 9", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-9-10-01-2026_lD6l.pdf" },
     { id: 8, data: "06/12/2025", titolo: "Comunicato n. 8", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-8-06-12-2025_sn25.pdf" },
     { id: 7, data: "22/11/2025", titolo: "Comunicato n. 7", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-7-22-11-2025_4EZ3.pdf" },
     { id: 6, data: "08/11/2025", titolo: "Comunicato n. 6", url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-6-08-11-2025_OMop.pdf" },

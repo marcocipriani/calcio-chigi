@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays, Shirt, Briefcase, CreditCard, ShieldCheck, Quote, Mail } from 'lucide-react'
+import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays, Shirt, Briefcase, CreditCard, ShieldCheck, Quote, Mail, Camera, Loader2 } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
 import { differenceInYears, format } from "date-fns"
 import { it } from 'date-fns/locale'
@@ -24,6 +24,7 @@ import { BOMBER_TAGS } from "@/lib/constants"
 export default function ProfilePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [myProfile, setMyProfile] = useState<any>(null)
   
   const [originalData, setOriginalData] = useState<any>(null)
@@ -137,6 +138,43 @@ export default function ProfilePage() {
       }
   }
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+        setUploading(true)
+        if (!event.target.files || event.target.files.length === 0) return
+
+        const file = event.target.files[0]
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${myProfile.id}-${Math.random()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath)
+
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('id', myProfile.id)
+
+        if (updateError) throw updateError
+
+        setMyProfile({ ...myProfile, avatar_url: publicUrl })
+        toast.success("Foto profilo aggiornata con successo")
+
+    } catch (error: any) {
+        toast.error("Errore caricamento foto: " + error.message)
+    } finally {
+        setUploading(false)
+    }
+  }
+
   const handleSave = async () => {
       setLoading(true)
       
@@ -221,6 +259,22 @@ export default function ProfilePage() {
                             {formData.nome?.[0]}{formData.cognome?.[0]}
                         </AvatarFallback>
                     </Avatar>
+                    
+                    <label 
+                        htmlFor="profile-avatar-upload" 
+                        className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-opacity z-20"
+                    >
+                        {uploading ? <Loader2 className="h-8 w-8 animate-spin" /> : <Camera className="h-8 w-8" />}
+                    </label>
+                    <input 
+                        id="profile-avatar-upload" 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarUpload}
+                        disabled={uploading}
+                    />
+
                     {isU35Preview && (
                         <div className="absolute -bottom-2 -left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-4 border-background shadow-sm z-10">
                             U35

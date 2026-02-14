@@ -110,10 +110,10 @@ export default function Home() {
 
     const { data: eventsData, error } = await supabase
       .from('events')
-      .select(`*, attendance (status, profiles (nome, avatar_url))`)
+      .select('*, attendance (status, profiles:profiles!attendance_profile_id_fkey (cognome, avatar_url))')
       .order('data_ora', { ascending: true });
     
-    if(error) console.error("Errore DB:", error);
+    if(error) console.error("db error:", JSON.stringify(error, null, 2));
 
     const { data: teamsData } = await supabase
       .from('teams')

@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, use, useMemo } from 'react';
+import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Trophy, Dumbbell, Calendar as CalendarIcon } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Hand, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, User, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,58 +23,55 @@ const isU35Func = (dob: string) => { const age = getAge(dob); return age !== nul
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
   const router = useRouter();
-
+  
   const [event, setEvent] = useState<any>(null);
   const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
   const [roster, setRoster] = useState<any[]>([]); 
+  const [allProfilesMap, setAllProfilesMap] = useState<Record<string, string>>({}); // Mappa ID -> Cognome per log manager
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isManager, setIsManager] = useState(false);
   const [myProfileId, setMyProfileId] = useState<string | null>(null);
   const [userStatus, setUserStatus] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-    useEffect(() => {
+  useEffect(() => {
     loadAllData();
 
     const channel = supabase
       .channel(`event_attendance_${id}`)
       .on(
         'postgres_changes',
-        {
-          event: '*', 
-          schema: 'public',
-          table: 'attendance',
-          filter: `event_id=eq.${id}`,
-        },
-        (payload) => {
-          handleRealtimeUpdate(payload);
-        }
+        { event: '*', schema: 'public', table: 'attendance', filter: `event_id=eq.${id}` },
+        (payload) => { handleRealtimeUpdate(payload); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    }
+    return () => { supabase.removeChannel(channel); }
   }, [id]);
 
   const handleRealtimeUpdate = async (payload: any) => {
       const { new: newRecord, old: oldRecord, eventType } = payload;
-      
-      if ((newRecord?.profile_id === myProfileId) || (oldRecord?.profile_id === myProfileId)) {
-
-      }
+     if (newRecord?.profile_id === myProfileId && newRecord?.modified_by === myProfileId) return;
 
       if (eventType === 'DELETE' && oldRecord) {
           setRoster(prev => prev.map(p => 
-              p.id === oldRecord.profile_id ? { ...p, status: null, vote_time: null } : p
+              p.id === oldRecord.profile_id ? { ...p, status: null, vote_time: null, modified_by: null } : p
           ));
+          if (oldRecord.profile_id === myProfileId) setUserStatus(null);
       }
 
       if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord) {
           setRoster(prev => prev.map(p => 
-              p.id === newRecord.profile_id ? { ...p, status: newRecord.status, vote_time: newRecord.created_at || new Date().toISOString() } : p
+              p.id === newRecord.profile_id ? { 
+                  ...p, 
+                  status: newRecord.status, 
+                  vote_time: newRecord.created_at,
+                  modified_by: newRecord.modified_by
+              } : p
           ));
+          if (newRecord.profile_id === myProfileId) setUserStatus(newRecord.status);
       }
   };
 
@@ -85,16 +82,17 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     let currentPid = null;
 
     if (user) {
-        const { data: profile } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).single();
+        const { data: profile } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).maybeSingle();
         if (profile) {
             currentPid = profile.id;
             setIsManager(profile.is_manager);
             setMyProfileId(profile.id);
+        } else {
+            console.warn("Utente loggato ma nessun profilo associato. Controllare tabella profiles.");
         }
     }
 
     const { data: eventData } = await supabase.from('events').select('*').eq('id', id).single();
-    
     if (eventData) {
         setEvent(eventData);
         if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
@@ -105,16 +103,21 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     }
 
     const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url, data_nascita, is_staff').order('cognome');
-    const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status, created_at, updated_at').eq('event_id', id);
+    const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status, created_at, updated_at, modified_by').eq('event_id', id);
 
     if (allProfiles) {
+        const pMap: Record<string, string> = {};
+        allProfiles.forEach(p => { pMap[p.id] = `${p.cognome} ${p.nome}` });
+        setAllProfilesMap(pMap);
+
         const mergedRoster = allProfiles.map(p => {
             const vote = attendanceData?.find((a: any) => a.profile_id === p.id);
             if (p.id === currentPid) setUserStatus(vote?.status || null);
             return { 
                 ...p, 
                 status: vote?.status || null,
-                vote_time: vote?.updated_at || vote?.created_at || null
+                vote_time: vote?.updated_at || vote?.created_at || null,
+                modified_by: vote?.modified_by || null
             };
         });
         setRoster(mergedRoster);
@@ -122,44 +125,53 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     setLoading(false);
   }
 
-  // Voto Utente (Optimistic Update)
   const handleVote = async (newStatus: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE') => {
-    if (!currentUser || !myProfileId) {
-        toast.error("Devi essere loggato per votare");
+    if (!currentUser) {
+        toast.error("Devi effettuare il login per votare.");
+        return;
+    }
+    if (!myProfileId) {
+        toast.error("Profilo non collegato. Contatta l'admin.");
         return;
     }
 
     const prevRoster = [...roster];
     const prevUserStatus = userStatus;
-
     const now = new Date().toISOString();
+    
     setUserStatus(newStatus);
-    setRoster(prev => prev.map(p => p.id === myProfileId ? { ...p, status: newStatus, vote_time: now } : p));
-    toast.success(newStatus === 'ASSENTE' ? "Segnato come assente" : "Presenza confermata!");
+    setRoster(prev => prev.map(p => p.id === myProfileId ? { 
+        ...p, 
+        status: newStatus, 
+        vote_time: now,
+        modified_by: myProfileId
+    } : p));
+    
+    toast.success("Disponibilità aggiornata!");
 
     const { error } = await supabase.from('attendance').upsert({
         event_id: id,
         profile_id: myProfileId,
-        status: newStatus
-      }, { onConflict: 'event_id, profile_id' });
+        status: newStatus,
+        modified_by: myProfileId
+    }, { onConflict: 'event_id, profile_id' });
 
     if (error) {
         console.error(error);
         setUserStatus(prevUserStatus);
         setRoster(prevRoster);
-        toast.error("Errore di connessione: voto non salvato.");
+        toast.error("Errore salvataggio voto: " + error.message);
     }
   };
 
   const handleResetVote = async () => {
       if (!currentUser || !myProfileId) return;
-
       const prevRoster = [...roster];
       const prevUserStatus = userStatus;
 
       setUserStatus(null);
-      setRoster(prev => prev.map(p => p.id === myProfileId ? { ...p, status: null, vote_time: null } : p));
-      toast.info("Disponibilità rimossa");
+      setRoster(prev => prev.map(p => p.id === myProfileId ? { ...p, status: null, vote_time: null, modified_by: null } : p));
+      toast.info("Scelta rimossa");
 
       const { error } = await supabase.from('attendance').delete().match({ event_id: id, profile_id: myProfileId });
 
@@ -170,25 +182,38 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       }
   }
 
-  const handleManagerOverride = async (profileId: string, newStatus: string) => {
+  const handleManagerOverride = async (targetProfileId: string, newStatus: string) => {
+      if (!myProfileId) return;
+
       const prevRoster = [...roster];
-      
       const now = new Date().toISOString();
-      setRoster(prev => prev.map(p => p.id === profileId ? { ...p, status: newStatus === 'RESET' ? null : newStatus, vote_time: newStatus === 'RESET' ? null : now } : p));
-      toast.info("Stato aggiornato");
+      
+      setRoster(prev => prev.map(p => p.id === targetProfileId ? { 
+          ...p, 
+          status: newStatus === 'RESET' ? null : newStatus, 
+          vote_time: newStatus === 'RESET' ? null : now,
+          modified_by: newStatus === 'RESET' ? null : myProfileId 
+      } : p));
+      
+      toast.info("Stato aggiornato dal Manager");
 
       let error = null;
       if (newStatus === "RESET") {
-          const res = await supabase.from('attendance').delete().match({ event_id: id, profile_id: profileId });
+          const res = await supabase.from('attendance').delete().match({ event_id: id, profile_id: targetProfileId });
           error = res.error;
       } else {
-          const res = await supabase.from('attendance').upsert({ event_id: id, profile_id: profileId, status: newStatus }, { onConflict: 'event_id, profile_id' });
+          const res = await supabase.from('attendance').upsert({ 
+              event_id: id, 
+              profile_id: targetProfileId, 
+              status: newStatus,
+              modified_by: myProfileId
+          }, { onConflict: 'event_id, profile_id' });
           error = res.error;
       }
 
       if (error) {
           setRoster(prevRoster);
-          toast.error("Errore aggiornamento manager.");
+          toast.error("Errore aggiornamento manager: " + error.message);
       }
   };
 
@@ -197,106 +222,77 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       setEvent({ ...event, ...updatedData });
       setEditDialogOpen(false);
       toast.success("Evento aggiornato.");
-
-      const { data, error } = await supabase
-        .from('events')
-        .update(updatedData)
-        .eq('id', id)
-        .select(); 
-      
-      if (error || !data) {
-          setEvent(prevEvent);
-          toast.error("Errore salvataggio evento.");
-      }
+      const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).select(); 
+      if (error || !data) { setEvent(prevEvent); toast.error("Errore salvataggio."); }
   };
 
   const handleDeleteEvent = async () => {
       const { error } = await supabase.from('events').delete().eq('id', id);
-      if (error) {
-          toast.error("Errore eliminazione: " + error.message);
-      } else {
-          toast.success("Evento eliminato.");
-          router.push('/torneo'); 
-      }
+      if (error) toast.error(error.message); else { toast.success("Eliminato."); router.push('/torneo'); }
   }
 
-  const countPresenti = roster.filter(p => p.status === 'PRESENTE').length;
-  const countInfortunati = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE').length;
-  const countAssenti = roster.filter(p => p.status === 'ASSENTE').length;
+  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>;
+  if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
-  const u35Presenti = roster.filter(p => 
-    p.status === 'PRESENTE' && 
-    isU35Func(p.data_nascita) && 
-    p.ruolo !== 'PORTIERE'
-  ).length;
+  const isMatch = event.tipo === 'PARTITA';
+  const isCancelled = event.cancellato;
+
+  const presentPlayers = roster.filter(p => p.status === 'PRESENTE');
+  const spectatorPlayers = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
+  const absentPlayers = roster.filter(p => p.status === 'ASSENTE');
+
+  const countOver35 = presentPlayers.filter(p => !isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
+  const countU35 = presentPlayers.filter(p => isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
+  const countGoalies = presentPlayers.filter(p => p.ruolo === 'PORTIERE').length;
+  const countSpectators = spectatorPlayers.length;
+  const countAbsents = absentPlayers.length;
+
+  const countTrainingPresent = presentPlayers.length;
+  const countTrainingKO = spectatorPlayers.length;
 
   const sortedRoster = [...roster].sort((a, b) => {
       if (a.is_staff && !b.is_staff) return 1;
       if (!a.is_staff && b.is_staff) return -1;
-
-      // Status
+      
       const score = (s: string) => {
           if (s === 'PRESENTE') return 4;
           if (s === 'INFORTUNATO_PRESENTE') return 3;
           if (s === 'ASSENTE') return 1; 
-          return 0;
+          return 0; 
       };
       const scoreA = score(a.status);
       const scoreB = score(b.status);
       
       if (scoreA !== scoreB) return scoreB - scoreA;
-
       return a.cognome.localeCompare(b.cognome);
   });
-
-  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>;
-  if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
-
-  const isCancelled = event.cancellato;
-  const isMatch = event.tipo === 'PARTITA';
 
   let scoreBlock = null;
   if (isMatch && event.giocata) {
       const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
       const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
       const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);
-      
       let resultColor = "text-slate-500 bg-slate-100";
       let resultText = "PAREGGIO";
-
-      if (golNoi > golLoro) {
-          resultColor = "text-emerald-700 bg-emerald-100";
-          resultText = "VITTORIA";
-      } else if (golNoi < golLoro) {
-          resultColor = "text-red-700 bg-red-100";
-          resultText = "SCONFITTA";
-      }
+      if (golNoi > golLoro) { resultColor = "text-emerald-700 bg-emerald-100"; resultText = "VITTORIA"; } 
+      else if (golNoi < golLoro) { resultColor = "text-red-700 bg-red-100"; resultText = "SCONFITTA"; }
 
       scoreBlock = (
-          <div className="flex flex-col items-center mt-2 animate-in zoom-in duration-300">
-              <div className={`px-6 py-2 rounded-2xl font-mono text-4xl font-black tracking-tighter ${resultColor}`}>
-                  {event.gol_casa} - {event.gol_ospite}
-              </div>
-              <Badge variant="outline" className="mt-1 text-[10px] font-bold border-0 opacity-70">
-                  {resultText}
-              </Badge>
+          <div className="flex flex-col items-center mt-2 animate-in zoom-in">
+              <div className={`px-6 py-2 rounded-2xl font-mono text-4xl font-black tracking-tighter ${resultColor}`}>{event.gol_casa} - {event.gol_ospite}</div>
+              <Badge variant="outline" className="mt-1 text-[10px] font-bold border-0 opacity-70">{resultText}</Badge>
           </div>
       );
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24">
-
       <div className={`p-4 sticky top-14 z-40 shadow-md flex items-center justify-between transition-colors ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20">
-                    <ArrowLeft className="h-6 w-6" />
-                </Button>
+                <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20"><ArrowLeft className="h-6 w-6" /></Button>
                 <div>
                     <div className="flex items-center gap-2">
-                        <h1 className="font-bold text-lg leading-none">
-                            {isCancelled ? 'ANNULLATO' : (isMatch ? 'Match Day' : 'Allenamento')}
-                        </h1>
+                        <h1 className="font-bold text-lg leading-none">{isCancelled ? 'ANNULLATO' : (isMatch ? 'Match Day' : 'Allenamento')}</h1>
                         {!isCancelled && !event.giocata && (
                              <span className="flex h-2 w-2 relative">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -306,29 +302,14 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                 </div>
             </div>
-            
             {isManager && (
                 <div className="flex gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none">
-                        <Pencil className="h-3 w-3" /> Modifica
-                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none"><Pencil className="h-3 w-3" /> Modifica</Button>
                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
+                        <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
                         <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Questa azione rimuoverà l&apos;evento dal database. Non è un annullamento, ma una cancellazione totale.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Annulla</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina per sempre</AlertDialogAction>
-                            </AlertDialogFooter>
+                            <AlertDialogHeader><AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle><AlertDialogDescription>Azione irreversibile.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
                 </div>
@@ -336,65 +317,71 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       </div>
 
       <div className="p-4 max-w-lg mx-auto space-y-6">
-        
         <div className="text-center space-y-3 mt-2">
             {isMatch && opponentLogo && (
                 <div className="flex justify-center mb-2">
-                    <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white">
-                        <AvatarImage src={opponentLogo} className="object-contain p-1" />
-                        <AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback>
-                    </Avatar>
+                    <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={opponentLogo} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
                 </div>
             )}
-
-            <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>
-                {event.avversario || "Allenamento"}
-            </h2>
-
+            <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>{event.avversario || "Allenamento"}</h2>
             {scoreBlock}
-            
             <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground pt-2">
                 <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'd MMM yyyy', {locale: it})}</span>
-                <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'HH:mm')}</span>
-                </div>
+                <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'HH:mm')}</span></div>
             </div>
-            
-            <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold">
-                <MapPin className="h-4 w-4"/> {event.luogo}
-            </div>
-
+            <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold"><MapPin className="h-4 w-4"/> {event.luogo}</div>
             {event.note && (
                 <div className="mt-4 bg-muted/30 p-3 rounded-lg border border-border text-sm text-muted-foreground flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-muted-foreground/70">
-                        <Info className="h-3 w-3" /> Note Mister
-                    </div>
+                    <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-muted-foreground/70"><Info className="h-3 w-3" /> Note Mister</div>
                     <p className="italic text-center">{event.note}</p>
                 </div>
             )}
-
             {isCancelled && <p className="text-red-500 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
         </div>
 
         {!isCancelled && (
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-green-50 border border-green-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                    <span className="text-3xl font-black text-green-600">{countPresenti}</span>
-                    <span className="text-[10px] uppercase font-bold text-green-800 tracking-wider">Presenti</span>
+            isMatch ? (
+                <div className="grid grid-cols-6 gap-2">
+                    <div className="col-span-2 bg-blue-50 border-blue-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-2xl font-black text-blue-700">{countOver35}</span>
+                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-600" /><span className="text-[9px] uppercase font-bold text-blue-900">Over 35</span></div>
+                    </div>
+                    <div className="col-span-2 bg-indigo-50 border-indigo-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-2xl font-black text-indigo-700">{countU35}</span>
+                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-indigo-600" /><span className="text-[9px] uppercase font-bold text-indigo-900">Under 35</span></div>
+                    </div>
+                    <div className="col-span-2 bg-yellow-50 border-yellow-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-2xl font-black text-yellow-700">{countGoalies}</span>
+                        <div className="flex items-center gap-1"><Hand className="h-3 w-3 text-yellow-600" /><span className="text-[9px] uppercase font-bold text-yellow-900">Portieri</span></div>
+                    </div>
+                    <div className="col-span-3 bg-slate-100 border-slate-200 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-xl font-black text-slate-600">{countSpectators}</span>
+                        <div className="flex items-center gap-1"><Eye className="h-3 w-3 text-slate-500" /><span className="text-[9px] uppercase font-bold text-slate-700">Spettatori</span></div>
+                    </div>
+                    <div className="col-span-3 bg-red-50 border-red-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-xl font-black text-red-600">{countAbsents}</span>
+                        <div className="flex items-center gap-1"><UserX className="h-3 w-3 text-red-500" /><span className="text-[9px] uppercase font-bold text-red-800">Assenti</span></div>
+                    </div>
                 </div>
-                <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                    <span className="text-3xl font-black text-orange-500">{countInfortunati}</span> 
-                    <span className="text-[10px] uppercase font-bold text-orange-800 tracking-wider">Infortunati</span>
+            ) : (
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-green-50 border border-green-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-3xl font-black text-green-600">{countTrainingPresent}</span>
+                        <div className="flex items-center gap-1"><UserCheck className="h-4 w-4 text-green-600" /><span className="text-[10px] uppercase font-bold text-green-800">Presenti</span></div>
+                    </div>
+                    <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-3xl font-black text-orange-500">{countTrainingKO}</span> 
+                        <div className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-orange-600" /><span className="text-[10px] uppercase font-bold text-orange-800">KO</span></div>
+                    </div>
+                    <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-3xl font-black text-red-600">{countAbsents}</span>
+                        <div className="flex items-center gap-1"><UserX className="h-4 w-4 text-red-600" /><span className="text-[10px] uppercase font-bold text-red-800">Assenti</span></div>
+                    </div>
                 </div>
-                <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                    <span className="text-3xl font-black text-red-600">{countAssenti}</span>
-                    <span className="text-[10px] uppercase font-bold text-red-800 tracking-wider">Assenti</span>
-                </div>
-            </div>
+            )
         )}
 
         <Separator />
-
         {!event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4 space-y-3">
@@ -404,6 +391,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                             variant={userStatus === 'PRESENTE' ? 'default' : 'outline'}
                             className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'PRESENTE' ? 'bg-green-600 hover:bg-green-700 border-transparent text-white' : 'hover:bg-green-500/10 hover:text-green-600 border-muted'}`}
                             onClick={() => handleVote('PRESENTE')}
+                            disabled={loading}
                         >
                             <CheckCircle2 className="h-5 w-5" />
                             <span className="text-[10px] font-bold">CI SONO</span>
@@ -411,17 +399,23 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
                         <Button 
                             variant={userStatus === 'INFORTUNATO_PRESENTE' ? 'default' : 'outline'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'INFORTUNATO_PRESENTE' ? 'bg-yellow-500 hover:bg-yellow-600 border-transparent text-white' : 'hover:bg-yellow-500/10 hover:text-yellow-600 border-muted'}`}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'INFORTUNATO_PRESENTE' 
+                                ? (isMatch ? 'bg-slate-600 hover:bg-slate-700 border-transparent text-white' : 'bg-yellow-500 hover:bg-yellow-600 border-transparent text-white') 
+                                : 'hover:bg-slate-200 border-muted'}`}
                             onClick={() => handleVote('INFORTUNATO_PRESENTE')}
+                            disabled={loading}
                         >
-                            <AlertCircle className="h-5 w-5" />
-                            <span className="text-[9px] font-bold leading-none text-center">PRESENTE (KO)</span>
+                            {isMatch ? <Eye className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                            <span className="text-[9px] font-bold leading-none text-center">
+                                {isMatch ? "SPETTATORE" : <>PRESENTE<br/>(KO)</>}
+                            </span>
                         </Button>
 
                         <Button 
                             variant={userStatus === 'ASSENTE' ? 'default' : 'outline'}
                             className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'ASSENTE' ? 'bg-red-600 hover:bg-red-700 border-transparent text-white' : 'hover:bg-red-500/10 hover:text-red-600 border-muted'}`}
                             onClick={() => handleVote('ASSENTE')}
+                            disabled={loading}
                         >
                             <XCircle className="h-5 w-5" />
                             <span className="text-[10px] font-bold">ASSENTE</span>
@@ -429,7 +423,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     </div>
                     
                     {userStatus && (
-                        <Button variant="ghost" size="sm" onClick={handleResetVote} className="w-full text-xs text-muted-foreground hover:bg-red-50 hover:text-red-600 h-8">
+                        <Button variant="ghost" size="sm" onClick={handleResetVote} className="w-full text-xs text-muted-foreground hover:bg-red-50 hover:text-red-600 h-8" disabled={loading}>
                             <Trash2 className="h-3 w-3 mr-1" /> Rimuovi la mia scelta
                         </Button>
                     )}
@@ -439,23 +433,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
-            <div className="flex justify-between items-end">
-                <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-lg">Presenze ({countPresenti})</h3>
-                    {isMatch && (
-                        <span className={`text-xs font-bold px-2 py-1 rounded flex items-center gap-1 ${u35Presenti > 4 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                            U35: {u35Presenti} 
-                            {u35Presenti > 4 && <AlertCircle className="h-3 w-3" />}
-                        </span>
-                    )}
-                </div>
-                {countInfortunati > 0 && (
-                    <span className="text-xs text-yellow-600 font-bold bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded">
-                        {countInfortunati} Infortunati
-                    </span>
-                )}
+                <h3 className="font-bold text-lg">Elenco risposte</h3>
             </div>
-        </div>
 
             <div className="space-y-2">
                 {sortedRoster.map((p) => {
@@ -474,13 +453,22 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         statusText = "ASSENTE";
                         statusColor = "text-red-600 dark:text-red-400";
                     } else if (status === 'INFORTUNATO_PRESENTE') {
-                        borderClass = "border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10";
-                        statusText = "PRESENTE (KO)";
-                        statusColor = "text-yellow-600 dark:text-yellow-400";
+                        if (isMatch) {
+                            borderClass = "border-l-4 border-l-slate-500 bg-slate-50 dark:bg-slate-900/50";
+                            statusText = "SPETTATORE";
+                            statusColor = "text-slate-600 dark:text-slate-400";
+                        } else {
+                            borderClass = "border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10";
+                            statusText = "PRESENTE (KO)";
+                            statusColor = "text-yellow-600 dark:text-yellow-400";
+                        }
                     }
 
                     const isU35Player = isU35Func(p.data_nascita);
-                    const voteTime = p.vote_time ? format(new Date(p.vote_time), 'HH:mm dd/MM') : '';
+                    const voteTime = p.vote_time ? format(new Date(p.vote_time), 'dd/MM HH:mm') : '';
+                    
+                    const isManagerEdit = p.modified_by && p.modified_by !== p.id;
+                    const managerName = isManagerEdit ? allProfilesMap[p.modified_by]?.split(' ')[0] : null;
 
                     return (
                         <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-all duration-300`}>
@@ -493,14 +481,21 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                     <div className="flex items-center gap-2">
                                         <p className="font-bold text-sm leading-none flex items-center gap-1">
                                             {p.cognome} {p.nome}
-                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-purple-600" />}
+                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-purple-600"/>}
                                         </p>
                                         {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
+                                        {p.ruolo === 'PORTIERE' && <Badge className="text-[8px] h-4 px-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">POR</Badge>}
                                     </div>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">{p.ruolo?.substring(0,3)}</p>
-                                        <p className={`text-[10px] font-bold ${statusColor}`}>{statusText}</p>
-                                        {voteTime && <span className="text-[8px] text-muted-foreground ml-1">• {voteTime}</span>}
+                                    <div className="flex flex-col mt-1">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">{p.ruolo?.substring(0,3)}</p>
+                                            <p className={`text-[10px] font-bold ${statusColor}`}>{statusText}</p>
+                                        </div>
+                                        {voteTime && (
+                                            <p className="text-[8px] text-muted-foreground mt-0.5">
+                                                {isManagerEdit ? `Aggiornato da ${managerName} il ` : "Votato il "}{voteTime}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -517,7 +512,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                         <SelectItem value="RESET">-- Reset --</SelectItem>
                                         <SelectItem value="PRESENTE">Presente</SelectItem>
                                         <SelectItem value="ASSENTE">Assente</SelectItem>
-                                        <SelectItem value="INFORTUNATO_PRESENTE">Infortunato</SelectItem>
+                                        <SelectItem value="INFORTUNATO_PRESENTE">{isMatch ? 'Spettatore' : 'Infortunato'}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             ) : (

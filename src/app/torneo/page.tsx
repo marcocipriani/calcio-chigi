@@ -183,7 +183,7 @@ export default function TorneoPage() {
         <div className="flex justify-between items-center mb-2">
             <div>
                 <h1 className="text-3xl font-black text-foreground tracking-tight">Torneo</h1>
-                <p className="text-xs text-muted-foreground font-bold uppercase">Campionato ASI Over35</p>
+                <p className="text-xs text-muted-foreground font-bold">Girone A del torneo</p>
             </div>
             
             <div className="flex gap-2">

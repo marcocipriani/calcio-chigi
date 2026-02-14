@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { differenceInYears, format } from "date-fns"
 import { it } from 'date-fns/locale'
-
+import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card } from "@/components/ui/card"
@@ -32,7 +32,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users } from "lucide-react"
+import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Upload } from "lucide-react" // Aggiunto Camera e Upload
 
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
 
@@ -233,6 +233,8 @@ export default function SquadraPage() {
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
   const [editingPlayer, setEditingPlayer] = useState<any>(null)
   const [newPlayer, setNewPlayer] = useState({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' })
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
   const fieldRef = useRef<HTMLDivElement>(null)
@@ -284,6 +286,41 @@ export default function SquadraPage() {
       const now = new Date().toISOString()
       const { data } = await supabaseBrowser.from('events').select('*').eq('tipo', 'PARTITA').gte('data_ora', now).order('data_ora', { ascending: true }).limit(1).single()
       if(data) setNextMatch(data)
+  }
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+        setUploading(true)
+        if (!event.target.files || event.target.files.length === 0) {
+            throw new Error('Devi selezionare un\'immagine da caricare.')
+        }
+
+        const file = event.target.files[0]
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${editingPlayer.id}-${Math.random()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError } = await supabaseBrowser.storage
+            .from('avatars')
+            .upload(filePath, file)
+
+        if (uploadError) {
+            throw uploadError
+        }
+
+        const { data: { publicUrl } } = supabaseBrowser.storage
+            .from('avatars')
+            .getPublicUrl(filePath)
+
+        setEditingPlayer({ ...editingPlayer, avatar_url: publicUrl })
+        
+        toast.success("Foto caricata! Ricordati di salvare.")
+
+    } catch (error: any) {
+        toast.error("Errore caricamento: " + error.message)
+    } finally {
+        setUploading(false)
+    }
   }
 
   const downloadExcelDistinta = async () => {
@@ -364,8 +401,25 @@ export default function SquadraPage() {
 
   const handleUpdatePlayer = async () => {
       if(!editingPlayer) return;
-      const { error } = await supabaseBrowser.from('profiles').update({ nome: editingPlayer.nome, cognome: editingPlayer.cognome, ruolo: editingPlayer.ruolo, numero_maglia: editingPlayer.numero_maglia, data_nascita: editingPlayer.data_nascita || null, note_mediche: editingPlayer.note_mediche, dipartimento: editingPlayer.dipartimento, taglia_divisa: editingPlayer.taglia_divisa, tags: editingPlayer.tags || [], tessera_asi: editingPlayer.tessera_asi, is_staff: editingPlayer.is_staff, is_manager: editingPlayer.is_manager }).eq('id', editingPlayer.id);
-      if(error) alert("Errore: " + error.message); else { setEditingPlayer(null); getPlayers(); }
+      
+      const { error } = await supabaseBrowser.from('profiles').update({ 
+          nome: editingPlayer.nome, 
+          cognome: editingPlayer.cognome, 
+          ruolo: editingPlayer.ruolo, 
+          numero_maglia: editingPlayer.numero_maglia, 
+          data_nascita: editingPlayer.data_nascita || null, 
+          note_mediche: editingPlayer.note_mediche, 
+          dipartimento: editingPlayer.dipartimento, 
+          taglia_divisa: editingPlayer.taglia_divisa, 
+          tags: editingPlayer.tags || [], 
+          tessera_asi: editingPlayer.tessera_asi, 
+          is_staff: editingPlayer.is_staff, 
+          is_manager: editingPlayer.is_manager,
+          avatar_url: editingPlayer.avatar_url
+      }).eq('id', editingPlayer.id);
+
+      if(error) alert("Errore: " + error.message); 
+      else { setEditingPlayer(null); getPlayers(); }
   }
 
   const handleDeletePlayer = async (player: any) => {
@@ -468,7 +522,7 @@ export default function SquadraPage() {
                 <div className="flex justify-between items-center mb-2">
                     <div>
                         <h1 className="text-3xl font-black text-foreground tracking-tight">Rosa</h1>
-                        <p className="text-xs text-muted-foreground font-bold uppercase">Campionato ASI Over35</p>
+                        <p className="text-xs text-muted-foreground font-bold uppercase">I protagonisti della stagione</p>
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -639,10 +693,31 @@ export default function SquadraPage() {
                         <>
                             <div className="bg-slate-50 dark:bg-slate-900 p-6 pb-4 border-b relative">
                                 <div className="flex items-center gap-4">
-                                    <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                        <AvatarImage src={editingPlayer.avatar_url} className="object-cover"/>
-                                        <AvatarFallback className="text-xl font-bold">{editingPlayer.cognome[0]}</AvatarFallback>
-                                    </Avatar>
+                                    <div className="relative group">
+                                        <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
+                                            <AvatarImage src={editingPlayer.avatar_url} className="object-cover"/>
+                                            <AvatarFallback className="text-xl font-bold">{editingPlayer.cognome[0]}</AvatarFallback>
+                                        </Avatar>
+                                        {(isManager || editingPlayer.id === currentUserId) && (
+                                            <>
+                                                <label 
+                                                    htmlFor="avatar-upload" 
+                                                    className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-opacity"
+                                                >
+                                                    {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+                                                </label>
+                                                <input 
+                                                    id="avatar-upload" 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    className="hidden" 
+                                                    onChange={handleAvatarUpload}
+                                                    disabled={uploading}
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+
                                     <div className="space-y-2 flex-1">
                                         <Input value={editingPlayer.cognome} onChange={(e) => setEditingPlayer({...editingPlayer, cognome: e.target.value})} className="text-xl font-black h-9" placeholder="Cognome" />
                                         <Input value={editingPlayer.nome} onChange={(e) => setEditingPlayer({...editingPlayer, nome: e.target.value})} className="font-medium h-8" placeholder="Nome" />

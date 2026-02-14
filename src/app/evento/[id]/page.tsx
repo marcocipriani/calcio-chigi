@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, use } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState, use, useMemo } from 'react';
+import { createBrowserClient } from '@supabase/ssr'; // USARE QUESTO IMPORT
 import { useRouter } from 'next/navigation';
 import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Hand, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, User, Users } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,15 +24,20 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const { id } = use(params); 
   const router = useRouter();
   
+  const supabase = useMemo(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_KEY!
+  ), []);
+
   const [event, setEvent] = useState<any>(null);
   const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
   const [roster, setRoster] = useState<any[]>([]); 
-  const [allProfilesMap, setAllProfilesMap] = useState<Record<string, string>>({}); // Mappa ID -> Cognome per log manager
+  const [allProfilesMap, setAllProfilesMap] = useState<Record<string, string>>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isManager, setIsManager] = useState(false);
   const [myProfileId, setMyProfileId] = useState<string | null>(null);
   const [userStatus, setUserStatus] = useState<string | null>(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -49,11 +54,11 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       .subscribe();
 
     return () => { supabase.removeChannel(channel); }
-  }, [id]);
+  }, [id, supabase]);
 
   const handleRealtimeUpdate = async (payload: any) => {
       const { new: newRecord, old: oldRecord, eventType } = payload;
-     if (newRecord?.profile_id === myProfileId && newRecord?.modified_by === myProfileId) return;
+      if (newRecord?.profile_id === myProfileId && newRecord?.modified_by === myProfileId) return;
 
       if (eventType === 'DELETE' && oldRecord) {
           setRoster(prev => prev.map(p => 
@@ -76,20 +81,30 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   };
 
   async function loadAllData() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) console.error("Errore Auth:", authError);
+    console.log("Utente loggato:", user?.email);
+
     setCurrentUser(user);
     
     let currentPid = null;
 
     if (user) {
-        const { data: profile } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).maybeSingle();
+        const { data: profile, error: profileError } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).maybeSingle();
+        
+        if (profileError) console.error("Errore profilo:", profileError);
+
         if (profile) {
+            console.log("Profilo trovato:", profile.id, "Manager:", profile.is_manager);
             currentPid = profile.id;
             setIsManager(profile.is_manager);
             setMyProfileId(profile.id);
         } else {
-            console.warn("Utente loggato ma nessun profilo associato. Controllare tabella profiles.");
+            toast.warning("Utente non associato a un profilo giocatore.");
         }
+    } else {
+        console.log("Nessun utente loggato.");
     }
 
     const { data: eventData } = await supabase.from('events').select('*').eq('id', id).single();
@@ -131,7 +146,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         return;
     }
     if (!myProfileId) {
-        toast.error("Profilo non collegato. Contatta l'admin.");
+        toast.error("Profilo giocatore non trovato. Contatta l'amministratore.");
         return;
     }
 
@@ -157,7 +172,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     }, { onConflict: 'event_id, profile_id' });
 
     if (error) {
-        console.error(error);
+        console.error("Errore salvataggio voto:", error);
         setUserStatus(prevUserStatus);
         setRoster(prevRoster);
         toast.error("Errore salvataggio voto: " + error.message);
@@ -195,7 +210,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           modified_by: newStatus === 'RESET' ? null : myProfileId 
       } : p));
       
-      toast.info("Stato aggiornato dal Manager");
+      toast.info("Stato aggiornato dal manager");
 
       let error = null;
       if (newStatus === "RESET") {
@@ -248,7 +263,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const countAbsents = absentPlayers.length;
 
   const countTrainingPresent = presentPlayers.length;
-  const countTrainingKO = spectatorPlayers.length;
+  const countTrainingKO = spectatorPlayers.length; 
 
   const sortedRoster = [...roster].sort((a, b) => {
       if (a.is_staff && !b.is_staff) return 1;
@@ -346,13 +361,16 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <span className="text-2xl font-black text-blue-700">{countOver35}</span>
                         <div className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-600" /><span className="text-[9px] uppercase font-bold text-blue-900">Over 35</span></div>
                     </div>
-                    <div className="col-span-2 bg-indigo-50 border-indigo-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-2xl font-black text-indigo-700">{countU35}</span>
-                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-indigo-600" /><span className="text-[9px] uppercase font-bold text-indigo-900">Under 35</span></div>
+                    <div className="col-span-2 bg-sky-50 border-sky-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-2xl font-black text-sky-700">{countU35}</span>
+                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-sky-600" /><span className="text-[9px] uppercase font-bold text-sky-900">Under 35</span></div>
                     </div>
-                    <div className="col-span-2 bg-yellow-50 border-yellow-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-2xl font-black text-yellow-700">{countGoalies}</span>
-                        <div className="flex items-center gap-1"><Hand className="h-3 w-3 text-yellow-600" /><span className="text-[9px] uppercase font-bold text-yellow-900">Portieri</span></div>
+                    <div className="col-span-2 bg-cyan-50 border-cyan-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
+                        <span className="text-2xl font-black text-cyan-700">{countGoalies}</span>
+                        <div className="flex items-center gap-1">
+                            <Hand className="h-3 w-3 text-cyan-600" />
+                            <span className="text-[9px] uppercase font-bold text-cyan-900">Portieri</span>
+                        </div>
                     </div>
                     <div className="col-span-3 bg-slate-100 border-slate-200 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
                         <span className="text-xl font-black text-slate-600">{countSpectators}</span>
@@ -433,7 +451,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
-                <h3 className="font-bold text-lg">Elenco risposte</h3>
+                <h3 className="font-bold text-lg">Risposte</h3>
             </div>
 
             <div className="space-y-2">
@@ -481,20 +499,22 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                     <div className="flex items-center gap-2">
                                         <p className="font-bold text-sm leading-none flex items-center gap-1">
                                             {p.cognome} {p.nome}
-                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-purple-600"/>}
+                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-purple-600" />}
                                         </p>
                                         {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
                                         {p.ruolo === 'PORTIERE' && <Badge className="text-[8px] h-4 px-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">POR</Badge>}
                                     </div>
-                                    <div className="flex flex-col mt-1">
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">{p.ruolo?.substring(0,3)}</p>
-                                            <p className={`text-[10px] font-bold ${statusColor}`}>{statusText}</p>
-                                        </div>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                        <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                            {p.ruolo?.substring(0,3)}
+                                        </p>
+                                        <p className={`text-[10px] font-bold ${statusColor}`}>
+                                            {statusText}
+                                        </p>
                                         {voteTime && (
-                                            <p className="text-[8px] text-muted-foreground mt-0.5">
-                                                {isManagerEdit ? `Aggiornato da ${managerName} il ` : "Votato il "}{voteTime}
-                                            </p>
+                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                                {isManagerEdit ? `(Modificato da ${managerName} ${voteTime})` : `(Votato ${voteTime})`}
+                                            </span>
                                         )}
                                     </div>
                                 </div>

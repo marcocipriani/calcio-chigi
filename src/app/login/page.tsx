@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const router = useRouter()
 
@@ -57,6 +58,31 @@ export default function LoginPage() {
     }
   }
 
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true)
+    const origin = process.env.NEXT_PUBLIC_SITE_URL 
+      ? process.env.NEXT_PUBLIC_SITE_URL 
+      : window.location.origin;
+      
+    const redirectTo = `${origin}/auth/callback`
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
+
+    if (error) {
+        alert("Errore Google: " + error.message)
+        setGoogleLoading(false)
+    }
+  }
+
   return (
     <div className="flex items-center justify-center h-screen w-screen bg-slate-100 dark:bg-slate-950 p-4 overflow-hidden">
       <Card className="w-full max-w-sm shadow-xl border-t-4 border-t-primary animate-in fade-in zoom-in-95 duration-300">
@@ -78,7 +104,7 @@ export default function LoginPage() {
                 Circolo Chigi
             </CardTitle>
             <CardDescription>
-                Inserisci la tua mail per accedere
+                Accedi per gestire presenze e voti
             </CardDescription>
           </div>
         </CardHeader>
@@ -98,27 +124,58 @@ export default function LoginPage() {
                 </Button>
             </div>
           ) : (
-            <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                    <Input 
-                        type="email" 
-                        placeholder="nome@esempio.com" 
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)} 
-                        autoComplete="email"
-                        required
-                        className="h-11 text-center font-medium bg-slate-50 dark:bg-slate-900 border-slate-200 focus-visible:ring-primary"
-                    />
-                </div>
+            <div className="space-y-4">
                 
-                <Button className="w-full h-11 font-bold text-base shadow-lg shadow-primary/20" type="submit" disabled={loading}>
-                    {loading ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Attendere...</>
+                {/* PULSANTE GOOGLE */}
+                <Button 
+                    variant="outline" 
+                    className="w-full h-11 font-bold flex gap-2 items-center justify-center" 
+                    onClick={handleGoogleLogin}
+                    disabled={loading || googleLoading}
+                >
+                    {googleLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                        'Invia il link di accesso'
+                        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                            <path d="M12.0003 20.45c-4.6667 0-8.45-3.7833-8.45-8.45 0-4.6667 3.7833-8.45 8.45-8.45 2.2833 0 4.35 0.8333 5.95 2.2167l-3.2167 3.2166c-0.7166-0.6833-1.6333-1.0833-2.7333-1.0833-2.3167 0-4.2 1.8833-4.2 4.2s1.8833 4.2 4.2 4.2c2.1 0 3.8667-1.4 4.1334-3.35h-4.1334v-3.6667h8.4167c0.0833 0.6 0.1333 1.2167 0.1333 1.8667 0 4.95-3.3 8.45-8.55 8.45z" fill="currentColor" />
+                        </svg>
                     )}
+                    Accedi con Google
                 </Button>
-            </form>
+
+                <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-slate-100 dark:bg-slate-950 px-2 text-muted-foreground">
+                            Oppure via Email
+                        </span>
+                    </div>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                        <Input 
+                            type="email" 
+                            placeholder="nome@esempio.com" 
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                            autoComplete="email"
+                            required
+                            className="h-11 text-center font-medium bg-slate-50 dark:bg-slate-900 border-slate-200 focus-visible:ring-primary"
+                        />
+                    </div>
+                    
+                    <Button className="w-full h-11 font-bold text-base shadow-lg shadow-primary/20" type="submit" disabled={loading || googleLoading}>
+                        {loading ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Invio...</>
+                        ) : (
+                            'Invia link di accesso'
+                        )}
+                    </Button>
+                </form>
+            </div>
           )}
         </CardContent>
       </Card>

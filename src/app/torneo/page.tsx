@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input" 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, CalendarDays, Trophy, FileText, Download, Pencil, Save } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
@@ -22,11 +23,11 @@ import { COMUNICATI } from '@/lib/comunicati'
 export default function TorneoPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [matches, setMatches] = useState<any[]>([])
+  const [allMatches, setAllMatches] = useState<any[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
+  const [activePhase, setActivePhase] = useState('FASE_2_PROFESSIONISTI')
   
-  const [giornate, setGiornate] = useState<number[]>([])
   const [selectedGiornata, setSelectedGiornata] = useState<number | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -44,22 +45,21 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
-        // 1. Check Manager
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
             const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
             if (profile?.is_manager) setIsManager(true)
         }
 
-        // 2. Load Teams
         const { data: teamsData } = await supabase.from('teams').select('nome, logo_url')
         const tMap: Record<string, string> = {}
         if (teamsData) {
-            teamsData.forEach(t => { tMap[t.nome] = t.logo_url })
+            teamsData.forEach(t => { 
+                if(t.nome) tMap[t.nome.toLowerCase().trim()] = t.logo_url 
+            })
             setTeamsMap(tMap)
         }
 
-        // 3. Load Matches
         const { data } = await supabase
             .from('events')
             .select('*')
@@ -67,136 +67,160 @@ export default function TorneoPage() {
             .order('data_ora', { ascending: true })
         
         if (data && data.length > 0) {
-            setMatches(data)
-            
-            const uniqueG = Array.from(new Set(data.map(d => d.giornata))).filter(Boolean).sort((a:any, b:any) => a - b) as number[];
-            setGiornate(uniqueG)
-
-            const today = new Date();
-            today.setHours(0,0,0,0); 
-            const chigiMatches = data.filter(m => 
-                m.squadra_casa?.toLowerCase().includes('chigi') || 
-                m.squadra_ospite?.toLowerCase().includes('chigi')
-            );
-
-            const nextChigiMatch = chigiMatches.find(m => new Date(m.data_ora) >= today);
-            
-            if (nextChigiMatch && nextChigiMatch.giornata) {
-                setSelectedGiornata(nextChigiMatch.giornata);
-            } else {
-                const generalNextMatch = data.find(m => new Date(m.data_ora) >= today);
-                if (generalNextMatch) {
-                    setSelectedGiornata(generalNextMatch.giornata);
-                } else {
-                    setSelectedGiornata(uniqueG[uniqueG.length - 1]);
-                }
-            }
+            setAllMatches(data)
         }
         setLoading(false)
     }
     init()
   }, [supabase])
 
+  const currentPhaseMatches = useMemo(() => {
+    return allMatches.filter(m => {
+        if (activePhase === 'FASE_1') return !m.fase || m.fase === 'FASE_1'
+        return m.fase === activePhase
+    })
+  }, [allMatches, activePhase])
+
+  const giornate = useMemo(() => {
+    return Array.from(new Set(currentPhaseMatches.map(d => d.giornata))).filter(Boolean).sort((a:any, b:any) => a - b) as number[]
+  }, [currentPhaseMatches])
+
+  useEffect(() => {
+    if (currentPhaseMatches.length > 0) {
+        const today = new Date()
+        today.setHours(0,0,0,0)
+        const chigiMatches = currentPhaseMatches.filter(m => 
+            m.squadra_casa?.toLowerCase().includes('chigi') || 
+            m.squadra_ospite?.toLowerCase().includes('chigi')
+        )
+
+        const nextChigiMatch = chigiMatches.find(m => new Date(m.data_ora) >= today)
+        
+        if (nextChigiMatch && nextChigiMatch.giornata) {
+            setSelectedGiornata(nextChigiMatch.giornata)
+        } else {
+            const generalNextMatch = currentPhaseMatches.find(m => new Date(m.data_ora) >= today)
+            if (generalNextMatch) {
+                setSelectedGiornata(generalNextMatch.giornata)
+            } else {
+                setSelectedGiornata(giornate[giornate.length - 1] || null)
+            }
+        }
+    } else {
+        setSelectedGiornata(null)
+    }
+  }, [currentPhaseMatches, giornate])
+
   useEffect(() => {
     if (selectedGiornata && daysScrollRef.current) {
-        const selectedBtn = document.getElementById(`day-btn-${selectedGiornata}`);
+        const selectedBtn = document.getElementById(`day-btn-${selectedGiornata}`)
         if (selectedBtn) {
             daysScrollRef.current.scrollTo({
                 left: selectedBtn.offsetLeft - daysScrollRef.current.offsetWidth / 2 + selectedBtn.offsetWidth / 2,
                 behavior: 'smooth'
-            });
+            })
         }
     }
   }, [selectedGiornata])
 
   const handleEditEvent = (event: any) => {
-    setEditingEvent({ ...event });
-    setDialogOpen(true);
+    setEditingEvent({ ...event })
+    setDialogOpen(true)
   }
 
   const handleSaveEvent = async (eventData: any) => {
-    let payload = { ...eventData };
+    let payload = { ...eventData }
     if (editingEvent && !payload.data_ora) {
-        payload.data_ora = editingEvent.data_ora;
+        payload.data_ora = editingEvent.data_ora
     }
 
-    setMatches(prev => prev.map(m => m.id === editingEvent.id ? { ...m, ...payload } : m));
+    setAllMatches(prev => prev.map(m => m.id === editingEvent.id ? { ...m, ...payload } : m))
 
-    const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id);
+    const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id)
 
     if (error) {
-        alert("Errore salvataggio: " + error.message);
+        alert("Errore salvataggio: " + error.message)
     }
     
-    setDialogOpen(false);
-    setEditingEvent(null);
+    setDialogOpen(false)
+    setEditingEvent(null)
   }
 
+  const currentMatches = currentPhaseMatches.filter(m => m.giornata === selectedGiornata)
+
   const handleOpenScoreDialog = () => {
-    const currentDayMatches = matches.filter(m => m.giornata === selectedGiornata);
-    const initialScores: Record<string, {casa: string, ospite: string}> = {};
+    const initialScores: Record<string, {casa: string, ospite: string}> = {}
     
-    currentDayMatches.forEach(m => {
+    currentMatches.forEach(m => {
         initialScores[m.id] = {
             casa: m.gol_casa !== null ? m.gol_casa.toString() : '',
             ospite: m.gol_ospite !== null ? m.gol_ospite.toString() : ''
-        };
-    });
+        }
+    })
     
-    setTempScores(initialScores);
-    setScoreDialogOpen(true);
+    setTempScores(initialScores)
+    setScoreDialogOpen(true)
   }
 
   const handleSaveScore = async (matchId: string) => {
-      const s = tempScores[matchId];
-      if (!s) return;
+      const s = tempScores[matchId]
+      if (!s) return
 
-      const golCasa = s.casa === '' ? null : parseInt(s.casa);
-      const golOspite = s.ospite === '' ? null : parseInt(s.ospite);
+      const golCasa = s.casa === '' ? null : parseInt(s.casa)
+      const golOspite = s.ospite === '' ? null : parseInt(s.ospite)
 
-      setMatches(prev => prev.map(m => 
+      setAllMatches(prev => prev.map(m => 
           m.id === matchId 
           ? { ...m, gol_casa: golCasa, gol_ospite: golOspite, giocata: (golCasa !== null && golOspite !== null) } 
           : m
-      ));
+      ))
 
       const { error } = await supabase.from('events').update({
           gol_casa: golCasa,
           gol_ospite: golOspite,
           giocata: (golCasa !== null && golOspite !== null)
-      }).eq('id', matchId);
+      }).eq('id', matchId)
 
       if (error) {
-          toast.error("Errore: " + error.message);
+          toast.error("Errore: " + error.message)
       } else {
-          toast.success("Risultato salvato");
+          toast.success("Risultato salvato")
       }
   }
 
   if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>
 
-  const currentMatches = matches.filter(m => m.giornata === selectedGiornata);
-
   return (
     <div className="container max-w-4xl mx-auto p-4 pb-24 space-y-4">
         
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
             <div>
                 <h1 className="text-3xl font-black text-foreground tracking-tight">Torneo</h1>
-                <p className="text-xs text-muted-foreground font-bold">Girone A del torneo</p>
+                <p className="text-xs text-muted-foreground font-bold">Campionato ASI Over35 2025/2026</p>
             </div>
             
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+                <Select value={activePhase} onValueChange={setActivePhase}>
+                    <SelectTrigger className="w-[200px] h-10 font-bold bg-card border-primary/20">
+                        <SelectValue placeholder="Seleziona Fase" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="FASE_1">Fase 1: Girone unico</SelectItem>
+                        <SelectItem value="FASE_2_CALCIATORI">Fase 2: Calciatori</SelectItem>
+                        <SelectItem value="FASE_2_PROFESSIONISTI">Fase 2: Professionisti*</SelectItem>
+                    </SelectContent>
+                </Select>
+
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10">
+                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10">
                             <FileText className="h-5 w-5" />
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-sm rounded-2xl">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-primary" /> Comunicati Ufficiali
+                                <FileText className="h-5 w-5 text-primary" /> Comunicati ufficiali
                             </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-2 mt-2 max-h-[60vh] overflow-y-auto">
@@ -223,7 +247,7 @@ export default function TorneoPage() {
                     <Button 
                         onClick={handleOpenScoreDialog}
                         size="icon"
-                        className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
+                        className="h-10 w-10 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
                     >
                         <Pencil className="h-5 w-5" />
                     </Button>
@@ -242,7 +266,7 @@ export default function TorneoPage() {
             </TabsList>
 
             <TabsContent value="classifica" className="space-y-4 animate-in fade-in slide-in-from-left-2">
-                <ClassificaPage />
+                <ClassificaPage fase={activePhase} />
             </TabsContent>
 
             <TabsContent value="calendario" className="space-y-4 animate-in fade-in slide-in-from-right-2">
@@ -268,101 +292,108 @@ export default function TorneoPage() {
                             <span className="text-xl leading-none">{g}</span>
                         </button>
                     ))}
-                </div>
-
-                <div className="space-y-3 min-h-[300px]">
-                    <div className="flex items-center justify-between px-1">
-                        <span className="text-sm font-bold text-muted-foreground">
-                            Partite Giornata {selectedGiornata}
-                        </span>
-                    </div>
-
-                    {currentMatches.length === 0 && (
-                        <div className="text-center py-10 text-muted-foreground">
-                            Nessuna partita trovata.
-                        </div>
+                    {giornate.length === 0 && (
+                        <div className="text-sm text-muted-foreground py-4">Nessuna giornata disponibile per questa fase.</div>
                     )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {currentMatches.map(match => {
-                            const isChigi = match.squadra_casa?.toLowerCase().includes('chigi') || match.squadra_ospite?.toLowerCase().includes('chigi');
-                            
-                            return (
-                                <Card key={match.id} className={`border-l-4 ${isChigi ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10' : 'border-l-slate-300'}`}>
-                                    <CardContent className="p-4 flex items-center gap-4 relative">
-                                        
-                                        <div className="flex flex-col items-center justify-center w-12 text-center border-r pr-4">
-                                            <span className="text-lg font-black leading-none">
-                                                {format(new Date(match.data_ora), 'dd', { locale: it })}
-                                            </span>
-                                            <span className="text-[10px] font-bold uppercase text-muted-foreground">
-                                                {format(new Date(match.data_ora), 'MMM', { locale: it })}
-                                            </span>
-                                            <span className="text-[10px] font-mono mt-1 bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                                                {format(new Date(match.data_ora), 'HH:mm', { locale: it })}
-                                            </span>
-                                        </div>
-                                        
-                                        <div className="flex-1 space-y-2">
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-5 w-5 bg-transparent">
-                                                        <AvatarImage src={teamsMap[match.squadra_casa]} className="object-contain"/>
-                                                        <AvatarFallback className="text-[8px]">{match.squadra_casa?.[0]}</AvatarFallback>
-                                                    </Avatar>
-                                                    <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
-                                                        {match.squadra_casa}
-                                                    </span>
-                                                </div>
-                                                <span className="font-mono font-bold text-lg">
-                                                    {match.giocata ? match.gol_casa : ''}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar className="h-5 w-5 bg-transparent">
-                                                        <AvatarImage src={teamsMap[match.squadra_ospite]} className="object-contain"/>
-                                                        <AvatarFallback className="text-[8px]">{match.squadra_ospite?.[0]}</AvatarFallback>
-                                                    </Avatar>
-                                                    <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
-                                                        {match.squadra_ospite}
-                                                    </span>
-                                                </div>
-                                                <span className="font-mono font-bold text-lg">
-                                                    {match.giocata ? match.gol_ospite : ''}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {!match.giocata && (
-                                            <div className="absolute top-2 right-2">
-                                                <Badge variant="outline" className="text-[8px] px-1 h-4 border-slate-200 text-slate-400">
-                                                    DA GIOCARE
-                                                </Badge>
-                                            </div>
-                                        )}
-                                        
-                                        {isManager && (
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
-                                                className="absolute bottom-1 right-1 h-6 w-6 text-muted-foreground hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditEvent(match);
-                                                }}
-                                            >
-                                                <Pencil className="h-3 w-3" />
-                                            </Button>
-                                        )}
-
-                                    </CardContent>
-                                </Card>
-                            )
-                        })}
-                    </div>
                 </div>
+
+                {giornate.length > 0 && (
+                    <div className="space-y-3 min-h-[300px]">
+                        <div className="flex items-center justify-between px-1">
+                            <span className="text-sm font-bold text-muted-foreground">
+                                Partite Giornata {selectedGiornata}
+                            </span>
+                        </div>
+
+                        {currentMatches.length === 0 && (
+                            <div className="text-center py-10 text-muted-foreground">
+                                Nessuna partita trovata.
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {currentMatches.map(match => {
+                                const isChigi = match.squadra_casa?.toLowerCase().includes('chigi') || match.squadra_ospite?.toLowerCase().includes('chigi')
+                                const logoCasa = teamsMap[match.squadra_casa?.toLowerCase().trim()]
+                                const logoOspite = teamsMap[match.squadra_ospite?.toLowerCase().trim()]
+                                
+                                return (
+                                    <Card key={match.id} className={`border-l-4 ${isChigi ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10' : 'border-l-slate-300'}`}>
+                                        <CardContent className="p-4 flex items-center gap-4 relative">
+                                            
+                                            <div className="flex flex-col items-center justify-center w-12 text-center border-r pr-4">
+                                                <span className="text-lg font-black leading-none">
+                                                    {format(new Date(match.data_ora), 'dd', { locale: it })}
+                                                </span>
+                                                <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                                                    {format(new Date(match.data_ora), 'MMM', { locale: it })}
+                                                </span>
+                                                <span className="text-[10px] font-mono mt-1 bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                                    {format(new Date(match.data_ora), 'HH:mm', { locale: it })}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex-1 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar className="h-5 w-5 bg-transparent">
+                                                            <AvatarImage src={logoCasa} className="object-contain"/>
+                                                            <AvatarFallback className="text-[8px]">{match.squadra_casa?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
+                                                            {match.squadra_casa}
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-mono font-bold text-lg">
+                                                        {match.giocata ? match.gol_casa : ''}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-2">
+                                                        <Avatar className="h-5 w-5 bg-transparent">
+                                                            <AvatarImage src={logoOspite} className="object-contain"/>
+                                                            <AvatarFallback className="text-[8px]">{match.squadra_ospite?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
+                                                            {match.squadra_ospite}
+                                                        </span>
+                                                    </div>
+                                                    <span className="font-mono font-bold text-lg">
+                                                        {match.giocata ? match.gol_ospite : ''}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {!match.giocata && (
+                                                <div className="absolute top-2 right-2">
+                                                    <Badge variant="outline" className="text-[8px] px-1 h-4 border-slate-200 text-slate-400">
+                                                        DA GIOCARE
+                                                    </Badge>
+                                                </div>
+                                            )}
+                                            
+                                            {isManager && (
+                                                <Button 
+                                                    size="icon" 
+                                                    variant="ghost" 
+                                                    className="absolute bottom-1 right-1 h-6 w-6 text-muted-foreground hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleEditEvent(match)
+                                                    }}
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </Button>
+                                            )}
+
+                                        </CardContent>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
 
             </TabsContent>
         </Tabs>
@@ -383,7 +414,7 @@ export default function TorneoPage() {
                 
                 <div className="space-y-4 py-2">
                     {currentMatches.map(match => {
-                        const s = tempScores[match.id] || { casa: '', ospite: '' };
+                        const s = tempScores[match.id] || { casa: '', ospite: '' }
                         return (
                             <div key={match.id} className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border flex flex-col gap-3">
                                 <div className="text-[10px] text-muted-foreground font-bold uppercase text-center">

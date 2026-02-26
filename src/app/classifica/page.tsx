@@ -19,7 +19,7 @@ import { calculateStandings } from "@/lib/utils";
 import { Team, Event } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ClassificaPage() {
+export default function ClassificaPage({ fase }: { fase?: string }) {
   const [standings, setStandings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Event[]>([]);
@@ -39,16 +39,33 @@ export default function ClassificaPage() {
           }
       }
 
-      const { data: matchesData } = await supabase
+      let query = supabase
         .from('events')
         .select('*')
-        .eq('tipo', 'PARTITA')
-        .eq('giocata', true)
-        .order('data_ora', { ascending: false });
+        .eq('tipo', 'PARTITA');
 
-      if (currentTeams.length > 0 && matchesData) {
-        setMatches(matchesData);
-        const calculatedStandings = calculateStandings(currentTeams, matchesData);
+      if (fase && fase !== 'FASE_1') {
+          query = query.eq('fase', fase);
+      } else if (fase === 'FASE_1') {
+          query = query.or('fase.eq.FASE_1,fase.is.null');
+      }
+
+      const { data: phaseMatches } = await query.order('data_ora', { ascending: false });
+
+      if (currentTeams.length > 0 && phaseMatches) {
+        
+        const teamsInPhase = new Set<string>();
+        phaseMatches.forEach(m => {
+            if (m.squadra_casa) teamsInPhase.add(m.squadra_casa.toLowerCase().trim());
+            if (m.squadra_ospite) teamsInPhase.add(m.squadra_ospite.toLowerCase().trim());
+        });
+
+        const activeTeams = currentTeams.filter(t => teamsInPhase.has(t.nome.toLowerCase().trim()));
+
+        const playedMatches = phaseMatches.filter(m => m.giocata);
+        setMatches(playedMatches);
+
+        const calculatedStandings = calculateStandings(activeTeams, playedMatches);
         setStandings(calculatedStandings);
       }
     } catch (error) {
@@ -75,7 +92,7 @@ export default function ClassificaPage() {
     return () => {
       supabase.removeChannel(channel);
     }
-  }, []);
+  }, [fase]); 
 
   const getForm = (teamName: string) => {
       const teamMatches = matches.filter(m => 
@@ -154,7 +171,7 @@ export default function ClassificaPage() {
                 const form = getForm(row.teamData.nome);
 
                 return (
-                    <TableRow key={row.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}>
+                    <TableRow key={row.id || row.teamData.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}>
                     <TableCell className="text-center text-sm text-muted-foreground p-2 font-medium">{index + 1}</TableCell>
                     <TableCell className="p-2">
                         <div className="flex items-center gap-3">
@@ -212,6 +229,13 @@ export default function ClassificaPage() {
                     </TableRow>
                 );
                 })}
+                {standings.length === 0 && !loading && (
+                    <TableRow>
+                        <TableCell colSpan={12} className="text-center p-6 text-muted-foreground">
+                            Nessuna squadra attiva in questo girone.
+                        </TableCell>
+                    </TableRow>
+                )}
             </TableBody>
             </Table>
         </div>

@@ -1,5 +1,11 @@
 export const COMUNICATI = [
     { 
+        id: 13, 
+        data: "20/02/2026", 
+        titolo: "Comunicato n. 13", 
+        url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-13-20-02-2026_1DbL.pdf" 
+    },
+    { 
         id: 12, 
         data: "11/02/2026", 
         titolo: "Comunicato n. 12", 

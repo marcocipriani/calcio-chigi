@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect, useState, use, useMemo } from 'react';
-import { createBrowserClient } from '@supabase/ssr'; // USARE QUESTO IMPORT
+import { createBrowserClient } from '@supabase/ssr'; 
 import { useRouter } from 'next/navigation';
 import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 
 const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
 const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
@@ -84,7 +85,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) console.error("Errore Auth:", authError);
-    console.log("Utente loggato:", user?.email);
 
     setCurrentUser(user);
     
@@ -96,22 +96,26 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         if (profileError) console.error("Errore profilo:", profileError);
 
         if (profile) {
-            console.log("Profilo trovato:", profile.id, "Manager:", profile.is_manager);
             currentPid = profile.id;
             setIsManager(profile.is_manager);
             setMyProfileId(profile.id);
         } else {
             toast.warning("Utente non associato a un profilo giocatore.");
         }
-    } else {
-        console.log("Nessun utente loggato.");
     }
 
     const { data: eventData } = await supabase.from('events').select('*').eq('id', id).single();
     if (eventData) {
-        setEvent(eventData);
+        
+        let opponentName = eventData.avversario;
         if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
-            const opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') ? eventData.squadra_ospite : eventData.squadra_casa;
+            opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') ? eventData.squadra_ospite : eventData.squadra_casa;
+        }
+        
+        const processedEvent = { ...eventData, avversario: opponentName };
+        setEvent(processedEvent);
+
+        if (processedEvent.tipo === 'PARTITA' && opponentName) {
             const { data: teamData } = await supabase.from('teams').select('logo_url').ilike('nome', `%${opponentName}%`).maybeSingle();
             if (teamData) setOpponentLogo(teamData.logo_url);
         }
@@ -246,6 +250,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       if (error) toast.error(error.message); else { toast.success("Eliminato."); router.push('/torneo'); }
   }
 
+  const handleCopyWhatsApp = () => {
+    const formattedPresenze = roster.map(p => ({
+        status: p.status === 'PRESENTE' ? 'PRESENT' : p.status,
+        profiles: p
+    }));
+
+    const testo = genMsgWhatsApp(event, formattedPresenze);
+    
+    navigator.clipboard.writeText(testo).then(() => {
+        toast.success('Messaggio copiato!', {
+            description: 'Pronto per essere incollato su WhatsApp.'
+        });
+    }).catch(err => {
+        console.error("Errore nella copia: ", err);
+        toast.error("Errore durante la copia del messaggio.");
+    });
+  };
+
   if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>;
   if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
@@ -319,6 +341,14 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </div>
             {isManager && (
                 <div className="flex gap-2">
+                    <Button 
+                        onClick={handleCopyWhatsApp}
+                        size="icon"
+                        className="h-8 w-8 bg-green-600 hover:bg-green-700 text-white shadow-md rounded-md"
+                        title="Copia per WhatsApp"
+                    >
+                        <Share2 className="h-4 w-4" /> 
+                    </Button>
                     <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none"><Pencil className="h-3 w-3" /> Modifica</Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>

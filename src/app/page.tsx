@@ -111,6 +111,7 @@ export default function Home() {
     const { data: eventsData, error } = await supabase
       .from('events')
       .select('*, attendance (status, profiles:profiles!attendance_profile_id_fkey (cognome, avatar_url))')
+      .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%,tipo.neq.PARTITA')
       .order('data_ora', { ascending: true });
     
     if(error) console.error("db error:", JSON.stringify(error, null, 2));
@@ -167,9 +168,29 @@ export default function Home() {
       }
   }
 
+  const processedEvents = useMemo(() => {
+    return events.map(e => {
+        let opponent = e.avversario;
+        if (e.tipo === 'PARTITA' && e.squadra_casa && e.squadra_ospite) {
+            if (e.squadra_casa.toLowerCase().includes('chigi')) {
+                opponent = e.squadra_ospite;
+            } else if (e.squadra_ospite.toLowerCase().includes('chigi')) {
+                opponent = e.squadra_casa;
+            }
+        }
+        return { ...e, avversario: opponent };
+    });
+  }, [events]);
+
   const getLogo = (teamName?: string | null) => {
     if (!teamName) return null;
-    const team = teams.find(t => t.nome && teamName.toLowerCase().includes(t.nome.toLowerCase()));
+    const normalizedName = teamName.toLowerCase().trim();
+    const team = teams.find(t => 
+        t.nome && (
+            normalizedName.includes(t.nome.toLowerCase().trim()) || 
+            t.nome.toLowerCase().trim().includes(normalizedName)
+        )
+    );
     return team?.logo_url;
   }
 
@@ -178,17 +199,12 @@ export default function Home() {
   yesterday.setHours(0,0,0,0);
   const now = new Date();
 
-  const myEvents = events.filter(e => {
-    if (e.tipo === 'ALLENAMENTO') return true;
-    return !e.avversario?.includes(' vs '); 
-  });
-
   const applyTypeFilter = (list: Event[]) => {
     if (filter === 'ALL') return list;
     return list.filter(e => e.tipo === filter);
   };
 
-  const filteredEvents = applyTypeFilter(myEvents);
+  const filteredEvents = applyTypeFilter(processedEvents);
 
   const futureRaw = filteredEvents.filter(e => new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
   

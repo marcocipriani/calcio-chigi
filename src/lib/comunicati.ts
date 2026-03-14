@@ -1,5 +1,23 @@
 export const COMUNICATI = [
     { 
+        id: 16, 
+        data: "13/03/2026", 
+        titolo: "Comunicato n. 16", 
+        url: "https://cdn.enjore.com/source/doc/comunicate/113994-comunicato-n-16-del-13032026_HIEf.pdf" 
+    },
+    { 
+        id: 15, 
+        data: "20/02/2026", 
+        titolo: "Comunicato n. 15", 
+        url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-15-10-03-2026_GPOe.pdf" 
+    },
+    { 
+        id: 14, 
+        data: "20/02/2026", 
+        titolo: "Comunicato n. 14", 
+        url: "https://cdn.enjore.com/source/doc/comunicate/113994-campionato-asi-over35_artimestieri_20252026-comunicato-14-28-02-2026_LQ60.pdf" 
+    },
+    { 
         id: 13, 
         data: "20/02/2026", 
         titolo: "Comunicato n. 13", 

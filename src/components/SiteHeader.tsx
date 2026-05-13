@@ -8,20 +8,21 @@ import { Button } from "@/components/ui/button"
 import { createBrowserClient } from '@supabase/ssr'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
+type HeaderProfile = {
+  nome?: string | null;
+  cognome?: string | null;
+  avatar_url?: string | null;
+};
+
 export function SiteHeader() {
   const { setTheme, theme } = useTheme()
-  const [profile, setProfile] = useState<any>(null)
+  const [profile, setProfile] = useState<HeaderProfile | null>(null)
   const [hasSession, setHasSession] = useState(false) 
-  const [mounted, setMounted] = useState(false)
 
   const supabase = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_KEY!
   ), [])
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   useEffect(() => {
     async function loadData() {
@@ -67,24 +68,22 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
             
             {/* Theme Toggle */}
-            {mounted && (
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                    className="text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full h-9 w-9"
-                >
-                    <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                    <span className="sr-only">Toggle theme</span>
-                </Button>
-            )}
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full h-9 w-9"
+            >
+                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Toggle theme</span>
+            </Button>
             
             {/* Profile / Login */}
             <Link href={profileLink}>
                 {profile ? (
                     <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 cursor-pointer transition-transform hover:scale-105">
-                        <AvatarImage src={profile.avatar_url} className="object-cover" />
+                        <AvatarImage src={profile.avatar_url ?? undefined} className="object-cover" />
                         <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
                             {profile.nome?.[0] || "U"}
                         </AvatarFallback>

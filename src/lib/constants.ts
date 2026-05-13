@@ -25,7 +25,14 @@ export const BOMBER_TAGS = [
     "Vado a farmi la doccia"
 ];
 
-export const FORMATIONS: any = {
+export type FormationSlotDefinition = {
+  id: string;
+  role: string;
+  top: string;
+  left: string;
+};
+
+export const FORMATIONS: Record<string, FormationSlotDefinition[]> = {
   "4-4-2": [
     { id: 'POR', role: 'PT', top: '88%', left: '50%' },
     { id: 'TS', role: 'DIF', top: '70%', left: '15%' }, { id: 'DC1', role: 'DIF', top: '70%', left: '38%' }, { id: 'DC2', role: 'DIF', top: '70%', left: '62%' }, { id: 'TD', role: 'DIF', top: '70%', left: '85%' },

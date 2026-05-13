@@ -1,7 +1,25 @@
 import { format, subMinutes, differenceInYears, isToday, isTomorrow } from 'date-fns';
 import { it } from 'date-fns/locale';
 
-export function genMsgWhatsApp(evento: any, presenze: any[]) {
+type WhatsAppEvent = {
+    data_ora: string;
+    tipo: 'PARTITA' | 'ALLENAMENTO';
+    squadra_casa?: string | null;
+    squadra_ospite?: string | null;
+    luogo?: string | null;
+};
+
+type WhatsAppAttendance = {
+    status?: string | null;
+    profiles?: {
+        nome?: string | null;
+        cognome?: string | null;
+        ruolo?: string | null;
+        data_nascita?: string | null;
+    } | null;
+};
+
+export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendance[]) {
     const dataEvento = new Date(evento.data_ora);
     const isPartita = evento.tipo === 'PARTITA';
     
@@ -10,10 +28,10 @@ export function genMsgWhatsApp(evento: any, presenze: any[]) {
     
     if (isPartita) {
         if (evento.squadra_casa?.toLowerCase().includes('chigi')) {
-            avversario = evento.squadra_ospite;
+            avversario = evento.squadra_ospite ?? '';
             inCasa = true;
         } else {
-            avversario = evento.squadra_casa;
+            avversario = evento.squadra_casa ?? '';
             inCasa = false;
         }
     }

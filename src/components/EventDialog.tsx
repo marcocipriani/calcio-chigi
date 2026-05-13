@@ -43,7 +43,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             date: localIso.slice(0, 10),
             time: localIso.slice(11, 16)
         };
-    } catch (e) {
+    } catch {
         return { date: '', time: '' };
     }
   };
@@ -153,9 +153,10 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         await onSave(payload)
         toast.success(eventToEdit ? "Evento modificato!" : "Evento creato!");
         onOpenChange(false)
-    } catch (error: any) {
+    } catch (error) {
         console.error("❌ Errore Submit:", error)
-        toast.error(`Errore: ${error.message}`);
+        const message = error instanceof Error ? error.message : "Errore sconosciuto";
+        toast.error(`Errore: ${message}`);
     } finally {
         setLoading(false)
     }
@@ -166,7 +167,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
       <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto bg-card text-card-foreground border-border">
         <DialogHeader>
           <DialogTitle>{eventToEdit ? 'Modifica Evento' : 'Nuovo Evento'}</DialogTitle>
-          <DialogDescription>Gestisci i dettagli dell'impegno.</DialogDescription>
+          <DialogDescription>Gestisci i dettagli dell&apos;impegno.</DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">

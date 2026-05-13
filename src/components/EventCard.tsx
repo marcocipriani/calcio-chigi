@@ -16,13 +16,15 @@ interface EventProps {
   className?: string;
 }
 
+type EventAttendancePreview = NonNullable<Event["attendance"]>[number];
+
 export function EventCard({ event, opponentLogo, isManager, onEdit, className }: EventProps) {
   const date = new Date(event.data_ora);
   const isMatch = event.tipo === 'PARTITA';
   const isPlayed = event.giocata === true;
   const isCancelled = event.cancellato === true;
 
-  const activePlayers = event.attendance?.filter((a: any) => a.status === 'PRESENTE') || [];
+  const activePlayers = event.attendance?.filter((attendance) => attendance.status === 'PRESENTE') || [];
   const activeCount = activePlayers.length;
 
   let resultBadgeClass = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
@@ -98,7 +100,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                         variant="ghost" 
                         size="icon" 
                         className="h-7 w-7 rounded-full bg-white/50 hover:bg-white dark:bg-black/20 dark:hover:bg-black/40"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit && onEdit(event); }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(event); }}
                     >
                         <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -165,7 +167,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
             {!isPlayed && !isCancelled && (
                 <div className="mt-4 pt-3 border-t dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center -space-x-2 overflow-hidden pl-1">
-                        {activePlayers.slice(0, 5).map((att: any, i: number) => (
+                        {activePlayers.slice(0, 5).map((att: EventAttendancePreview, i: number) => (
                             <Avatar key={i} className="inline-block h-7 w-7 rounded-full ring-2 ring-background dark:ring-slate-800">
                                 <AvatarImage src={att.profiles?.avatar_url || ""} />
                                 <AvatarFallback className="bg-muted text-[9px] text-muted-foreground font-bold">

@@ -8,14 +8,21 @@ export interface Team {
 export interface Profile {
     id: string;
     nome?: string;
+    cognome?: string;
     avatar_url?: string;
     is_manager?: boolean;
+    ruolo?: string | null;
+    data_nascita?: string | null;
 }
 
 export interface Attendance {
     id: number;
     event_id: number;
     user_id: string;
+    profile_id?: string;
+    modified_by?: string | null;
+    created_at?: string;
+    updated_at?: string | null;
     status: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE' | 'NON_IMPOSTATO';
     profiles?: Profile;
 }

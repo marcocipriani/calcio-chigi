@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { Event } from '@/lib/types'
+import { getUserContext, fetchAvailableGiornate, fetchMatchesByGiornata } from '@/lib/api'
 
 export default function GestioneRisultatiPage() {
   const router = useRouter()
@@ -46,47 +47,27 @@ export default function GestioneRisultatiPage() {
   }, [matches, originalMatches])
 
   async function checkManager() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-        const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
-        if (profile?.is_manager) {
-            setIsManager(true)
-        } else {
-            router.push('/')
-        }
+    const { isManager } = await getUserContext(supabase)
+    if (isManager) {
+        setIsManager(true)
+    } else {
+        router.push('/')
     }
   }
 
   async function loadAvailableMatchdays() {
-      const { data } = await supabase
-        .from('events')
-        .select('giornata')
-        .eq('tipo', 'PARTITA')
-        .not('giornata', 'is', null)
-        .order('giornata', { ascending: true });
-      
-      if (data) {
-          const unique = Array.from(new Set(data.map(d => d.giornata?.toString()))).filter(Boolean);
-          setGiornateDisponibili(unique as string[]);
-          if (unique.length > 0) setGiornata(unique[0] as string);
-      }
+      const unique = await fetchAvailableGiornate(supabase)
+      setGiornateDisponibili(unique)
+      if (unique.length > 0) setGiornata(unique[0])
   }
 
   async function loadMatches() {
     setLoading(true)
-    const { data } = await supabase
-      .from('events')
-      .select('*')
-      .eq('tipo', 'PARTITA')
-      .eq('giornata', parseInt(giornata))
-      .order('data_ora', { ascending: true })
-
-    if (data) {
-        const sortedData = data.sort((a,b) => a.id.localeCompare(b.id));
-        setMatches(JSON.parse(JSON.stringify(sortedData)))
-        setOriginalMatches(JSON.parse(JSON.stringify(sortedData)))
-        setHasChanges(false)
-    }
+    const data = await fetchMatchesByGiornata(supabase, parseInt(giornata))
+    const sortedData = [...data].sort((a, b) => a.id.localeCompare(b.id))
+    setMatches(JSON.parse(JSON.stringify(sortedData)))
+    setOriginalMatches(JSON.parse(JSON.stringify(sortedData)))
+    setHasChanges(false)
     setLoading(false)
   }
 

@@ -56,6 +56,26 @@ export interface Event {
     attendance?: Attendance[];
 }
 
+export interface FullProfile {
+    id: string;
+    user_id?: string | null;
+    nome: string;
+    cognome: string;
+    email?: string | null;
+    avatar_url?: string | null;
+    data_nascita?: string | null;
+    ruolo?: string | null;
+    dipartimento?: string | null;
+    numero_maglia?: number | null;
+    tessera_asi?: string | null;
+    tags?: string[] | null;
+    note_mediche?: string | null;
+    taglia_divisa?: string | null;
+    default_view?: string | null;
+    is_staff?: boolean;
+    is_manager?: boolean;
+}
+
 export interface StandingRow {
     id: string;
     teamData: Partial<Team>;

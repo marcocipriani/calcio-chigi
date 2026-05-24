@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
+import { getUserContext, fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
 
 interface RosterPlayer {
   id: string;
@@ -109,65 +110,52 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   };
 
   async function loadAllData() {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError) console.error("Errore Auth:", authError);
-
+    const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
-    
-    let currentPid = null;
 
-    if (user) {
-        const { data: profile, error: profileError } = await supabase.from('profiles').select('id, is_manager').eq('user_id', user.id).maybeSingle();
-        
-        if (profileError) console.error("Errore profilo:", profileError);
-
-        if (profile) {
-            currentPid = profile.id;
-            setIsManager(profile.is_manager);
-            setMyProfileId(profile.id);
-        } else {
-            toast.warning("Utente non associato a un profilo giocatore.");
-        }
+    const { isManager, profileId: currentPid } = await getUserContext(supabase);
+    if (currentPid) {
+        setIsManager(isManager);
+        setMyProfileId(currentPid);
+    } else if (user) {
+        toast.warning("Utente non associato a un profilo giocatore.");
     }
 
-    const { data: eventData } = await supabase.from('events').select('*').eq('id', id).single();
+    const [eventData, allProfiles, attendanceData] = await Promise.all([
+        fetchEventById(supabase, id),
+        fetchRosterForEvent(supabase),
+        fetchAttendanceForEvent(supabase, id),
+    ]);
+
     if (eventData) {
-        
         let opponentName = eventData.avversario;
         if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
             opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') ? eventData.squadra_ospite : eventData.squadra_casa;
         }
-        
         const processedEvent = { ...eventData, avversario: opponentName };
         setEvent(processedEvent);
 
         if (processedEvent.tipo === 'PARTITA' && opponentName) {
-            const { data: teamData } = await supabase.from('teams').select('logo_url').ilike('nome', `%${opponentName}%`).maybeSingle();
-            if (teamData) setOpponentLogo(teamData.logo_url);
+            const logo = await fetchTeamLogoByName(supabase, opponentName);
+            if (logo) setOpponentLogo(logo);
         }
     }
 
-    const { data: allProfiles } = await supabase.from('profiles').select('id, nome, cognome, ruolo, avatar_url, data_nascita, is_staff').order('cognome');
-    const { data: attendanceData } = await supabase.from('attendance').select('profile_id, status, created_at, updated_at, modified_by').eq('event_id', id);
+    const pMap: Record<string, string> = {};
+    allProfiles.forEach(p => { pMap[p.id] = `${p.cognome} ${p.nome}` });
+    setAllProfilesMap(pMap);
 
-    if (allProfiles) {
-        const pMap: Record<string, string> = {};
-        allProfiles.forEach(p => { pMap[p.id] = `${p.cognome} ${p.nome}` });
-        setAllProfilesMap(pMap);
-
-        const mergedRoster = allProfiles.map(p => {
-            const vote = attendanceData?.find(a => a.profile_id === p.id);
-            if (p.id === currentPid) setUserStatus(vote?.status || null);
-            return { 
-                ...p, 
-                status: vote?.status || null,
-                vote_time: vote?.updated_at || vote?.created_at || null,
-                modified_by: vote?.modified_by || null
-            };
-        });
-        setRoster(mergedRoster);
-    }
+    const mergedRoster = allProfiles.map(p => {
+        const vote = attendanceData.find(a => a.profile_id === p.id);
+        if (p.id === currentPid) setUserStatus(vote?.status || null);
+        return {
+            ...p,
+            status: vote?.status || null,
+            vote_time: vote?.updated_at || vote?.created_at || null,
+            modified_by: vote?.modified_by || null
+        };
+    });
+    setRoster(mergedRoster);
     setLoading(false);
   }
 

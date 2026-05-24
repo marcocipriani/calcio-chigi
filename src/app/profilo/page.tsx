@@ -19,34 +19,16 @@ import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { BOMBER_TAGS } from "@/lib/constants"
-
-interface UserProfile {
-  id: string;
-  user_id?: string;
-  nome?: string | null;
-  cognome?: string | null;
-  email?: string | null;
-  avatar_url?: string | null;
-  data_nascita?: string | null;
-  ruolo?: string | null;
-  dipartimento?: string | null;
-  numero_maglia?: number | null;
-  tessera_asi?: string | null;
-  tags?: string[] | null;
-  note_mediche?: string | null;
-  taglia_divisa?: string | null;
-  default_view?: string | null;
-  is_staff?: boolean;
-  is_manager?: boolean;
-}
+import { FullProfile } from "@/lib/types"
+import { fetchOwnProfile } from "@/lib/api"
 
 export default function ProfilePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [myProfile, setMyProfile] = useState<UserProfile | null>(null)
+  const [myProfile, setMyProfile] = useState<FullProfile | null>(null)
 
-  const [originalData, setOriginalData] = useState<UserProfile | null>(null)
+  const [originalData, setOriginalData] = useState<FullProfile | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -74,23 +56,13 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadData = async () => {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
+        const profile = await fetchOwnProfile(supabase)
+        if (!profile) {
           router.replace('/login')
           return
         }
-    
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .single()
-    
-        if (profile) {
-          setMyProfile(profile)
-          loadFormData(profile)
-        }
+        setMyProfile(profile)
+        loadFormData(profile)
         setLoading(false)
       }
 
@@ -119,7 +91,7 @@ export default function ProfilePage() {
     setHasChanges(isDifferent);
   }, [formData, originalData])
 
-  const loadFormData = (profile: UserProfile) => {
+  const loadFormData = (profile: FullProfile) => {
       const initialData = {
           nome: profile.nome || '',
           cognome: profile.cognome || '',
@@ -209,7 +181,7 @@ export default function ProfilePage() {
       const statusMedico = formData.note_mediche.trim() === '' ? 'OK' : formData.note_mediche;
       const dataNascitaPayload = formData.data_nascita ? formData.data_nascita : null;
 
-      const updates: Partial<UserProfile> = {
+      const updates: Partial<FullProfile> = {
             nome: formData.nome,
             cognome: formData.cognome,
             email: formData.email,
@@ -230,7 +202,7 @@ export default function ProfilePage() {
       if (error) {
           toast.error("Errore salvataggio: " + error.message)
       } else {
-          const updatedProfile = { ...originalData, ...updates } as UserProfile;
+          const updatedProfile = { ...originalData, ...updates } as FullProfile;
           setOriginalData(updatedProfile);
           setHasChanges(false);
           toast.success("Profilo aggiornato con successo.");

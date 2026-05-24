@@ -27,6 +27,7 @@ import { it } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Event, Team } from "@/lib/types";
+import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
 import { toast } from "sonner";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
@@ -68,42 +69,17 @@ export default function Home() {
   };
 
   async function fetchData() {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-        const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('is_manager, default_view')
-            .eq('user_id', user.id)
-            .single();
-        
-        if (error) {
-            console.error("❌ Errore caricamento profilo:", error);
-        }
+    const { isManager, defaultView } = await getUserContext(supabase);
+    if (isManager) setIsManager(true);
+    if (defaultView) setViewMode(defaultView as ViewMode);
 
-        if (profile) {
-            if (profile.is_manager) setIsManager(true);
-            
-            if (profile.default_view) {
-                setViewMode(profile.default_view as ViewMode);
-            }
-        }
-    }
+    const [eventsData, teamsData] = await Promise.all([
+      fetchCalendarEvents(supabase),
+      fetchTeams(supabase),
+    ]);
 
-    const { data: eventsData, error } = await supabase
-      .from('events')
-      .select('*, attendance (status, profiles:profiles!attendance_profile_id_fkey (cognome, avatar_url))')
-      .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%,tipo.neq.PARTITA')
-      .order('data_ora', { ascending: true });
-    
-    if(error) console.error("db error:", JSON.stringify(error, null, 2));
-
-    const { data: teamsData } = await supabase
-      .from('teams')
-      .select('id, nome, logo_url');
-
-    setEvents(eventsData || []);
-    setTeams(teamsData || []);
+    setEvents(eventsData);
+    setTeams(teamsData);
     setLoading(false);
   }
 

@@ -18,6 +18,7 @@ import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
 import { Event, EventFase } from '@/lib/types'
+import { getUserContext, fetchComunicati, fetchTeams, fetchAllMatches, type Comunicato } from '@/lib/api'
 
 export default function TorneoPage() {
   const [loading, setLoading] = useState(true)
@@ -25,7 +26,7 @@ export default function TorneoPage() {
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
   const [activePhase, setActivePhase] = useState<EventFase>('FASE_2_PROFESSIONISTI')
-  const [comunicati, setComunicati] = useState<{ id: string; titolo: string; data: string | null; enjore_url: string }[]>([])
+  const [comunicati, setComunicati] = useState<Comunicato[]>([])
 
   const [selectedGiornataOverride, setSelectedGiornataOverride] = useState<number | null>(null)
 
@@ -44,36 +45,22 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
-            if (profile?.is_manager) setIsManager(true)
-        }
+        const { isManager } = await getUserContext(supabase)
+        if (isManager) setIsManager(true)
 
-        const { data: comunicatiData } = await supabase
-          .from('comunicati')
-          .select('id,titolo,data,enjore_url')
-          .order('data', { ascending: false })
-        if (comunicatiData && comunicatiData.length > 0) setComunicati(comunicatiData)
+        const comunicatiData = await fetchComunicati(supabase)
+        if (comunicatiData.length > 0) setComunicati(comunicatiData)
 
-        const { data: teamsData } = await supabase.from('teams').select('nome, logo_url')
+        const teamsData = await fetchTeams(supabase)
         const tMap: Record<string, string> = {}
-        if (teamsData) {
-            teamsData.forEach(t => { 
-                if(t.nome) tMap[t.nome.toLowerCase().trim()] = t.logo_url 
-            })
-            setTeamsMap(tMap)
-        }
+        teamsData.forEach(t => {
+            if (t.nome) tMap[t.nome.toLowerCase().trim()] = t.logo_url ?? ''
+        })
+        setTeamsMap(tMap)
 
-        const { data } = await supabase
-            .from('events')
-            .select('*')
-            .eq('tipo', 'PARTITA')
-            .order('data_ora', { ascending: true })
-        
-        if (data && data.length > 0) {
-            setAllMatches(data)
-        }
+        const matches = await fetchAllMatches(supabase)
+        if (matches.length > 0) setAllMatches(matches)
+
         setLoading(false)
     }
     init()

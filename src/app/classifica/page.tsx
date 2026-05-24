@@ -16,7 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { calculateStandings } from "@/lib/utils";
-import { Team, Event, StandingRow } from "@/lib/types";
+import { Team, Event, StandingRow, EventFase } from "@/lib/types";
+import { fetchTeams, fetchMatchesByPhase } from '@/lib/api'
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
@@ -31,31 +32,13 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
     try {
       let currentTeams = teams;
       if (currentTeams.length === 0) {
-          const { data: teamsData } = await supabase
-            .from('teams')
-            .select('id, nome, logo_url, slug');
-          
-          if (teamsData) {
-            currentTeams = teamsData;
-            setTeams(teamsData);
-          }
+          currentTeams = await fetchTeams(supabase);
+          setTeams(currentTeams);
       }
 
-      let query = supabase
-        .from('events')
-        .select('*')
-        .eq('tipo', 'PARTITA');
+      const phaseMatches = await fetchMatchesByPhase(supabase, (fase ?? 'FASE_1') as EventFase);
 
-      if (fase && fase !== 'FASE_1') {
-          query = query.eq('fase', fase);
-      } else if (fase === 'FASE_1') {
-          query = query.or('fase.eq.FASE_1,fase.is.null');
-      }
-
-      const { data: phaseMatches } = await query.order('data_ora', { ascending: false });
-
-      if (currentTeams.length > 0 && phaseMatches) {
-        
+      if (currentTeams.length > 0) {
         const teamsInPhase = new Set<string>();
         phaseMatches.forEach(m => {
             if (m.squadra_casa) teamsInPhase.add(m.squadra_casa.toLowerCase().trim());

@@ -35,25 +35,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image } from "lucide-react"
 
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
-import { Event } from "@/lib/types"
+import { Event, FullProfile } from "@/lib/types"
+import { getUserContext, fetchAllPlayers, fetchNextChigiMatch } from "@/lib/api"
 
-interface Player {
-    id: string;
-    nome: string;
-    cognome: string;
-    ruolo?: string | null;
-    avatar_url?: string | null;
-    numero_maglia?: number | null;
-    data_nascita?: string | null;
-    email?: string | null;
-    tessera_asi?: string | null;
-    tags?: string[] | null;
-    note_mediche?: string | null;
-    taglia_divisa?: string | null;
-    dipartimento?: string | null;
-    is_staff?: boolean;
-    is_manager?: boolean;
-}
+type Player = FullProfile
 
 type FormationSlotDef = { id: string; top?: string; left?: string };
 
@@ -287,25 +272,19 @@ export default function SquadraPage() {
     }, [searchTerm, filterStatus, players]);
 
     async function checkUserAndPermissions() {
-        const { data: { user } } = await supabaseBrowser.auth.getUser()
-        if (user) {
-            const { data: profile } = await supabaseBrowser.from('profiles').select('id, is_manager').eq('user_id', user.id).single()
-            if (profile) {
-                setCurrentUserId(profile.id)
-                if (profile.is_manager) setIsManager(true)
-            }
-        }
+        const { isManager, profileId } = await getUserContext(supabaseBrowser)
+        if (profileId) setCurrentUserId(profileId)
+        if (isManager) setIsManager(true)
     }
 
     async function getPlayers() {
-        const { data } = await supabaseBrowser.from('profiles').select('*').order('cognome', { ascending: true })
-        setPlayers(data || [])
+        const data = await fetchAllPlayers(supabaseBrowser)
+        setPlayers(data)
         setLoading(false)
     }
 
     async function fetchNextMatch() {
-        const now = new Date().toISOString()
-        const { data } = await supabaseBrowser.from('events').select('*').eq('tipo', 'PARTITA').gte('data_ora', now).order('data_ora', { ascending: true }).limit(1).single()
+        const data = await fetchNextChigiMatch(supabaseBrowser)
         if (data) setNextMatch(data)
     }
 

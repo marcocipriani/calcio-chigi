@@ -440,7 +440,9 @@ export default function SquadraPage() {
             taglia_divisa: editingPlayer.taglia_divisa,
             tags: editingPlayer.tags || [],
             tessera_asi: editingPlayer.tessera_asi,
-            avatar_url: editingPlayer.avatar_url
+            avatar_url: editingPlayer.avatar_url,
+            is_staff: editingPlayer.is_staff || false,
+            is_manager: editingPlayer.is_manager || false,
         }).eq('id', editingPlayer.id);
 
         if (error) toast.error("Errore aggiornamento: " + error.message);

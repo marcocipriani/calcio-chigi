@@ -114,8 +114,7 @@ export default function ProfilePage() {
         JSON.stringify(formData.tags.sort()) !== JSON.stringify((originalData.tags || []).sort()) ||
         (formData.note_mediche !== '' && formData.note_mediche !== (originalData.note_mediche === 'OK' ? '' : originalData.note_mediche)) ||
         (formData.note_mediche === '' && originalData.note_mediche !== 'OK' && originalData.note_mediche !== null && originalData.note_mediche !== '') ||
-        formData.is_staff !== (originalData.is_staff || false) ||
-        formData.is_manager !== (originalData.is_manager || false);
+        false; // is_staff/is_manager excluded: read-only display only
 
     setHasChanges(isDifferent);
   }, [formData, originalData])
@@ -231,7 +230,7 @@ export default function ProfilePage() {
       if (error) {
           toast.error("Errore salvataggio: " + error.message)
       } else {
-          const updatedProfile = { ...originalData, ...updates, is_staff: formData.is_staff, is_manager: formData.is_manager } as UserProfile;
+          const updatedProfile = { ...originalData, ...updates } as UserProfile;
           setOriginalData(updatedProfile);
           setHasChanges(false);
           toast.success("Profilo aggiornato con successo.");
@@ -479,11 +478,11 @@ export default function ProfilePage() {
                     <CardContent className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
                             <Label className="cursor-pointer font-medium" htmlFor="staff-check">Staff</Label>
-                            <Switch id="staff-check" checked={formData.is_staff} onCheckedChange={(checked) => setFormData({...formData, is_staff: checked})} />
+                            <Switch id="staff-check" checked={formData.is_staff} disabled />
                         </div>
                         <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border">
-                            <Label className="cursor-pointer font-medium" htmlFor="man-check">Gestore</Label>
-                            <Switch id="man-check" checked={formData.is_manager} onCheckedChange={(checked) => setFormData({...formData, is_manager: checked})} />
+                            <Label className="font-medium" htmlFor="man-check">Gestore</Label>
+                            <Switch id="man-check" checked={formData.is_manager} disabled />
                         </div>
                     </CardContent>
                 </Card>

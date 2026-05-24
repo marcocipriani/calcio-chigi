@@ -8,7 +8,7 @@ L'applicazione permette ai giocatori di consultare calendario e classifiche, ges
 
 Il progetto è costruito con un approccio moderno, *serverless* e *mobile-first*.
 
-* **Framework:** [Next.js 15](https://nextjs.org/) (App Router) - Per routing, rendering ibrido e performance.
+* **Framework:** [Next.js 16](https://nextjs.org/) (App Router) - Per routing, rendering ibrido e performance.
 * **Linguaggio:** [TypeScript](https://www.typescriptlang.org/) - Per la sicurezza dei tipi e manutenibilità.
 * **Database & Auth:** [Supabase](https://supabase.com/) - PostgreSQL gestito, Autenticazione utenti e Row Level Security (RLS).
 * **Styling:** [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework.
@@ -66,6 +66,7 @@ L'app è configurata per essere installabile come applicazione nativa su iOS e A
     ```env
     NEXT_PUBLIC_SUPABASE_URL=url-supabase
     NEXT_PUBLIC_SUPABASE_KEY=key-supabase
+    SUPABASE_SERVICE_ROLE_KEY=service-role-key  # solo per gli script di sync
     ```
 
 4.  **Avvia il server di sviluppo:**
@@ -74,9 +75,30 @@ L'app è configurata per essere installabile come applicazione nativa su iOS e A
     ```
     Apri [http://localhost:3000](http://localhost:3000) nel browser.
 
+## 🔄 Script di Sincronizzazione Enjore
+
+Gli script in `scripts/` sincronizzano i dati del torneo da [Enjore](https://asicalciolazio.enjore.com/) verso Supabase. Richiedono `SUPABASE_SERVICE_ROLE_KEY`.
+
+| Script | Fonte | Descrizione |
+|--------|-------|-------------|
+| `sync-enjore-calendar.mjs` | calendario partite | Upsert risultati e fixture in `events` |
+| `sync-enjore-comunicati.mjs` | comunicati ufficiali | Upsert PDF comunicati in `comunicati` |
+
+```bash
+# Anteprima (nessuna scrittura)
+node scripts/sync-enjore-calendar.mjs
+node scripts/sync-enjore-comunicati.mjs
+
+# Applica a Supabase
+node scripts/sync-enjore-calendar.mjs --apply
+node scripts/sync-enjore-comunicati.mjs --apply
+```
+
+I due script vengono eseguiti automaticamente ogni 12 ore via **GitHub Actions** (`.github/workflows/sync-enjore.yml`). Aggiungere `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` come segreti del repository per abilitare la sync automatica.
+
 ## 🤝 AI Credits
 
-Progetto sviluppato con il supporto di Gemini 3 Pro.
+Progetto sviluppato con il supporto di Claude (Anthropic).
 
 ## 📂 Struttura del Progetto
 
@@ -97,4 +119,3 @@ src/
 │   └── ...
 ├── lib/                 # Configurazioni (Supabase, Utils, Types)
 └── public/              # Assets statici (Icone PWA, Manifest)
-

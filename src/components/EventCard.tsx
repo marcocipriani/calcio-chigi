@@ -19,7 +19,7 @@ interface EventProps {
 type EventAttendancePreview = NonNullable<Event["attendance"]>[number];
 
 export function EventCard({ event, opponentLogo, isManager, onEdit, className }: EventProps) {
-  const date = new Date(event.data_ora);
+  const date = event.data_ora ? new Date(event.data_ora) : null;
   const isMatch = event.tipo === 'PARTITA';
   const isPlayed = event.giocata === true;
   const isCancelled = event.cancellato === true;
@@ -82,7 +82,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                     isMatch ? <Trophy className="h-5 w-5 text-blue-600" /> : <Dumbbell className="h-5 w-5 text-amber-600" />
                 )}
                 <span className={`text-sm font-bold capitalize ${isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                    {format(date, 'EEEE d MMMM', { locale: it })}
+                    {date ? format(date, 'EEEE d MMMM', { locale: it }) : '—'}
                 </span>
                 {isCancelled && <Badge variant="destructive" className="text-[9px] h-5">ANNULLATO</Badge>}
             </div>
@@ -91,7 +91,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                 {!isPlayed && !isCancelled && (
                     <div className="flex items-center text-foreground font-mono font-bold text-sm bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border dark:border-slate-700">
                         <Clock className="h-4 w-4 mr-1.5 text-muted-foreground" />
-                        {format(date, 'HH:mm')}
+                        {date ? format(date, 'HH:mm') : '—'}
                     </div>
                 )}
                 

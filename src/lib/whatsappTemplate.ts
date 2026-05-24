@@ -2,7 +2,7 @@ import { format, subMinutes, differenceInYears, isToday, isTomorrow } from 'date
 import { it } from 'date-fns/locale';
 
 type WhatsAppEvent = {
-    data_ora: string;
+    data_ora: string | null;
     tipo: 'PARTITA' | 'ALLENAMENTO';
     squadra_casa?: string | null;
     squadra_ospite?: string | null;
@@ -20,7 +20,7 @@ type WhatsAppAttendance = {
 };
 
 export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendance[]) {
-    const dataEvento = new Date(evento.data_ora);
+    const dataEvento = new Date(evento.data_ora ?? 0);
     const isPartita = evento.tipo === 'PARTITA';
     
     let avversario = '';

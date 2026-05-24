@@ -56,7 +56,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
     if (open) {
         if (eventToEdit) {
             try {
-                const { date, time } = parseDateTimeSafe(eventToEdit.data_ora);
+                const { date, time } = parseDateTimeSafe(eventToEdit.data_ora ?? '');
 
                 let endTime = '';
                 if (eventToEdit.data_fine_ora) {

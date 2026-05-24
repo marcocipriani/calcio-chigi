@@ -181,7 +181,7 @@ export default function GestioneRisultatiPage() {
                                 {/* Riga 1: Info e Toggle */}
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded">
-                                        {format(new Date(match.data_ora), 'EEE d MMM HH:mm', { locale: it })}
+                                        {match.data_ora ? format(new Date(match.data_ora), 'EEE d MMM HH:mm', { locale: it }) : 'Data N.D.'}
                                     </span>
                                     <Button 
                                         variant={match.giocata ? "default" : "outline"}

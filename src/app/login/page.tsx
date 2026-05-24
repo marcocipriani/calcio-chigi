@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Mail } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -50,7 +51,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      alert("Errore: " + error.message)
+      toast.error("Errore: " + error.message)
       setLoading(false)
     } else {
       setSent(true)
@@ -78,7 +79,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-        alert("Errore Google: " + error.message)
+        toast.error("Errore Google: " + error.message)
         setGoogleLoading(false)
     }
   }

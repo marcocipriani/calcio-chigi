@@ -54,11 +54,11 @@ export default function Home() {
 
       setEvents((currentEvents) => {
           if (eventType === 'INSERT') {
-              return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+              return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
           }
           if (eventType === 'UPDATE') {
               return currentEvents.map(e => e.id === newRecord.id ? { ...e, ...newRecord } : e)
-                  .sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
+                  .sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
           }
           if (eventType === 'DELETE') {
               return currentEvents.filter(e => e.id !== oldRecord.id);
@@ -145,7 +145,7 @@ export default function Home() {
       if (editingEvent) {
           setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...payload } : e));
       } else {
-          setEvents(prev => [...prev, payload as Event].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
+          setEvents(prev => [...prev, payload as Event].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime()));
       }
 
       let error = null;
@@ -203,16 +203,17 @@ export default function Home() {
 
   const filteredEvents = applyTypeFilter(processedEvents);
 
-  const futureRaw = filteredEvents.filter(e => new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
-  
+  const futureRaw = filteredEvents.filter(e => e.data_ora && new Date(e.data_ora) >= yesterday).sort((a,b) => new Date(a.data_ora!).getTime() - new Date(b.data_ora!).getTime());
+
   const pastRaw = filteredEvents.filter(e => {
+      if (!e.data_ora) return e.giocata === true; // forfeit: no date, show in archive if played
       const isPast = new Date(e.data_ora) < yesterday;
       if (!isPast) return false;
       if (e.tipo === 'PARTITA') return e.giocata === true;
       return true;
   }).reverse();
 
-  const nextMatch = filteredEvents.find(e => e.tipo === 'PARTITA' && new Date(e.data_ora) > now);
+  const nextMatch = filteredEvents.find(e => e.tipo === 'PARTITA' && e.data_ora != null && new Date(e.data_ora) > now);
   
   const getCountdownLabel = (dateStr: string) => {
       const matchDate = new Date(dateStr);
@@ -262,7 +263,7 @@ export default function Home() {
 
               <div className="grid grid-cols-7 gap-1 lg:gap-2">
                   {days.map((day, i) => {
-                      const dayEvents = filteredEvents.filter(e => isSameDay(new Date(e.data_ora), day));
+                      const dayEvents = filteredEvents.filter(e => e.data_ora && isSameDay(new Date(e.data_ora), day));
                       const isCurrentMonth = isSameMonth(day, monthStart);
                       const isDayToday = isToday(day);
 
@@ -318,7 +319,7 @@ export default function Home() {
                                                         {isCancelled ? 'ANNULLATO' : (isMatch ? 'PARTITA' : 'ALLENAMENTO')}
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-80">
-                                                        <Clock className="h-3 w-3" /> {format(new Date(evt.data_ora), 'HH:mm')}
+                                                        <Clock className="h-3 w-3" /> {evt.data_ora ? format(new Date(evt.data_ora), 'HH:mm') : '—'}
                                                     </div>
                                                     {isMatch && (
                                                         <div className="font-semibold text-blue-300 mt-1">
@@ -354,7 +355,7 @@ export default function Home() {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
                     <div className="bg-red-600 text-white px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
                         <Clock className="h-3 w-3" />
-                        {getCountdownLabel(nextMatch.data_ora)}
+                        {getCountdownLabel(nextMatch.data_ora!)}
                     </div>
                 </div>
               )}

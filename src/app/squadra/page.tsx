@@ -359,8 +359,8 @@ export default function SquadraPage() {
             const worksheet = workbook.getWorksheet(1);
             if (!worksheet) return;
 
-            const dateStr = nextMatch ? format(new Date(nextMatch.data_ora), 'dd/MM/yyyy', { locale: it }) : '';
-            const timeStr = nextMatch ? format(new Date(nextMatch.data_ora), 'HH:mm') : '';
+            const dateStr = nextMatch?.data_ora ? format(new Date(nextMatch.data_ora), 'dd/MM/yyyy', { locale: it }) : '';
+            const timeStr = nextMatch?.data_ora ? format(new Date(nextMatch.data_ora), 'HH:mm') : '';
             if (nextMatch?.giornata) worksheet.getCell('C1').value = nextMatch.giornata;
             worksheet.getCell('E2').value = dateStr;
             worksheet.getCell('C2').value = timeStr;

@@ -37,7 +37,7 @@ export interface Event {
     id: string;
     created_at: string;
     tipo: 'ALLENAMENTO' | 'PARTITA';
-    data_ora: string;
+    data_ora: string | null;
     data_fine_ora?: string | null;
     luogo: string;
     tipo_campo?: 'a8' | 'a11' | null;

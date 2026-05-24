@@ -399,8 +399,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>{event.avversario || "Allenamento"}</h2>
             {scoreBlock}
             <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground pt-2">
-                <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'd MMM yyyy', {locale: it})}</span>
-                <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {format(new Date(event.data_ora), 'HH:mm')}</span></div>
+                <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'd MMM yyyy', {locale: it}) : '—'}</span>
+                <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'HH:mm') : '—'}</span></div>
             </div>
             <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold"><MapPin className="h-4 w-4"/> {event.luogo}</div>
             {event.note && (

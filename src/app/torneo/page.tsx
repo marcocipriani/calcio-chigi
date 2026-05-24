@@ -317,13 +317,13 @@ export default function TorneoPage() {
                                             
                                             <div className="flex flex-col items-center justify-center w-12 text-center border-r pr-4">
                                                 <span className="text-lg font-black leading-none">
-                                                    {format(new Date(match.data_ora), 'dd', { locale: it })}
+                                                    {match.data_ora ? format(new Date(match.data_ora), 'dd', { locale: it }) : '—'}
                                                 </span>
                                                 <span className="text-[10px] font-bold uppercase text-muted-foreground">
-                                                    {format(new Date(match.data_ora), 'MMM', { locale: it })}
+                                                    {match.data_ora ? format(new Date(match.data_ora), 'MMM', { locale: it }) : ''}
                                                 </span>
                                                 <span className="text-[10px] font-mono mt-1 bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                                                    {format(new Date(match.data_ora), 'HH:mm', { locale: it })}
+                                                    {match.data_ora ? format(new Date(match.data_ora), 'HH:mm', { locale: it }) : ''}
                                                 </span>
                                             </div>
                                             
@@ -412,7 +412,7 @@ export default function TorneoPage() {
                         return (
                             <div key={match.id} className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border flex flex-col gap-3">
                                 <div className="text-[10px] text-muted-foreground font-bold uppercase text-center">
-                                    {format(new Date(match.data_ora), 'dd/MM HH:mm')} - {match.luogo}
+                                    {match.data_ora ? format(new Date(match.data_ora), 'dd/MM HH:mm') : 'Data N.D.'} - {match.luogo}
                                 </div>
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex-1 flex flex-col items-center gap-1">

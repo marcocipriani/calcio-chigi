@@ -11,7 +11,7 @@ function buildMiniStats(teamNames: string[], matches: Event[]) {
     teamNames.forEach(n => (mini[n] = { punti: 0, diff: 0, golFatti: 0 }));
 
     matches.forEach(m => {
-        if (!m.squadra_casa || !m.squadra_ospite) return;
+        if (!m.giocata || !m.squadra_casa || !m.squadra_ospite) return;
         if (!teamNames.includes(m.squadra_casa) || !teamNames.includes(m.squadra_ospite)) return;
 
         const golCasa = Number(m.gol_casa) || 0;
@@ -53,7 +53,7 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
     });
 
     matches.forEach(match => {
-        if (!match.squadra_casa || !match.squadra_ospite) return;
+        if (!match.giocata || !match.squadra_casa || !match.squadra_ospite) return;
 
         const casa = match.squadra_casa;
         const ospite = match.squadra_ospite;

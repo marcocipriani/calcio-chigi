@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
-import { Event } from "@/lib/types"
+import { Event, EventFase } from "@/lib/types"
 import { toast } from "sonner"
 
 interface EventDialogProps {
@@ -34,6 +34,10 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
   const [golNostri, setGolNostri] = useState<string>('0')
   const [golAvversario, setGolAvversario] = useState<string>('0')
   const [cancellato, setCancellato] = useState(false)
+  const [squadraCasa, setSquadraCasa] = useState('')
+  const [squadraOspite, setSquadraOspite] = useState('')
+  const [fase, setFase] = useState<EventFase | ''>('')
+  const [giornata, setGiornata] = useState<string>('')
 
   const parseDateTimeSafe = (isoString: string) => {
     try {
@@ -72,6 +76,10 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 setGolNostri(String(eventToEdit.gol_casa ?? 0))
                 setGolAvversario(String(eventToEdit.gol_ospite ?? 0))
                 setCancellato(eventToEdit.cancellato || false)
+                setSquadraCasa(eventToEdit.squadra_casa || '')
+                setSquadraOspite(eventToEdit.squadra_ospite || '')
+                setFase(eventToEdit.fase || '')
+                setGiornata(eventToEdit.giornata != null ? String(eventToEdit.giornata) : '')
             } catch (e) {
                 console.error("Errore parsing", e);
             }
@@ -91,6 +99,10 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             setGolNostri('0')
             setGolAvversario('0')
             setCancellato(false)
+            setSquadraCasa('CIRC. CHIGI')
+            setSquadraOspite('')
+            setFase('')
+            setGiornata('')
         }
     }
   }, [eventToEdit, open])
@@ -136,12 +148,21 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
 
         if (tipo === 'PARTITA') {
             payload.avversario = avversario || "Avversario";
+            payload.squadra_casa = squadraCasa || null;
+            payload.squadra_ospite = squadraOspite || null;
+            payload.fase = fase || null;
+            payload.giornata = giornata ? parseInt(giornata, 10) : null;
             if (giocata) {
                 payload.gol_casa = safeInt(golNostri);
                 payload.gol_ospite = safeInt(golAvversario);
+                const isChigiCasa = (squadraCasa || eventToEdit?.squadra_casa || '').toUpperCase().includes('CHIGI');
+                payload.gol_nostri = isChigiCasa ? payload.gol_casa : payload.gol_ospite;
+                payload.gol_avversario = isChigiCasa ? payload.gol_ospite : payload.gol_casa;
             } else {
                 payload.gol_casa = null;
                 payload.gol_ospite = null;
+                payload.gol_nostri = null;
+                payload.gol_avversario = null;
             }
         } else {
             payload.avversario = null;
@@ -232,7 +253,38 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                     <Label>Avversario / Titolo</Label>
                     <Input value={avversario} onChange={(e) => setAvversario(e.target.value)} placeholder="Es: vs Real Madrid" />
                 </div>
-                
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                        <Label className="text-xs">Squadra Casa</Label>
+                        <Input value={squadraCasa} onChange={(e) => setSquadraCasa(e.target.value)} placeholder="CIRC. CHIGI" className="text-xs" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs">Squadra Ospite</Label>
+                        <Input value={squadraOspite} onChange={(e) => setSquadraOspite(e.target.value)} placeholder="Avversario" className="text-xs" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                        <Label className="text-xs">Fase Torneo</Label>
+                        <Select value={fase} onValueChange={(v) => setFase(v as EventFase | '')}>
+                            <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Nessuna" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">Nessuna</SelectItem>
+                                <SelectItem value="FASE_1">Fase 1</SelectItem>
+                                <SelectItem value="FASE_2_CALCIATORI">Fase 2 Calciatori</SelectItem>
+                                <SelectItem value="FASE_2_PROFESSIONISTI">Fase 2 Professionisti</SelectItem>
+                                <SelectItem value="COPPA_LAZIO_PROFESSIONISTI">Coppa Lazio</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs">Giornata</Label>
+                        <Input type="number" value={giornata} onChange={(e) => setGiornata(e.target.value)} placeholder="Es: 1" className="text-xs h-8" min={1} />
+                    </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                     <Label htmlFor="played-switch">Partita Giocata?</Label>
                     <Switch id="played-switch" checked={giocata} onCheckedChange={setGiocata} />

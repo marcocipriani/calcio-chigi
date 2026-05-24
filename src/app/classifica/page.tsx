@@ -16,11 +16,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { calculateStandings } from "@/lib/utils";
-import { Team, Event } from "@/lib/types";
+import { Team, Event, StandingRow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
+
 export default function ClassificaPage({ fase }: { fase?: string }) {
-  const [standings, setStandings] = useState<any[]>([]);
+  const [standings, setStandings] = useState<StandingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Event[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -83,7 +85,7 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
-        (payload) => {
+        () => {
            fetchData();
         }
       )
@@ -168,14 +170,14 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
                 const isMyTeam = row.teamData.slug === 'chigi';
                 const diff = row.gol_fatti - row.gol_subiti;
                 const winPct = row.giocate > 0 ? Math.round((row.vinte / row.giocate) * 100) : 0;
-                const form = getForm(row.teamData.nome);
+                const form = getForm(row.teamData.nome ?? '');
 
                 return (
                     <TableRow key={row.id || row.teamData.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}>
                     <TableCell className="text-center text-sm text-muted-foreground p-2 font-medium">{index + 1}</TableCell>
                     <TableCell className="p-2">
                         <div className="flex items-center gap-3">
-                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} className="object-contain" /><AvatarFallback>{row.teamData.nome[0]}</AvatarFallback></Avatar>
+                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} className="object-contain" /><AvatarFallback>{row.teamData.nome?.[0]}</AvatarFallback></Avatar>
                         <span className={`text-xs font-bold uppercase ${isMyTeam ? 'text-amber-600' : ''}`}>{row.teamData.nome}</span>
                         </div>
                     </TableCell>
@@ -198,7 +200,7 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
                     
                     <TableCell className="p-2">
                         <div className="flex items-center justify-center gap-1.5">
-                            {form.map((m: any, i: number) => {
+                            {(form as FormMatch[]).map((m, i) => {
                                 let colorClass = "bg-slate-100 text-slate-400 border-slate-200";
                                 if (m.result === 'V') colorClass = "bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800";
                                 if (m.result === 'N') colorClass = "bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";

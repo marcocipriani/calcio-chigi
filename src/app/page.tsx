@@ -27,6 +27,7 @@ import { it } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Event, Team } from "@/lib/types";
+import { toast } from "sonner";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
@@ -48,32 +49,13 @@ export default function Home() {
     process.env.NEXT_PUBLIC_SUPABASE_KEY!
   ), [])
 
-  useEffect(() => {
-    fetchData();
-
-    const channel = supabase
-      .channel('public:events')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'events' },
-        (payload) => {
-          handleRealtimeUpdate(payload);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    }
-  }, [supabase]);
-
-  const handleRealtimeUpdate = (payload: any) => {
+  const handleRealtimeUpdate = (payload: { eventType: string; new: Event; old: Event }) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
       setEvents((currentEvents) => {
           if (eventType === 'INSERT') {
               return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
-          } 
+          }
           if (eventType === 'UPDATE') {
               return currentEvents.map(e => e.id === newRecord.id ? { ...e, ...newRecord } : e)
                   .sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime());
@@ -125,6 +107,26 @@ export default function Home() {
     setLoading(false);
   }
 
+  useEffect(() => {
+    fetchData();
+
+    const channel = supabase
+      .channel('public:events')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        (payload) => {
+          handleRealtimeUpdate(payload as unknown as { eventType: string; new: Event; old: Event });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
   const handleCreateNew = () => {
       setEditingEvent(null);
       setDialogOpen(true);
@@ -138,17 +140,12 @@ export default function Home() {
   const handleSaveEvent = async (eventData: Partial<Event>) => {
       const previousEvents = [...events];
 
-      let payload = { ...eventData };
-      if (editingEvent && !payload.data_ora) {
-          payload.data_ora = editingEvent.data_ora;
-      }
+      const payload = { ...eventData, ...(editingEvent && !eventData.data_ora ? { data_ora: editingEvent.data_ora } : {}) };
 
       if (editingEvent) {
-          // @ts-ignore
           setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...payload } : e));
       } else {
-            // @ts-ignore
-            setEvents(prev => [...prev, payload].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
+          setEvents(prev => [...prev, payload as Event].sort((a, b) => new Date(a.data_ora).getTime() - new Date(b.data_ora).getTime()));
       }
 
       let error = null;
@@ -161,7 +158,7 @@ export default function Home() {
       }
 
       if(error) {
-          alert("Errore: " + error.message);
+          toast.error("Errore: " + error.message);
           setEvents(previousEvents);
       } else {
             setDialogOpen(false);

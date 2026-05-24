@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -18,20 +17,20 @@ import ClassificaPage from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
-import { COMUNICATI } from '@/lib/comunicati'
+import { Event, EventFase } from '@/lib/types'
 
 export default function TorneoPage() {
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [allMatches, setAllMatches] = useState<any[]>([])
+  const [allMatches, setAllMatches] = useState<Event[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
-  const [activePhase, setActivePhase] = useState('FASE_2_PROFESSIONISTI')
-  
-  const [selectedGiornata, setSelectedGiornata] = useState<number | null>(null)
+  const [activePhase, setActivePhase] = useState<EventFase>('FASE_2_PROFESSIONISTI')
+  const [comunicati, setComunicati] = useState<{ id: string; titolo: string; data: string | null; enjore_url: string }[]>([])
+
+  const [selectedGiornataOverride, setSelectedGiornataOverride] = useState<number | null>(null)
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingEvent, setEditingEvent] = useState<any>(null)
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null)
 
   const [scoreDialogOpen, setScoreDialogOpen] = useState(false)
   const [tempScores, setTempScores] = useState<Record<string, {casa: string, ospite: string}>>({})
@@ -50,6 +49,12 @@ export default function TorneoPage() {
             const { data: profile } = await supabase.from('profiles').select('is_manager').eq('user_id', user.id).single()
             if (profile?.is_manager) setIsManager(true)
         }
+
+        const { data: comunicatiData } = await supabase
+          .from('comunicati')
+          .select('id,titolo,data,enjore_url')
+          .order('data', { ascending: false })
+        if (comunicatiData && comunicatiData.length > 0) setComunicati(comunicatiData)
 
         const { data: teamsData } = await supabase.from('teams').select('nome, logo_url')
         const tMap: Record<string, string> = {}
@@ -82,34 +87,24 @@ export default function TorneoPage() {
   }, [allMatches, activePhase])
 
   const giornate = useMemo(() => {
-    return Array.from(new Set(currentPhaseMatches.map(d => d.giornata))).filter(Boolean).sort((a:any, b:any) => a - b) as number[]
+    return Array.from(new Set(currentPhaseMatches.map(d => d.giornata))).filter(Boolean).sort((a, b) => (a as number) - (b as number)) as number[]
   }, [currentPhaseMatches])
 
-  useEffect(() => {
-    if (currentPhaseMatches.length > 0) {
-        const today = new Date()
-        today.setHours(0,0,0,0)
-        const chigiMatches = currentPhaseMatches.filter(m => 
-            m.squadra_casa?.toLowerCase().includes('chigi') || 
-            m.squadra_ospite?.toLowerCase().includes('chigi')
-        )
-
-        const nextChigiMatch = chigiMatches.find(m => new Date(m.data_ora) >= today)
-        
-        if (nextChigiMatch && nextChigiMatch.giornata) {
-            setSelectedGiornata(nextChigiMatch.giornata)
-        } else {
-            const generalNextMatch = currentPhaseMatches.find(m => new Date(m.data_ora) >= today)
-            if (generalNextMatch) {
-                setSelectedGiornata(generalNextMatch.giornata)
-            } else {
-                setSelectedGiornata(giornate[giornate.length - 1] || null)
-            }
-        }
-    } else {
-        setSelectedGiornata(null)
-    }
+  const autoGiornata = useMemo<number | null>(() => {
+    if (currentPhaseMatches.length === 0) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const chigiMatches = currentPhaseMatches.filter(m =>
+      m.squadra_casa?.toLowerCase().includes('chigi') ||
+      m.squadra_ospite?.toLowerCase().includes('chigi')
+    );
+    const nextChigi = chigiMatches.find(m => m.data_ora && new Date(m.data_ora) >= today);
+    if (nextChigi?.giornata) return nextChigi.giornata;
+    const nextAny = currentPhaseMatches.find(m => m.data_ora && new Date(m.data_ora) >= today);
+    return nextAny?.giornata ?? giornate[giornate.length - 1] ?? null;
   }, [currentPhaseMatches, giornate])
+
+  const selectedGiornata = selectedGiornataOverride ?? autoGiornata;
 
   useEffect(() => {
     if (selectedGiornata && daysScrollRef.current) {
@@ -123,25 +118,23 @@ export default function TorneoPage() {
     }
   }, [selectedGiornata])
 
-  const handleEditEvent = (event: any) => {
+  const handleEditEvent = (event: Event) => {
     setEditingEvent({ ...event })
     setDialogOpen(true)
   }
 
-  const handleSaveEvent = async (eventData: any) => {
-    let payload = { ...eventData }
-    if (editingEvent && !payload.data_ora) {
-        payload.data_ora = editingEvent.data_ora
-    }
+  const handleSaveEvent = async (eventData: Partial<Event>) => {
+    if (!editingEvent) return;
+    const payload = { ...eventData, ...(!eventData.data_ora ? { data_ora: editingEvent.data_ora } : {}) };
 
     setAllMatches(prev => prev.map(m => m.id === editingEvent.id ? { ...m, ...payload } : m))
 
     const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id)
 
     if (error) {
-        alert("Errore salvataggio: " + error.message)
+        toast.error("Errore salvataggio: " + error.message)
     }
-    
+
     setDialogOpen(false)
     setEditingEvent(null)
   }
@@ -153,8 +146,8 @@ export default function TorneoPage() {
     
     currentMatches.forEach(m => {
         initialScores[m.id] = {
-            casa: m.gol_casa !== null ? m.gol_casa.toString() : '',
-            ospite: m.gol_ospite !== null ? m.gol_ospite.toString() : ''
+            casa: m.gol_casa != null ? m.gol_casa.toString() : '',
+            ospite: m.gol_ospite != null ? m.gol_ospite.toString() : ''
         }
     })
     
@@ -200,14 +193,15 @@ export default function TorneoPage() {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
-                <Select value={activePhase} onValueChange={setActivePhase}>
+                <Select value={activePhase} onValueChange={(v) => { setActivePhase(v as EventFase); setSelectedGiornataOverride(null); }}>
                     <SelectTrigger className="w-[200px] h-10 font-bold bg-card border-primary/20">
                         <SelectValue placeholder="Seleziona Fase" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="FASE_1">Fase 1: Girone unico</SelectItem>
                         <SelectItem value="FASE_2_CALCIATORI">Fase 2: Calciatori</SelectItem>
-                        <SelectItem value="FASE_2_PROFESSIONISTI">Fase 2: Professionisti*</SelectItem>
+                        <SelectItem value="FASE_2_PROFESSIONISTI">Fase 2: Professionisti</SelectItem>
+                        <SelectItem value="COPPA_LAZIO_PROFESSIONISTI">Coppa Lazio Professionisti</SelectItem>
                     </SelectContent>
                 </Select>
 
@@ -224,17 +218,17 @@ export default function TorneoPage() {
                             </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-2 mt-2 max-h-[60vh] overflow-y-auto">
-                            {COMUNICATI.map((com) => (
-                                <a 
-                                    key={com.id} 
-                                    href={com.url} 
-                                    target="_blank" 
+                            {comunicati.map((com) => (
+                                <a
+                                    key={com.id}
+                                    href={com.enjore_url}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted border transition-colors group"
                                 >
                                     <div>
                                         <p className="font-bold text-sm">{com.titolo}</p>
-                                        <p className="text-[10px] text-muted-foreground">{com.data}</p>
+                                        <p className="text-[10px] text-muted-foreground">{com.data ?? ''}</p>
                                     </div>
                                     <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                 </a>
@@ -279,7 +273,7 @@ export default function TorneoPage() {
                         <button
                             key={g}
                             id={`day-btn-${g}`}
-                            onClick={() => setSelectedGiornata(g)}
+                            onClick={() => setSelectedGiornataOverride(g)}
                             className={`
                                 flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl border-2 transition-all font-black
                                 ${selectedGiornata === g 
@@ -314,8 +308,8 @@ export default function TorneoPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {currentMatches.map(match => {
                                 const isChigi = match.squadra_casa?.toLowerCase().includes('chigi') || match.squadra_ospite?.toLowerCase().includes('chigi')
-                                const logoCasa = teamsMap[match.squadra_casa?.toLowerCase().trim()]
-                                const logoOspite = teamsMap[match.squadra_ospite?.toLowerCase().trim()]
+                                const logoCasa = teamsMap[match.squadra_casa?.toLowerCase().trim() ?? '']
+                                const logoOspite = teamsMap[match.squadra_ospite?.toLowerCase().trim() ?? '']
                                 
                                 return (
                                     <Card key={match.id} className={`border-l-4 ${isChigi ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10' : 'border-l-slate-300'}`}>

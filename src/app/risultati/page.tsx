@@ -6,18 +6,20 @@ import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Save, CalendarDays, ArrowLeft, X, Check } from 'lucide-react'
+import { Card, CardContent } from "@/components/ui/card"
+import { Loader2, ArrowLeft, X, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
+import { toast } from 'sonner'
+import { Event } from '@/lib/types'
 
 export default function GestioneRisultatiPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  
+
   // Dati
-  const [matches, setMatches] = useState<any[]>([])
-  const [originalMatches, setOriginalMatches] = useState<any[]>([])
+  const [matches, setMatches] = useState<Event[]>([])
+  const [originalMatches, setOriginalMatches] = useState<Event[]>([])
   const [hasChanges, setHasChanges] = useState(false)
 
   // Filtri
@@ -97,7 +99,7 @@ export default function GestioneRisultatiPage() {
       }))
   }
 
-  const togglePlayed = (id: string, currentStatus: boolean) => {
+  const togglePlayed = (id: string, currentStatus: boolean | undefined) => {
       setMatches(prev => prev.map(m => {
           if (m.id === id) return { ...m, giocata: !currentStatus }
           return m
@@ -125,9 +127,9 @@ export default function GestioneRisultatiPage() {
 
           setOriginalMatches(JSON.parse(JSON.stringify(matches)));
           setHasChanges(false);
-          alert("Giornata salvata e Classifica aggiornata!")
-      } catch (error: any) {
-          alert("Errore salvataggio: " + error.message)
+          toast.success("Giornata salvata!")
+      } catch (error) {
+          toast.error("Errore salvataggio: " + (error instanceof Error ? error.message : String(error)))
       } finally {
           setLoading(false)
       }

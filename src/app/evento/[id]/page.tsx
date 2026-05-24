@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, use, useMemo } from 'react';
+import { useEffect, useState, use, useMemo, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr'; 
 import { useRouter } from 'next/navigation';
 import { format, differenceInYears } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2, Copy } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,8 +15,21 @@ import { EventDialog } from '@/components/EventDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
+import { Event } from '@/lib/types';
+
+interface RosterPlayer {
+  id: string;
+  nome: string;
+  cognome: string;
+  ruolo?: string | null;
+  avatar_url?: string | null;
+  data_nascita?: string | null;
+  is_staff?: boolean;
+  status: string | null;
+  vote_time: string | null;
+  modified_by: string | null;
+}
 
 const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
 const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
@@ -30,36 +43,50 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     process.env.NEXT_PUBLIC_SUPABASE_KEY!
   ), []);
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
-  const [roster, setRoster] = useState<any[]>([]); 
+  const [roster, setRoster] = useState<RosterPlayer[]>([]);
   const [allProfilesMap, setAllProfilesMap] = useState<Record<string, string>>({});
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
   const [isManager, setIsManager] = useState(false);
   const [myProfileId, setMyProfileId] = useState<string | null>(null);
   const [userStatus, setUserStatus] = useState<string | null>(null);
+  const myProfileIdRef = useRef<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
+    myProfileIdRef.current = myProfileId;
+  }, [myProfileId]);
+
+  useEffect(() => {
     loadAllData();
 
     const channel = supabase
-      .channel(`event_attendance_${id}`)
+      .channel(`event_detail_${id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'attendance', filter: `event_id=eq.${id}` },
         (payload) => { handleRealtimeUpdate(payload); }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'events', filter: `id=eq.${id}` },
+        (payload) => {
+          if (payload.new) setEvent((prev) => prev ? { ...prev, ...(payload.new as Partial<Event>) } : null);
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase]);
 
-  const handleRealtimeUpdate = async (payload: any) => {
+  const handleRealtimeUpdate = (payload: { new: Record<string, string | null>; old: Record<string, string | null>; eventType: string }) => {
       const { new: newRecord, old: oldRecord, eventType } = payload;
-      if (newRecord?.profile_id === myProfileId && newRecord?.modified_by === myProfileId) return;
+      const currentProfileId = myProfileIdRef.current;
+      if (newRecord?.profile_id === currentProfileId && newRecord?.modified_by === currentProfileId) return;
 
       if (eventType === 'DELETE' && oldRecord) {
           setRoster(prev => prev.map(p => 
@@ -130,7 +157,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         setAllProfilesMap(pMap);
 
         const mergedRoster = allProfiles.map(p => {
-            const vote = attendanceData?.find((a: any) => a.profile_id === p.id);
+            const vote = attendanceData?.find(a => a.profile_id === p.id);
             if (p.id === currentPid) setUserStatus(vote?.status || null);
             return { 
                 ...p, 
@@ -236,12 +263,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       }
   };
 
-  const handleEventUpdate = async (updatedData: any) => {
-      const prevEvent = { ...event };
-      setEvent({ ...event, ...updatedData });
+  const handleEventUpdate = async (updatedData: Partial<Event>) => {
+      const prevEvent = event;
+      setEvent(event ? { ...event, ...updatedData } : null);
       setEditDialogOpen(false);
       toast.success("Evento aggiornato.");
-      const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).select(); 
+      const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).select();
       if (error || !data) { setEvent(prevEvent); toast.error("Errore salvataggio."); }
   };
 
@@ -251,6 +278,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   }
 
   const handleCopyWhatsApp = () => {
+    if (!event) return;
     const formattedPresenze = roster.map(p => ({
         status: p.status === 'PRESENTE' ? 'PRESENT' : p.status,
         profiles: p
@@ -278,8 +306,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const spectatorPlayers = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
   const absentPlayers = roster.filter(p => p.status === 'ASSENTE');
 
-  const countOver35 = presentPlayers.filter(p => !isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
-  const countU35 = presentPlayers.filter(p => isU35Func(p.data_nascita) && p.ruolo !== 'PORTIERE').length;
+  const countOver35 = presentPlayers.filter(p => !isU35Func(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
+  const countU35 = presentPlayers.filter(p => isU35Func(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
   const countGoalies = presentPlayers.filter(p => p.ruolo === 'PORTIERE').length;
   const countSpectators = spectatorPlayers.length;
   const countAbsents = absentPlayers.length;
@@ -291,7 +319,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       if (a.is_staff && !b.is_staff) return 1;
       if (!a.is_staff && b.is_staff) return -1;
       
-      const score = (s: string) => {
+      const score = (s: string | null) => {
           if (s === 'PRESENTE') return 4;
           if (s === 'INFORTUNATO_PRESENTE') return 3;
           if (s === 'ASSENTE') return 1; 
@@ -488,7 +516,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 {sortedRoster.map((p) => {
                     const status = p.status;
                     let borderClass = "border-l-4 border-l-slate-300 dark:border-l-slate-600"; 
-                    let bgClass = "bg-card";
+                    const bgClass = "bg-card";
                     let statusText = "Non ha votato";
                     let statusColor = "text-muted-foreground";
 
@@ -512,17 +540,17 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         }
                     }
 
-                    const isU35Player = isU35Func(p.data_nascita);
+                    const isU35Player = isU35Func(p.data_nascita ?? '');
                     const voteTime = p.vote_time ? format(new Date(p.vote_time), 'dd/MM HH:mm') : '';
                     
                     const isManagerEdit = p.modified_by && p.modified_by !== p.id;
-                    const managerName = isManagerEdit ? allProfilesMap[p.modified_by]?.split(' ')[0] : null;
+                    const managerName = isManagerEdit ? allProfilesMap[p.modified_by ?? '']?.split(' ')[0] : null;
 
                     return (
                         <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-all duration-300`}>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
-                                    <AvatarImage src={p.avatar_url} />
+                                    <AvatarImage src={p.avatar_url ?? undefined} />
                                     <AvatarFallback>{p.nome[0]}{p.cognome[0]}</AvatarFallback>
                                 </Avatar>
                                 <div>

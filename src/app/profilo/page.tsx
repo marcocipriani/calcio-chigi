@@ -11,23 +11,42 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, Crown, Settings, LogOut, User, Ruler, CalendarIcon, LayoutTemplate, List, CalendarDays, Shirt, Briefcase, CreditCard, ShieldCheck, Quote, Mail, Camera, Loader2 } from 'lucide-react'
+import { AlertTriangle, Settings, LogOut, User, Ruler, CalendarIcon, List, CalendarDays, Shirt, Briefcase, CreditCard, ShieldCheck, Quote, Mail, Camera, Loader2 } from 'lucide-react'
 import { Switch } from "@/components/ui/switch"
-import { differenceInYears, format } from "date-fns"
-import { it } from 'date-fns/locale'
+import { differenceInYears } from "date-fns"
 import { AppCredits } from '@/components/AppCredits' 
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import { BOMBER_TAGS } from "@/lib/constants"
 
+interface UserProfile {
+  id: string;
+  user_id?: string;
+  nome?: string | null;
+  cognome?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  data_nascita?: string | null;
+  ruolo?: string | null;
+  dipartimento?: string | null;
+  numero_maglia?: number | null;
+  tessera_asi?: string | null;
+  tags?: string[] | null;
+  note_mediche?: string | null;
+  taglia_divisa?: string | null;
+  default_view?: string | null;
+  is_staff?: boolean;
+  is_manager?: boolean;
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [myProfile, setMyProfile] = useState<any>(null)
-  
-  const [originalData, setOriginalData] = useState<any>(null)
+  const [myProfile, setMyProfile] = useState<UserProfile | null>(null)
+
+  const [originalData, setOriginalData] = useState<UserProfile | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -101,7 +120,7 @@ export default function ProfilePage() {
     setHasChanges(isDifferent);
   }, [formData, originalData])
 
-  const loadFormData = (profile: any) => {
+  const loadFormData = (profile: UserProfile) => {
       const initialData = {
           nome: profile.nome || '',
           cognome: profile.cognome || '',
@@ -109,7 +128,7 @@ export default function ProfilePage() {
           data_nascita: profile.data_nascita || '',
           ruolo: profile.ruolo || '',
           dipartimento: profile.dipartimento || '',
-          numero_maglia: profile.numero_maglia || '',
+          numero_maglia: profile.numero_maglia != null ? String(profile.numero_maglia) : '',
           tessera_asi: profile.tessera_asi || '',
           tags: profile.tags || [],
           note_mediche: profile.note_mediche === 'OK' ? '' : profile.note_mediche || '',
@@ -141,16 +160,25 @@ export default function ProfilePage() {
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
         setUploading(true)
-        if (!event.target.files || event.target.files.length === 0) return
+        if (!event.target.files || event.target.files.length === 0 || !myProfile) return
 
         const file = event.target.files[0]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${myProfile.id}-${Math.random()}.${fileExt}`
-        const filePath = `${fileName}`
+        const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+        if (!ALLOWED_TYPES.includes(file.type)) {
+            toast.error("Formato non supportato. Usa JPG, PNG o WebP.")
+            return
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("File troppo grande. Massimo 2MB.")
+            return
+        }
+
+        const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+        const filePath = `${myProfile.id}.${ext}`
 
         const { error: uploadError } = await supabase.storage
             .from('avatars')
-            .upload(filePath, file)
+            .upload(filePath, file, { upsert: true, contentType: file.type })
 
         if (uploadError) throw uploadError
 
@@ -158,18 +186,19 @@ export default function ProfilePage() {
             .from('avatars')
             .getPublicUrl(filePath)
 
+        const bust = `?t=${Date.now()}`
         const { error: updateError } = await supabase
             .from('profiles')
-            .update({ avatar_url: publicUrl })
+            .update({ avatar_url: publicUrl + bust })
             .eq('id', myProfile.id)
 
         if (updateError) throw updateError
 
-        setMyProfile({ ...myProfile, avatar_url: publicUrl })
+        setMyProfile({ ...myProfile, avatar_url: publicUrl + bust })
         toast.success("Foto profilo aggiornata con successo")
 
-    } catch (error: any) {
-        toast.error("Errore caricamento foto: " + error.message)
+    } catch (error) {
+        toast.error("Errore caricamento foto: " + (error instanceof Error ? error.message : String(error)))
     } finally {
         setUploading(false)
     }
@@ -181,14 +210,14 @@ export default function ProfilePage() {
       const statusMedico = formData.note_mediche.trim() === '' ? 'OK' : formData.note_mediche;
       const dataNascitaPayload = formData.data_nascita ? formData.data_nascita : null;
 
-      const updates: any = {
+      const updates: Partial<UserProfile> = {
             nome: formData.nome,
             cognome: formData.cognome,
             email: formData.email,
             data_nascita: dataNascitaPayload,
             ruolo: formData.ruolo,
             dipartimento: formData.dipartimento,
-            numero_maglia: formData.numero_maglia,
+            numero_maglia: formData.numero_maglia ? parseInt(formData.numero_maglia.toString()) : null,
             tessera_asi: formData.tessera_asi,
             taglia_divisa: formData.taglia_divisa,
             tags: formData.tags,
@@ -196,17 +225,13 @@ export default function ProfilePage() {
             default_view: formData.default_view
       }
 
-      if (myProfile?.is_manager) {
-          updates.is_staff = formData.is_staff
-          updates.is_manager = formData.is_manager
-      }
-
+      if (!myProfile) return;
       const { error } = await supabase.from('profiles').update(updates).eq('id', myProfile.id)
 
       if (error) {
           toast.error("Errore salvataggio: " + error.message)
       } else {
-          const updatedProfile = { ...originalData, ...updates, is_staff: formData.is_staff, is_manager: formData.is_manager };
+          const updatedProfile = { ...originalData, ...updates, is_staff: formData.is_staff, is_manager: formData.is_manager } as UserProfile;
           setOriginalData(updatedProfile);
           setHasChanges(false);
           toast.success("Profilo aggiornato con successo.");
@@ -254,7 +279,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-4 py-2">
                 <div className="relative group">
                     <Avatar className="h-28 w-28 border-4 border-card shadow-2xl ring-2 ring-border/50">
-                        <AvatarImage src={myProfile?.avatar_url} className="object-cover" />
+                        <AvatarImage src={myProfile?.avatar_url ?? undefined} className="object-cover" />
                         <AvatarFallback className="text-3xl font-black bg-muted">
                             {formData.nome?.[0]}{formData.cognome?.[0]}
                         </AvatarFallback>

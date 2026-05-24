@@ -32,9 +32,30 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Upload, Image } from "lucide-react" // Aggiunto Camera e Upload
+import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image } from "lucide-react"
 
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
+import { Event } from "@/lib/types"
+
+interface Player {
+    id: string;
+    nome: string;
+    cognome: string;
+    ruolo?: string | null;
+    avatar_url?: string | null;
+    numero_maglia?: number | null;
+    data_nascita?: string | null;
+    email?: string | null;
+    tessera_asi?: string | null;
+    tags?: string[] | null;
+    note_mediche?: string | null;
+    taglia_divisa?: string | null;
+    dipartimento?: string | null;
+    is_staff?: boolean;
+    is_manager?: boolean;
+}
+
+type FormationSlotDef = { id: string; top?: string; left?: string };
 
 const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
 
@@ -42,7 +63,7 @@ const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob
 const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
 
 function DraggableListCard({ player, isSelected, isManager, currentUserId, onEditPlayer, isMobile, captainId, viceCaptainId, onSetRole, onDeletePlayer }: {
-    player: any, isSelected: boolean, isManager: boolean, currentUserId: string | null, onEditPlayer: (p: any) => void, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, onDeletePlayer: (p: any) => void
+    player: Player, isSelected: boolean, isManager: boolean, currentUserId: string | null, onEditPlayer: (p: Player) => void, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, onDeletePlayer: (p: Player) => void
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `list-${player.id}`,
@@ -55,7 +76,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
         zIndex: 9999,
     } : undefined;
 
-    const isU35 = isU35Func(player.data_nascita);
+    const isU35 = isU35Func(player.data_nascita ?? '');
     const isInjured = player.note_mediche && player.note_mediche !== 'OK';
     const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : 'N.D.';
     const canEdit = isManager || currentUserId === player.id;
@@ -78,7 +99,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                     <div className="bg-slate-50 dark:bg-slate-900 p-6 pb-4 border-b relative">
                         <div className="flex items-center gap-4">
                             <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                <AvatarImage src={player.avatar_url} className="object-cover" />
+                                <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" />
                                 <AvatarFallback className="text-xl font-bold">{player.cognome[0]}</AvatarFallback>
                             </Avatar>
                             <div className="space-y-1">
@@ -111,7 +132,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                             <Button size="sm" variant={isVice ? "default" : "outline"} className={`flex-1 gap-2 font-bold h-8 ${isVice ? 'bg-slate-700 hover:bg-slate-800 text-white' : ''}`} onClick={() => onSetRole(isVice ? null : 'VK', player.id)}><Award className="h-4 w-4" /> {isVice ? 'Vice Capitano' : 'Vice Capitano'}</Button>
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di Nascita</Label><div className="flex items-center gap-2 font-bold"><Calendar className="h-3.5 w-3.5 text-muted-foreground" /> {formattedDob}</div><span className="text-xs text-muted-foreground">({getAge(player.data_nascita)} anni)</span></div>
+                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di Nascita</Label><div className="flex items-center gap-2 font-bold"><Calendar className="h-3.5 w-3.5 text-muted-foreground" /> {formattedDob}</div><span className="text-xs text-muted-foreground">({getAge(player.data_nascita ?? '')} anni)</span></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label><div className="flex items-center gap-2 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded w-fit"><CreditCard className="h-3 w-3" /> {player.tessera_asi || 'N/A'}</div></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><div className="flex items-center gap-2 font-black text-lg"><Shirt className="h-4 w-4 text-muted-foreground" /> {player.numero_maglia || '-'}</div></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label><div className="flex items-center gap-2 font-bold"><Ruler className="h-3.5 w-3.5 text-muted-foreground" /> {player.taglia_divisa || '-'}</div></div>
@@ -136,7 +157,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
       `}>
                 <div className="relative shrink-0">
                     <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
-                        <AvatarImage src={player.avatar_url} className="object-cover" /><AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
+                        <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" /><AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
                     {isInjured && (<div className="absolute -top-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-1 shadow-md border border-red-100 z-10"><Ambulance className="h-3.5 w-3.5 text-red-600 animate-pulse" /></div>)}
                     {isCaptain && (<div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[9px]">C</div>)}
@@ -151,10 +172,10 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
     );
 }
 
-function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor }: { player: any, slotId: string, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string }) {
+function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor }: { player: Player, slotId: string, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `field-token-${slotId}`, data: { player, source: 'field', fromSlotId: slotId, isBench }, disabled: isMobile });
     const style = transform ? { transform: CSS.Translate.toString(transform), zIndex: 9999 } : undefined;
-    const isU35 = isU35Func(player.data_nascita);
+    const isU35 = isU35Func(player.data_nascita ?? '');
     const isCaptain = captainId === player.id;
     const isVice = viceCaptainId === player.id;
     const isGk = player.ruolo === 'PORTIERE';
@@ -165,7 +186,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
             <div className="flex flex-col items-center">
                 <div className="relative transition-transform hover:scale-110">
                     <Avatar className={`${isBench ? 'h-11 w-11' : 'h-16 w-16'} border-0 shadow-xl bg-white ring-4 ${avatarRingColor}`}>
-                        <AvatarImage src={player.avatar_url} className="object-cover" />
+                        <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" />
                         <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
                     {isU35 && (<div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
@@ -178,7 +199,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
     )
 }
 
-function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole }: { slot: any, playerInSlot: any, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void }) {
+function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void }) {
     const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.id}`, data: { slotId: slot.id } });
     const baseStyle = isBench ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-all duration-200 z-10";
     const displayRole = slot.id.replace(/[0-9]/g, '');
@@ -214,27 +235,27 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
 }
 
 export default function SquadraPage() {
-    const [players, setPlayers] = useState<any[]>([])
-    const [filteredPlayers, setFilteredPlayers] = useState<any[]>([])
+    const [players, setPlayers] = useState<Player[]>([])
+    const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([])
     const [module, setModule] = useState("4-4-2")
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'OK' | 'KO'>('ALL')
-    const [lineup, setLineup] = useState<Record<string, any>>({})
-    const [activePlayer, setActivePlayer] = useState<any>(null)
+    const [lineup, setLineup] = useState<Record<string, Player>>({})
+    const [activePlayer, setActivePlayer] = useState<Player | null>(null)
     const [captainId, setCaptainId] = useState<string | null>(null)
     const [viceCaptainId, setViceCaptainId] = useState<string | null>(null)
     const [jerseyColor, setJerseyColor] = useState<'BLU' | 'ROSSA'>('BLU')
-    const [nextMatch, setNextMatch] = useState<any>(null)
+    const [nextMatch, setNextMatch] = useState<Event | null>(null)
     const [isManager, setIsManager] = useState(false)
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [isMobile, setIsMobile] = useState(false)
     const [mobileSlotToFill, setMobileSlotToFill] = useState<string | null>(null)
     const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
-    const [editingPlayer, setEditingPlayer] = useState<any>(null)
+    const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
     const [newPlayer, setNewPlayer] = useState({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' })
     const [uploading, setUploading] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
+
 
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
     const fieldRef = useRef<HTMLDivElement>(null)
@@ -251,7 +272,7 @@ export default function SquadraPage() {
     }, [supabaseBrowser])
 
     useEffect(() => {
-        const currentPlayerIds = Object.values(lineup).map((p: any) => p.id);
+        const currentPlayerIds = Object.values(lineup).map((p) => p.id);
         if (captainId && !currentPlayerIds.includes(captainId)) setCaptainId(null);
         if (viceCaptainId && !currentPlayerIds.includes(viceCaptainId)) setViceCaptainId(null);
     }, [lineup])
@@ -291,33 +312,38 @@ export default function SquadraPage() {
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         try {
             setUploading(true)
-            if (!event.target.files || event.target.files.length === 0) {
-                throw new Error('Devi selezionare un\'immagine da caricare.')
-            }
+            if (!event.target.files || event.target.files.length === 0 || !editingPlayer) return
 
             const file = event.target.files[0]
-            const fileExt = file.name.split('.').pop()
-            const fileName = `${editingPlayer.id}-${Math.random()}.${fileExt}`
-            const filePath = `${fileName}`
+            const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                toast.error("Formato non supportato. Usa JPG, PNG o WebP.")
+                return
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error("File troppo grande. Massimo 2MB.")
+                return
+            }
+
+            const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+            const filePath = `players/${editingPlayer.id}.${ext}`
 
             const { error: uploadError } = await supabaseBrowser.storage
                 .from('avatars')
-                .upload(filePath, file)
+                .upload(filePath, file, { upsert: true, contentType: file.type })
 
-            if (uploadError) {
-                throw uploadError
-            }
+            if (uploadError) throw uploadError
 
             const { data: { publicUrl } } = supabaseBrowser.storage
                 .from('avatars')
                 .getPublicUrl(filePath)
 
-            setEditingPlayer({ ...editingPlayer, avatar_url: publicUrl })
-
+            const bust = `?t=${Date.now()}`
+            setEditingPlayer({ ...editingPlayer, avatar_url: publicUrl + bust })
             toast.success("Foto caricata! Ricordati di salvare.")
 
-        } catch (error: any) {
-            toast.error("Errore caricamento: " + error.message)
+        } catch (error) {
+            toast.error("Errore caricamento: " + (error instanceof Error ? error.message : String(error)))
         } finally {
             setUploading(false)
         }
@@ -340,11 +366,12 @@ export default function SquadraPage() {
             worksheet.getCell('C2').value = timeStr;
             worksheet.getCell('H2').value = nextMatch?.luogo || '';
 
-            if (nextMatch?.is_home !== false) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
+            const isHome = nextMatch?.squadra_casa?.toUpperCase().includes('CHIGI') ?? true;
+            if (isHome) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
             else { worksheet.getCell('B6').value = nextMatch?.avversario || ""; worksheet.getCell('H6').value = "C. PAL. CHIGI"; }
 
-            const playersInLineup = Object.entries(lineup).map(([slotId, player]: [string, any]) => ({ ...player, isBench: slotId.startsWith('P'), slotId }));
-            const sortPlayers = (list: any[]) => list.sort((a, b) => {
+            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: slotId.startsWith('P'), slotId }));
+            const sortPlayers = (list: (Player & { isBench: boolean; slotId: string })[]) => list.sort((a, b) => {
                 if (a.ruolo === 'PORTIERE') return -1;
                 if (b.ruolo === 'PORTIERE') return 1;
                 return (a.numero_maglia || 99) - (b.numero_maglia || 99);
@@ -353,7 +380,7 @@ export default function SquadraPage() {
             const riserve = sortPlayers(playersInLineup.filter(p => p.isBench));
             const allPlayers = [...titolari, ...riserve];
 
-            let startRow = 9;
+            const startRow = 9;
             for (let i = 0; i < 30; i++) {
                 const r = worksheet.getRow(startRow + i);
                 [1, 2, 3, 4, 5, 7, 8].forEach(c => r.getCell(c).value = null);
@@ -367,7 +394,7 @@ export default function SquadraPage() {
                 if (p.id === captainId) row.getCell(4).value = 'K';
                 if (p.id === viceCaptainId) row.getCell(4).value = 'VK';
                 row.getCell(5).value = index < titolari.length ? 'T' : 'R';
-                if (isU35Func(p.data_nascita)) row.getCell(7).value = 'X';
+                if (isU35Func(p.data_nascita ?? '')) row.getCell(7).value = 'X';
                 const dob = p.data_nascita ? format(new Date(p.data_nascita), 'dd/MM/yyyy') : '';
                 row.getCell(8).value = `${p.tessera_asi || ''} ${dob}`;
             });
@@ -384,7 +411,7 @@ export default function SquadraPage() {
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
             saveAs(blob, `DISTINTA_CHIGI_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-        } catch (e) { console.error(e); alert("Errore generazione Excel. Assicurati che 'distinta_template.xlsx' esista."); }
+        } catch (e) { console.error(e); toast.error("Errore generazione Excel. Assicurati che 'distinta_template.xlsx' esista in public/."); }
     }
 
     const handleSetRole = (role: 'K' | 'VK' | null, playerId: string) => {
@@ -396,7 +423,7 @@ export default function SquadraPage() {
     const handleAddPlayer = async () => {
         const payload = { ...newPlayer, note_mediche: 'OK', data_nascita: newPlayer.data_nascita ? newPlayer.data_nascita : null, numero_maglia: newPlayer.numero_maglia ? parseInt(newPlayer.numero_maglia.toString()) : null };
         const { error } = await supabaseBrowser.from('profiles').insert([payload]);
-        if (error) alert("Errore: " + error.message); else { setIsAddPlayerOpen(false); setNewPlayer({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' }); getPlayers(); }
+        if (error) toast.error("Errore aggiunta giocatore: " + error.message); else { setIsAddPlayerOpen(false); setNewPlayer({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' }); getPlayers(); }
     }
 
     const handleUpdatePlayer = async () => {
@@ -413,19 +440,17 @@ export default function SquadraPage() {
             taglia_divisa: editingPlayer.taglia_divisa,
             tags: editingPlayer.tags || [],
             tessera_asi: editingPlayer.tessera_asi,
-            is_staff: editingPlayer.is_staff,
-            is_manager: editingPlayer.is_manager,
             avatar_url: editingPlayer.avatar_url
         }).eq('id', editingPlayer.id);
 
-        if (error) alert("Errore: " + error.message);
+        if (error) toast.error("Errore aggiornamento: " + error.message);
         else { setEditingPlayer(null); getPlayers(); }
     }
 
-    const handleDeletePlayer = async (player: any) => {
+    const handleDeletePlayer = async (player: Player) => {
         if (!player) return;
         const { error } = await supabaseBrowser.from('profiles').delete().eq('id', player.id);
-        if (error) alert("Errore eliminazione: " + error.message); else { const newLineup = { ...lineup }; Object.keys(newLineup).forEach(key => { if (newLineup[key].id === player.id) delete newLineup[key]; }); setLineup(newLineup); setEditingPlayer(null); getPlayers(); }
+        if (error) toast.error("Errore eliminazione: " + error.message); else { const newLineup = { ...lineup }; Object.keys(newLineup).forEach(key => { if (newLineup[key].id === player.id) delete newLineup[key]; }); setLineup(newLineup); setEditingPlayer(null); getPlayers(); }
     }
 
     const handleToggleTag = (tag: string) => {
@@ -435,8 +460,8 @@ export default function SquadraPage() {
         else { setEditingPlayer({ ...editingPlayer, tags: [...currentTags, tag] }); }
     }
 
-    const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35Func(lineup[slotId].data_nascita) ? 1 : 0), 0);
-    const u35TotalCount = Object.values(lineup).filter((p: any) => p.ruolo !== 'PORTIERE').reduce((acc: number, p: any) => acc + (isU35Func(p.data_nascita) ? 1 : 0), 0);
+    const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35Func(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
+    const u35TotalCount = Object.values(lineup).filter((p) => p.ruolo !== 'PORTIERE').reduce((acc, p) => acc + (isU35Func(p.data_nascita ?? '') ? 1 : 0), 0);
     const isFieldU35LimitExceeded = u35FieldCount > 2;
     const isTotalU35LimitExceeded = u35TotalCount > 4;
     const isU35Warning = isFieldU35LimitExceeded || isTotalU35LimitExceeded;
@@ -444,11 +469,11 @@ export default function SquadraPage() {
     const handleModuleChange = (newModule: string) => {
         const oldLineup = { ...lineup };
         const newFormSlots = FORMATIONS[newModule];
-        const newLineup: Record<string, any> = {};
+        const newLineup: Record<string, Player> = {};
         if (oldLineup['POR']) { newLineup['POR'] = oldLineup['POR']; delete oldLineup['POR']; }
         Object.keys(oldLineup).forEach(key => { if (key.startsWith('P')) { newLineup[key] = oldLineup[key]; delete oldLineup[key]; } });
         const remainingPlayers = Object.values(oldLineup);
-        const remainingSlots = newFormSlots.filter((s: any) => s.id !== 'POR');
+        const remainingSlots = (newFormSlots as FormationSlotDef[]).filter((s) => s.id !== 'POR');
         remainingPlayers.forEach((player, index) => { if (index < remainingSlots.length) newLineup[remainingSlots[index].id] = player; });
         setModule(newModule);
         setLineup(newLineup);
@@ -478,7 +503,7 @@ export default function SquadraPage() {
     }
 
     const handleMobileSlotClick = (slotId: string) => { setMobileSlotToFill(slotId); }
-    const handleMobilePlayerSelect = (player: any) => {
+    const handleMobilePlayerSelect = (player: Player) => {
         if (mobileSlotToFill) {
             const existingSlot = Object.keys(lineup).find(key => lineup[key].id === player.id);
             const newLineup = { ...lineup };
@@ -495,7 +520,7 @@ export default function SquadraPage() {
         if (lineup[slotId]?.id === viceCaptainId) setViceCaptainId(null);
     }
 
-    const isPlayerSelected = (playerId: string) => Object.values(lineup).some((p: any) => p.id === playerId);
+    const isPlayerSelected = (playerId: string) => Object.values(lineup).some((p) => p.id === playerId);
 
     const downloadImage = async () => {
         if (fieldRef.current) {
@@ -557,7 +582,7 @@ export default function SquadraPage() {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-2 flex flex-col gap-1">
                                         <Button onClick={downloadImage} variant="ghost" className="justify-start text-xs h-8">
-                                            <Image className="mr-2 h-3 w-3" /> Scarica formazione
+                                            <Image aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica formazione
                                         </Button>
                                         <Button onClick={downloadExcelDistinta} variant="ghost" className="justify-start text-xs h-8">
                                             <FileSpreadsheet className="mr-2 h-3 w-3" /> Scarica distinta
@@ -593,10 +618,10 @@ export default function SquadraPage() {
                             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-t-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-b-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-15 pointer-events-none">
-                                <img src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" className="w-32 h-32 grayscale brightness-200" />
+                                <img src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" alt="" className="w-32 h-32 grayscale brightness-200" />
                             </div>
 
-                            {FORMATIONS[module].map((slot: any) => (
+                            {(FORMATIONS[module] as FormationSlotDef[]).map((slot) => (
                                 <FormationSlot
                                     key={slot.id}
                                     slot={slot}
@@ -673,7 +698,7 @@ export default function SquadraPage() {
 
                         <div className="flex bg-muted p-0.5 rounded-md">
                             {['ALL', 'OK', 'KO'].map(status => (
-                                <button key={status} onClick={() => setFilterStatus(status as any)} className={`flex-1 py-1 rounded-sm text-[9px] font-bold transition-all ${filterStatus === status ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}>
+                                <button key={status} onClick={() => setFilterStatus(status as 'ALL' | 'OK' | 'KO')} className={`flex-1 py-1 rounded-sm text-[9px] font-bold transition-all ${filterStatus === status ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}>
                                     {status === 'ALL' ? 'Tutti' : status === 'OK' ? 'Disponibili' : 'Infortunati'}
                                 </button>
                             ))}
@@ -709,7 +734,7 @@ export default function SquadraPage() {
                                     <div className="flex items-center gap-4">
                                         <div className="relative group">
                                             <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                            <AvatarImage src={editingPlayer.avatar_url} className="object-cover"/>
+                                            <AvatarImage src={editingPlayer.avatar_url ?? undefined} className="object-cover"/>
                                                 <AvatarFallback className="text-xl font-bold">{editingPlayer.cognome[0]}</AvatarFallback>
                                             </Avatar>
                                             {(isManager || editingPlayer.id === currentUserId) && (
@@ -735,7 +760,7 @@ export default function SquadraPage() {
                                         <div className="space-y-2 flex-1">
                                             <Input value={editingPlayer.cognome} onChange={(e) => setEditingPlayer({ ...editingPlayer, cognome: e.target.value })} className="text-xl font-black h-9" placeholder="Cognome" />
                                             <Input value={editingPlayer.nome} onChange={(e) => setEditingPlayer({ ...editingPlayer, nome: e.target.value })} className="font-medium h-8" placeholder="Nome" />
-                                            <Select value={editingPlayer.ruolo} onValueChange={(val) => setEditingPlayer({ ...editingPlayer, ruolo: val })}>
+                                            <Select value={editingPlayer.ruolo ?? ''} onValueChange={(val) => setEditingPlayer({ ...editingPlayer, ruolo: val })}>
                                                 <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="PORTIERE">Portiere</SelectItem>
@@ -744,7 +769,7 @@ export default function SquadraPage() {
                                                     <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <Input value={editingPlayer.email} onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })} disabled={!isManager && editingPlayer.id !== currentUserId} className="h-7 text-xs" placeholder="Email" />
+                                            <Input value={editingPlayer.email ?? ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })} disabled={!isManager && editingPlayer.id !== currentUserId} className="h-7 text-xs" placeholder="Email" />
                                         </div>
                                     </div>
                                 </div>
@@ -752,7 +777,7 @@ export default function SquadraPage() {
                                     <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
                                         <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label><Input value={editingPlayer.tessera_asi || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, tessera_asi: e.target.value })} /></div>
                                         <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di nascita</Label><Input type="date" value={editingPlayer.data_nascita || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, data_nascita: e.target.value })} /></div>
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><Input type="number" value={editingPlayer.numero_maglia || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, numero_maglia: e.target.value })} /></div>
+                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><Input type="number" value={editingPlayer.numero_maglia ?? ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, numero_maglia: e.target.value ? parseInt(e.target.value) : null })} /></div>
                                         <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label><Input value={editingPlayer.taglia_divisa || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, taglia_divisa: e.target.value })} /></div>
                                     </div>
                                     <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Note mediche / Infermeria</Label><Input placeholder="OK oppure descrivi infortunio..." value={editingPlayer.note_mediche || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, note_mediche: e.target.value })} className={editingPlayer.note_mediche && editingPlayer.note_mediche !== 'OK' ? 'border-red-300 bg-red-50 text-red-900' : 'border-green-300 bg-green-50 text-green-900'} /></div>
@@ -786,11 +811,11 @@ export default function SquadraPage() {
                         <div className="overflow-y-auto pr-2 custom-scrollbar space-y-2 flex-1">
                             {sortedForMobile.map(p => {
                                 const isSelected = isPlayerSelected(p.id);
-                                const isU35 = isU35Func(p.data_nascita);
+                                const isU35 = isU35Func(p.data_nascita ?? '');
                                 const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
                                     <div key={p.id} onClick={() => !isSelected && handleMobilePlayerSelect(p)} className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${isSelected ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                                        <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
+                                        <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{isU35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
                                             <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
@@ -806,7 +831,7 @@ export default function SquadraPage() {
                 <DragOverlay>
                     {activePlayer ? (
                         <div className="h-16 w-16 rounded-full bg-primary border-[3px] border-white shadow-2xl flex items-center justify-center opacity-90 cursor-grabbing overflow-hidden">
-                            <Avatar className="h-full w-full"><AvatarImage src={activePlayer.avatar_url} className="object-cover" /><AvatarFallback>{activePlayer.cognome[0]}</AvatarFallback></Avatar>
+                            <Avatar className="h-full w-full"><AvatarImage src={activePlayer.avatar_url ?? undefined} className="object-cover" /><AvatarFallback>{activePlayer.cognome[0]}</AvatarFallback></Avatar>
                         </div>
                     ) : null}
                 </DragOverlay>

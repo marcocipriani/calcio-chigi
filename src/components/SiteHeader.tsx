@@ -83,7 +83,7 @@ export function SiteHeader() {
             <Link href={profileLink}>
                 {profile ? (
                     <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 cursor-pointer transition-transform hover:scale-105">
-                        <AvatarImage src={profile.avatar_url ?? undefined} className="object-cover" />
+                        <AvatarImage src={profile.avatar_url ?? undefined} alt={`${profile.nome ?? ''} ${profile.cognome ?? ''}`.trim() || 'Profilo'} className="object-cover" />
                         <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
                             {profile.nome?.[0] || "U"}
                         </AvatarFallback>

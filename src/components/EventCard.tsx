@@ -116,7 +116,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                         <div className="flex items-center gap-3">
                             <div className="h-14 w-14 shrink-0 rounded-full bg-background border-2 border-border flex items-center justify-center p-1 group-hover:border-primary transition-colors overflow-hidden">
                                 {opponentLogo ? (
-                                    <img src={opponentLogo} alt="Logo" className="h-full w-full object-contain" />
+                                    <img src={opponentLogo} alt={`Logo ${event.avversario ?? 'avversario'}`} className="h-full w-full object-contain" />
                                 ) : (
                                     <span className="text-sm font-bold text-muted-foreground">{event.avversario?.substring(0,2)}</span>
                                 )}
@@ -169,7 +169,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                     <div className="flex items-center -space-x-2 overflow-hidden pl-1">
                         {activePlayers.slice(0, 5).map((att: EventAttendancePreview, i: number) => (
                             <Avatar key={i} className="inline-block h-7 w-7 rounded-full ring-2 ring-background dark:ring-slate-800">
-                                <AvatarImage src={att.profiles?.avatar_url || ""} />
+                                <AvatarImage src={att.profiles?.avatar_url || ""} alt={att.profiles?.nome ?? ''} />
                                 <AvatarFallback className="bg-muted text-[9px] text-muted-foreground font-bold">
                                     {att.profiles?.nome?.[0]}
                                 </AvatarFallback>

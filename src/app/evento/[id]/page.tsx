@@ -393,7 +393,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         <div className="text-center space-y-3 mt-2">
             {isMatch && opponentLogo && (
                 <div className="flex justify-center mb-2">
-                    <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={opponentLogo} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
+                    <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={opponentLogo} alt={`Logo ${event.avversario ?? 'avversario'}`} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
                 </div>
             )}
             <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>{event.avversario || "Allenamento"}</h2>
@@ -550,7 +550,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-all duration-300`}>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
-                                    <AvatarImage src={p.avatar_url ?? undefined} />
+                                    <AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} />
                                     <AvatarFallback>{p.nome[0]}{p.cognome[0]}</AvatarFallback>
                                 </Avatar>
                                 <div>

@@ -331,7 +331,7 @@ export default function TorneoPage() {
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-5 w-5 bg-transparent">
-                                                            <AvatarImage src={logoCasa} className="object-contain"/>
+                                                            <AvatarImage src={logoCasa} alt={match.squadra_casa ?? ''} className="object-contain"/>
                                                             <AvatarFallback className="text-[8px]">{match.squadra_casa?.[0]}</AvatarFallback>
                                                         </Avatar>
                                                         <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
@@ -346,7 +346,7 @@ export default function TorneoPage() {
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-5 w-5 bg-transparent">
-                                                            <AvatarImage src={logoOspite} className="object-contain"/>
+                                                            <AvatarImage src={logoOspite} alt={match.squadra_ospite ?? ''} className="object-contain"/>
                                                             <AvatarFallback className="text-[8px]">{match.squadra_ospite?.[0]}</AvatarFallback>
                                                         </Avatar>
                                                         <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>

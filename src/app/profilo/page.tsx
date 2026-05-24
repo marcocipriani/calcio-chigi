@@ -278,7 +278,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-4 py-2">
                 <div className="relative group">
                     <Avatar className="h-28 w-28 border-4 border-card shadow-2xl ring-2 ring-border/50">
-                        <AvatarImage src={myProfile?.avatar_url ?? undefined} className="object-cover" />
+                        <AvatarImage src={myProfile?.avatar_url ?? undefined} alt={`${formData.nome ?? ''} ${formData.cognome ?? ''}`.trim() || 'Profilo'} className="object-cover" />
                         <AvatarFallback className="text-3xl font-black bg-muted">
                             {formData.nome?.[0]}{formData.cognome?.[0]}
                         </AvatarFallback>

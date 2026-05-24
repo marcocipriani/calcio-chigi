@@ -177,7 +177,7 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
                     <TableCell className="text-center text-sm text-muted-foreground p-2 font-medium">{index + 1}</TableCell>
                     <TableCell className="p-2">
                         <div className="flex items-center gap-3">
-                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} className="object-contain" /><AvatarFallback>{row.teamData.nome?.[0]}</AvatarFallback></Avatar>
+                        <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} alt={row.teamData.nome ?? ''} className="object-contain" /><AvatarFallback>{row.teamData.nome?.[0]}</AvatarFallback></Avatar>
                         <span className={`text-xs font-bold uppercase ${isMyTeam ? 'text-amber-600' : ''}`}>{row.teamData.nome}</span>
                         </div>
                     </TableCell>

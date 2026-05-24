@@ -99,7 +99,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                     <div className="bg-slate-50 dark:bg-slate-900 p-6 pb-4 border-b relative">
                         <div className="flex items-center gap-4">
                             <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" />
+                                <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" />
                                 <AvatarFallback className="text-xl font-bold">{player.cognome[0]}</AvatarFallback>
                             </Avatar>
                             <div className="space-y-1">
@@ -157,7 +157,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
       `}>
                 <div className="relative shrink-0">
                     <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
-                        <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" /><AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
+                        <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" /><AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
                     {isInjured && (<div className="absolute -top-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-1 shadow-md border border-red-100 z-10"><Ambulance className="h-3.5 w-3.5 text-red-600 animate-pulse" /></div>)}
                     {isCaptain && (<div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[9px]">C</div>)}
@@ -186,7 +186,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
             <div className="flex flex-col items-center">
                 <div className="relative transition-transform hover:scale-110">
                     <Avatar className={`${isBench ? 'h-11 w-11' : 'h-16 w-16'} border-0 shadow-xl bg-white ring-4 ${avatarRingColor}`}>
-                        <AvatarImage src={player.avatar_url ?? undefined} className="object-cover" />
+                        <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" />
                         <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
                     {isU35 && (<div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
@@ -736,7 +736,7 @@ export default function SquadraPage() {
                                     <div className="flex items-center gap-4">
                                         <div className="relative group">
                                             <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                            <AvatarImage src={editingPlayer.avatar_url ?? undefined} className="object-cover"/>
+                                            <AvatarImage src={editingPlayer.avatar_url ?? undefined} alt={`${editingPlayer.nome} ${editingPlayer.cognome}`} className="object-cover"/>
                                                 <AvatarFallback className="text-xl font-bold">{editingPlayer.cognome[0]}</AvatarFallback>
                                             </Avatar>
                                             {(isManager || editingPlayer.id === currentUserId) && (
@@ -817,7 +817,7 @@ export default function SquadraPage() {
                                 const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
                                     <div key={p.id} onClick={() => !isSelected && handleMobilePlayerSelect(p)} className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${isSelected ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                                        <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
+                                        <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{isU35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
                                             <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
@@ -833,7 +833,7 @@ export default function SquadraPage() {
                 <DragOverlay>
                     {activePlayer ? (
                         <div className="h-16 w-16 rounded-full bg-primary border-[3px] border-white shadow-2xl flex items-center justify-center opacity-90 cursor-grabbing overflow-hidden">
-                            <Avatar className="h-full w-full"><AvatarImage src={activePlayer.avatar_url ?? undefined} className="object-cover" /><AvatarFallback>{activePlayer.cognome[0]}</AvatarFallback></Avatar>
+                            <Avatar className="h-full w-full"><AvatarImage src={activePlayer.avatar_url ?? undefined} alt={`${activePlayer.nome} ${activePlayer.cognome}`} className="object-cover" /><AvatarFallback>{activePlayer.cognome[0]}</AvatarFallback></Avatar>
                         </div>
                     ) : null}
                 </DragOverlay>

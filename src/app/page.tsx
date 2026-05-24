@@ -304,7 +304,7 @@ export default function Home() {
                                                                 <X className="h-4 w-4" /> 
                                                             ) : (isMatch ? (
                                                                 opponentLogo ? (
-                                                                    <img src={opponentLogo} alt="vs" className="h-full w-full object-cover" />
+                                                                    <img src={opponentLogo} alt={`Logo ${evt.avversario ?? 'avversario'}`} className="h-full w-full object-cover" />
                                                                 ) : (
                                                                     <Trophy className="h-3.5 w-3.5 text-blue-600" />
                                                                 )

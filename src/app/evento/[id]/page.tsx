@@ -183,8 +183,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         modified_by: myProfileId
     } : p));
     
-    toast.success("Disponibilità aggiornata!");
-
     const { error } = await supabase.from('attendance').upsert({
         event_id: id,
         profile_id: myProfileId,
@@ -197,6 +195,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         setUserStatus(prevUserStatus);
         setRoster(prevRoster);
         toast.error("Errore salvataggio voto: " + error.message);
+    } else {
+        toast.success("Disponibilità aggiornata!");
     }
   };
 
@@ -207,7 +207,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
       setUserStatus(null);
       setRoster(prev => prev.map(p => p.id === myProfileId ? { ...p, status: null, vote_time: null, modified_by: null } : p));
-      toast.info("Scelta rimossa");
 
       const { error } = await supabase.from('attendance').delete().match({ event_id: id, profile_id: myProfileId });
 
@@ -215,6 +214,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           setUserStatus(prevUserStatus);
           setRoster(prevRoster);
           toast.error("Errore rimozione voto.");
+      } else {
+          toast.info("Scelta rimossa");
       }
   }
 
@@ -230,17 +231,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           vote_time: newStatus === 'RESET' ? null : now,
           modified_by: newStatus === 'RESET' ? null : myProfileId 
       } : p));
-      
-      toast.info("Stato aggiornato dal manager");
 
       let error = null;
       if (newStatus === "RESET") {
           const res = await supabase.from('attendance').delete().match({ event_id: id, profile_id: targetProfileId });
           error = res.error;
       } else {
-          const res = await supabase.from('attendance').upsert({ 
-              event_id: id, 
-              profile_id: targetProfileId, 
+          const res = await supabase.from('attendance').upsert({
+              event_id: id,
+              profile_id: targetProfileId,
               status: newStatus,
               modified_by: myProfileId
           }, { onConflict: 'event_id, profile_id' });
@@ -250,6 +249,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       if (error) {
           setRoster(prevRoster);
           toast.error("Errore aggiornamento manager: " + error.message);
+      } else {
+          toast.info("Stato aggiornato dal manager");
       }
   };
 

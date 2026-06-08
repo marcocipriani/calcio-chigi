@@ -83,7 +83,7 @@ export default function ProfilePage() {
         formData.tessera_asi !== (originalData.tessera_asi || '') ||
         formData.taglia_divisa !== (originalData.taglia_divisa || '') ||
         formData.default_view !== (originalData.default_view || 'ACTIVITY') ||
-        JSON.stringify(formData.tags.sort()) !== JSON.stringify((originalData.tags || []).sort()) ||
+        JSON.stringify([...formData.tags].sort()) !== JSON.stringify([...(originalData.tags || [])].sort()) ||
         (formData.note_mediche !== '' && formData.note_mediche !== (originalData.note_mediche === 'OK' ? '' : originalData.note_mediche)) ||
         (formData.note_mediche === '' && originalData.note_mediche !== 'OK' && originalData.note_mediche !== null && originalData.note_mediche !== '') ||
         false; // is_staff/is_manager excluded: read-only display only
@@ -176,8 +176,9 @@ export default function ProfilePage() {
   }
 
   const handleSave = async () => {
+      if (!myProfile) return;
       setLoading(true)
-      
+
       const statusMedico = formData.note_mediche.trim() === '' ? 'OK' : formData.note_mediche;
       const dataNascitaPayload = formData.data_nascita ? formData.data_nascita : null;
 
@@ -196,7 +197,6 @@ export default function ProfilePage() {
             default_view: formData.default_view
       }
 
-      if (!myProfile) return;
       const { error } = await supabase.from('profiles').update(updates).eq('id', myProfile.id)
 
       if (error) {

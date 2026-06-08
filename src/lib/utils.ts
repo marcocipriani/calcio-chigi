@@ -87,6 +87,7 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
 
     // Sort: first by punti, then apply ASI tiebreakers within tied groups
     const rows = Object.values(stats).sort((a, b) => b.punti - a.punti);
+    if (rows.length === 0) return [];
 
     // Group consecutive rows with same punti
     const groups: StandingRow[][] = [];

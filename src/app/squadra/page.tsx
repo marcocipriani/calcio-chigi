@@ -349,10 +349,10 @@ export default function SquadraPage() {
             if (isHome) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
             else { worksheet.getCell('B6').value = nextMatch?.avversario || ""; worksheet.getCell('H6').value = "C. PAL. CHIGI"; }
 
-            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: slotId.startsWith('P'), slotId }));
+            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: slotId !== 'POR' && slotId.startsWith('P'), slotId }));
             const sortPlayers = (list: (Player & { isBench: boolean; slotId: string })[]) => list.sort((a, b) => {
-                if (a.ruolo === 'PORTIERE') return -1;
-                if (b.ruolo === 'PORTIERE') return 1;
+                if (a.ruolo === 'PORTIERE' && b.ruolo !== 'PORTIERE') return -1;
+                if (b.ruolo === 'PORTIERE' && a.ruolo !== 'PORTIERE') return 1;
                 return (a.numero_maglia || 99) - (b.numero_maglia || 99);
             });
             const titolari = sortPlayers(playersInLineup.filter(p => !p.isBench));

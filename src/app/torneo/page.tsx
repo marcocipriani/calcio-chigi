@@ -149,10 +149,11 @@ export default function TorneoPage() {
 
       const golCasa = s.casa === '' ? null : parseInt(s.casa)
       const golOspite = s.ospite === '' ? null : parseInt(s.ospite)
+      const previousMatches = [...allMatches]
 
-      setAllMatches(prev => prev.map(m => 
-          m.id === matchId 
-          ? { ...m, gol_casa: golCasa, gol_ospite: golOspite, giocata: (golCasa !== null && golOspite !== null) } 
+      setAllMatches(prev => prev.map(m =>
+          m.id === matchId
+          ? { ...m, gol_casa: golCasa, gol_ospite: golOspite, giocata: (golCasa !== null && golOspite !== null) }
           : m
       ))
 
@@ -163,6 +164,7 @@ export default function TorneoPage() {
       }).eq('id', matchId)
 
       if (error) {
+          setAllMatches(previousMatches)
           toast.error("Errore: " + error.message)
       } else {
           toast.success("Risultato salvato")

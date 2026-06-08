@@ -112,6 +112,7 @@ export default function TorneoPage() {
 
   const handleSaveEvent = async (eventData: Partial<Event>) => {
     if (!editingEvent) return;
+    const previousMatches = [...allMatches];
     const payload = { ...eventData, ...(!eventData.data_ora ? { data_ora: editingEvent.data_ora } : {}) };
 
     setAllMatches(prev => prev.map(m => m.id === editingEvent.id ? { ...m, ...payload } : m))
@@ -119,10 +120,10 @@ export default function TorneoPage() {
     const { error } = await supabase.from('events').update(payload).eq('id', editingEvent.id)
 
     if (error) {
-        toast.error("Errore salvataggio: " + error.message)
+        setAllMatches(previousMatches)
+        throw error
     }
 
-    setDialogOpen(false)
     setEditingEvent(null)
   }
 

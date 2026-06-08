@@ -133,11 +133,9 @@ export default function Home() {
           error = res.error;
       }
 
-      if(error) {
-          toast.error("Errore: " + error.message);
+      if (error) {
           setEvents(previousEvents);
-      } else {
-            setDialogOpen(false);
+          throw error;
       }
   }
 

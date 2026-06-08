@@ -254,10 +254,11 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const handleEventUpdate = async (updatedData: Partial<Event>) => {
       const prevEvent = event;
       setEvent(event ? { ...event, ...updatedData } : null);
-      setEditDialogOpen(false);
-      toast.success("Evento aggiornato.");
       const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).select();
-      if (error || !data) { setEvent(prevEvent); toast.error("Errore salvataggio."); }
+      if (error || !data) {
+          setEvent(prevEvent);
+          throw error ?? new Error("Errore salvataggio.");
+      }
   };
 
   const handleDeleteEvent = async () => {

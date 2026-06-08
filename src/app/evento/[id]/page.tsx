@@ -90,22 +90,22 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       if (newRecord?.profile_id === currentProfileId && newRecord?.modified_by === currentProfileId) return;
 
       if (eventType === 'DELETE' && oldRecord) {
-          setRoster(prev => prev.map(p => 
+          setRoster(prev => prev.map(p =>
               p.id === oldRecord.profile_id ? { ...p, status: null, vote_time: null, modified_by: null } : p
           ));
-          if (oldRecord.profile_id === myProfileId) setUserStatus(null);
+          if (oldRecord.profile_id === currentProfileId) setUserStatus(null);
       }
 
       if ((eventType === 'INSERT' || eventType === 'UPDATE') && newRecord) {
-          setRoster(prev => prev.map(p => 
-              p.id === newRecord.profile_id ? { 
-                  ...p, 
-                  status: newRecord.status, 
+          setRoster(prev => prev.map(p =>
+              p.id === newRecord.profile_id ? {
+                  ...p,
+                  status: newRecord.status,
                   vote_time: newRecord.created_at,
                   modified_by: newRecord.modified_by
               } : p
           ));
-          if (newRecord.profile_id === myProfileId) setUserStatus(newRecord.status);
+          if (newRecord.profile_id === currentProfileId) setUserStatus(newRecord.status);
       }
   };
 
@@ -127,6 +127,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         fetchAttendanceForEvent(supabase, id),
     ]);
 
+    setOpponentLogo(null);
+
     if (eventData) {
         let opponentName = eventData.avversario;
         if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
@@ -137,7 +139,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
         if (processedEvent.tipo === 'PARTITA' && opponentName) {
             const logo = await fetchTeamLogoByName(supabase, opponentName);
-            if (logo) setOpponentLogo(logo);
+            setOpponentLogo(logo);
         }
     }
 

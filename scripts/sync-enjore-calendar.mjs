@@ -337,8 +337,7 @@ select
   source_events.tipo_campo,
   source_events.fase
 from source_events
-where source_events.data_ora is not null
-  and not exists (
+where not exists (
     select 1
     from public.events e
     where e.tipo = 'PARTITA'
@@ -409,20 +408,16 @@ async function applyToSupabase(rows) {
       continue;
     }
 
-    if (!row.data_ora) {
-      skipped += 1;
-      continue;
-    }
-
     const { error: insertError } = await supabase.from('events').insert({
       id: uuidFromString(`enjore:${row.enjore_id}`),
       ...payload,
     });
     if (insertError) throw insertError;
     inserted += 1;
+    if (!row.data_ora) skipped += 1; // count forfeits without date separately
   }
 
-  console.log(`Sync completata: ${updated} aggiornate, ${inserted} inserite, ${skipped} saltate senza data.`);
+  console.log(`Sync completata: ${updated} aggiornate, ${inserted} inserite (di cui ${skipped} a tavolino senza data).`);
 }
 
 function eventKey(row) {

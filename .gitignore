@@ -45,4 +45,5 @@ next-env.d.ts
 /docs/
 /.claude/
 /.superpowers/
+/.worktrees/
 .mcp.json

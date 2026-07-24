@@ -6,6 +6,8 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/lib/ServiceWorkerRegister";
 import { Toaster } from "@/components/ui/toaster";
+import { AppSessionProvider } from "@/components/auth/AppSessionProvider";
+import { AppGates } from "@/components/auth/AppGates";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -52,12 +54,15 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <SiteHeader />
-            <main className="pt-16 pb-safe min-h-screen"> 
-              {children}
-            </main>
-            <Toaster />
-            <BottomNav />
+            <AppSessionProvider>
+              <AppGates />
+              <SiteHeader />
+              <main className="pt-16 pb-safe min-h-screen"> 
+                {children}
+              </main>
+              <Toaster />
+              <BottomNav />
+            </AppSessionProvider>
         </ThemeProvider>
       </body>
     </html>

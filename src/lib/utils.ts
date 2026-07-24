@@ -10,29 +10,35 @@ export function cn(...inputs: ClassValue[]) {
 export const getAge = (dob?: string | null) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
 export const isU35 = (dob?: string | null) => { const age = getAge(dob); return age !== null && age < 35; };
 
+// Team names arrive UPPERCASE from the sync script but teams.nome may be stored in any case:
+// normalize both sides so the standings/form never silently drop matches on a casing mismatch.
+export const normKey = (s?: string | null) => (s ?? '').toLowerCase().trim();
+
 function buildMiniStats(teamNames: string[], matches: Event[]) {
     const mini: Record<string, { punti: number; diff: number; golFatti: number }> = {};
-    teamNames.forEach(n => (mini[n] = { punti: 0, diff: 0, golFatti: 0 }));
+    teamNames.forEach(n => (mini[normKey(n)] = { punti: 0, diff: 0, golFatti: 0 }));
 
     matches.forEach(m => {
         if (!m.giocata || !m.squadra_casa || !m.squadra_ospite) return;
-        if (!teamNames.includes(m.squadra_casa) || !teamNames.includes(m.squadra_ospite)) return;
+        const casa = normKey(m.squadra_casa);
+        const ospite = normKey(m.squadra_ospite);
+        if (!mini[casa] || !mini[ospite]) return;
 
         const golCasa = Number(m.gol_casa) || 0;
         const golOspite = Number(m.gol_ospite) || 0;
 
-        mini[m.squadra_casa].golFatti += golCasa;
-        mini[m.squadra_ospite].golFatti += golOspite;
-        mini[m.squadra_casa].diff += golCasa - golOspite;
-        mini[m.squadra_ospite].diff += golOspite - golCasa;
+        mini[casa].golFatti += golCasa;
+        mini[ospite].golFatti += golOspite;
+        mini[casa].diff += golCasa - golOspite;
+        mini[ospite].diff += golOspite - golCasa;
 
         if (golCasa > golOspite) {
-            mini[m.squadra_casa].punti += 3;
+            mini[casa].punti += 3;
         } else if (golCasa < golOspite) {
-            mini[m.squadra_ospite].punti += 3;
+            mini[ospite].punti += 3;
         } else {
-            mini[m.squadra_casa].punti += 1;
-            mini[m.squadra_ospite].punti += 1;
+            mini[casa].punti += 1;
+            mini[ospite].punti += 1;
         }
     });
 
@@ -43,7 +49,7 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
     const stats: Record<string, StandingRow> = {};
 
     teams.forEach(team => {
-        stats[team.nome] = {
+        stats[normKey(team.nome)] = {
             id: team.id,
             teamData: team,
             punti: 0,
@@ -59,8 +65,8 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
     matches.forEach(match => {
         if (!match.giocata || !match.squadra_casa || !match.squadra_ospite) return;
 
-        const casa = match.squadra_casa;
-        const ospite = match.squadra_ospite;
+        const casa = normKey(match.squadra_casa);
+        const ospite = normKey(match.squadra_ospite);
         const golCasa = Number(match.gol_casa) || 0;
         const golOspite = Number(match.gol_ospite) || 0;
 
@@ -120,8 +126,8 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
         const mini = buildMiniStats(names, matches);
 
         const sorted = [...group].sort((a, b) => {
-            const mA = mini[a.teamData.nome ?? ''] ?? { punti: 0, diff: 0, golFatti: 0 };
-            const mB = mini[b.teamData.nome ?? ''] ?? { punti: 0, diff: 0, golFatti: 0 };
+            const mA = mini[normKey(a.teamData.nome)] ?? { punti: 0, diff: 0, golFatti: 0 };
+            const mB = mini[normKey(b.teamData.nome)] ?? { punti: 0, diff: 0, golFatti: 0 };
 
             if (mB.punti !== mA.punti) return mB.punti - mA.punti;
             if (mB.diff !== mA.diff) return mB.diff - mA.diff;

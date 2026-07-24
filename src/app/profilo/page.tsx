@@ -140,7 +140,7 @@ export default function ProfilePage() {
         }
 
         const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-        const filePath = `${myProfile.id}.${ext}`
+        const filePath = `players/${myProfile.id}.${ext}`
 
         const { error: uploadError } = await supabase.storage
             .from('avatars')

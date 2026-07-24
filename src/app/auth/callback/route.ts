@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/'
+  const nextParam = requestUrl.searchParams.get('next') ?? '/'
+  // Only allow internal relative paths (block open-redirect via //host or absolute URLs)
+  const next = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/'
   const origin = process.env.NEXT_PUBLIC_SITE_URL 
     ? process.env.NEXT_PUBLIC_SITE_URL 
     : requestUrl.origin;

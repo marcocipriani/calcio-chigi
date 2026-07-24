@@ -81,27 +81,28 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
   }, [fase]);
 
   const getForm = (teamName: string) => {
-      const teamMatches = matches.filter(m => 
-          m.squadra_casa === teamName || m.squadra_ospite === teamName
-      ).slice(0, 3);
+      const key = teamName.toLowerCase().trim();
+      const isCasa = (m: Event) => (m.squadra_casa ?? '').toLowerCase().trim() === key;
+      const isOspite = (m: Event) => (m.squadra_ospite ?? '').toLowerCase().trim() === key;
+      const teamMatches = matches.filter(m => isCasa(m) || isOspite(m)).slice(0, 3);
 
       return teamMatches.map(m => {
-          let result = 'N'; 
+          let result = 'N';
           const golCasa = Number(m.gol_casa);
           const golOspite = Number(m.gol_ospite);
 
-          if (m.squadra_casa === teamName) {
+          if (isCasa(m)) {
               if (golCasa > golOspite) result = 'V';
               else if (golCasa < golOspite) result = 'P';
           } else {
               if (golOspite > golCasa) result = 'V';
               else if (golOspite < golCasa) result = 'P';
           }
-          return { 
-            result, 
-            date: m.data_ora, 
-            score: `${golCasa}-${golOspite}`, 
-            opponent: m.squadra_casa === teamName ? m.squadra_ospite : m.squadra_casa 
+          return {
+            result,
+            date: m.data_ora,
+            score: `${golCasa}-${golOspite}`,
+            opponent: isCasa(m) ? m.squadra_ospite : m.squadra_casa
           };
       });
   };

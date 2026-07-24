@@ -95,7 +95,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
               p.id === newRecord.profile_id ? {
                   ...p,
                   status: newRecord.status,
-                  vote_time: newRecord.created_at,
+                  vote_time: newRecord.updated_at || newRecord.created_at,
                   modified_by: newRecord.modified_by
               } : p
           ));
@@ -265,6 +265,10 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const handleCopyWhatsApp = () => {
     if (!event) return;
+    if (!event.data_ora) {
+        toast.error("Evento senza data: imposta data e ora prima di generare il messaggio.");
+        return;
+    }
     const formattedPresenze = roster.map(p => ({
         status: p.status,
         profiles: p

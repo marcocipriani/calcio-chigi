@@ -20,7 +20,8 @@ type WhatsAppAttendance = {
 };
 
 export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendance[]) {
-    const dataEvento = new Date(evento.data_ora ?? 0);
+    if (!evento.data_ora) return 'Evento senza data: impossibile generare il messaggio.';
+    const dataEvento = new Date(evento.data_ora);
     const isPartita = evento.tipo === 'PARTITA';
     
     let avversario = '';

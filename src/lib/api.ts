@@ -85,7 +85,7 @@ export async function fetchCalendarEvents(supabase: SupabaseClient): Promise<Eve
  * Fetches a single event by ID.
  */
 export async function fetchEventById(supabase: SupabaseClient, id: string): Promise<Event | null> {
-    const { data } = await supabase.from('events').select('*').eq('id', id).single()
+    const { data } = await supabase.from('events').select('*').eq('id', id).maybeSingle()
     return data ?? null
 }
 
@@ -156,6 +156,8 @@ export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Eve
         .from('events')
         .select('*')
         .eq('tipo', 'PARTITA')
+        .eq('cancellato', false)
+        .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%')
         .gte('data_ora', now)
         .order('data_ora', { ascending: true })
         .limit(1)

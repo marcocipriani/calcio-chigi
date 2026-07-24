@@ -33,6 +33,14 @@ import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
 
+// Mirror the server-side filter in fetchCalendarEvents: all trainings + only Chigi matches.
+// Without this, a realtime INSERT of another team's match (e.g. during a full sync) would
+// leak non-Chigi matches into the calendar until the next refresh.
+const isChigiCalendarEvent = (e: Event) =>
+    e.tipo !== 'PARTITA' ||
+    !!e.squadra_casa?.toLowerCase().includes('chigi') ||
+    !!e.squadra_ospite?.toLowerCase().includes('chigi');
+
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -50,6 +58,7 @@ export default function Home() {
 
       setEvents((currentEvents) => {
           if (eventType === 'INSERT') {
+              if (!isChigiCalendarEvent(newRecord)) return currentEvents;
               if (currentEvents.some(e => e.id === newRecord.id)) return currentEvents;
               return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
           }

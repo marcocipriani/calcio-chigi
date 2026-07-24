@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(24);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -15,6 +15,19 @@ select ok(
   has_table_privilege('service_role', 'public.profiles', 'SELECT'),
   'service role can read profiles for administrative scripts'
 );
+select has_table('public'::name, 'account_association_requests'::name);
+select has_table('public'::name, 'rejected_account_hashes'::name);
+select has_table('public'::name, 'notifications'::name);
+select has_table('public'::name, 'notification_recipients'::name);
+select has_table('public'::name, 'push_subscriptions'::name);
+select has_table('public'::name, 'notification_preferences'::name);
+select has_table('public'::name, 'notification_outbox'::name);
+select has_view('public'::name, 'claimable_profile_directory'::name);
+select has_function('public', 'get_app_context', array[]::text[]);
+select has_function('public', 'request_profile_association', array['uuid']);
+select has_function('public', 'respond_to_season_confirmation', array['text', 'text']);
+select has_function('public', 'set_event_checkin', array['uuid', 'uuid', 'event_checkin_status']);
+select has_function('public', 'guard_notification_recipient_identity', array[]::text[]);
 select results_eq(
   $$select count(*)::bigint
       from information_schema.columns

@@ -67,13 +67,9 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 
 ## 🖼️ Screenshot
 
-> Placeholder — sostituisci con screenshot reali (consigliato: `.github/screenshots/`).
-
 | Calendario | Formazione | Classifica |
 | :---: | :---: | :---: |
-| ![Calendario](https://placehold.co/240x480/1e293b/94a3b8?text=Calendario) | ![Formazione](https://placehold.co/240x480/166534/86efac?text=Formazione) | ![Classifica](https://placehold.co/240x480/1e293b/94a3b8?text=Classifica) |
-
-<!-- Sostituisci con: ![Calendario](./.github/screenshots/calendario.png) -->
+| ![Calendario](./.github/screenshots/calendario.png) | ![Formazione](./.github/screenshots/formazione.png) | ![Classifica](./.github/screenshots/classifica.png) |
 
 ## 🧩 Stack tecnico
 

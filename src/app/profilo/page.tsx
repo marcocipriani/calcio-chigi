@@ -74,7 +74,7 @@ export default function ProfilePage() {
         formData.data_nascita !== (originalData.data_nascita || '') ||
         formData.ruolo !== (originalData.ruolo || '') ||
         formData.dipartimento !== (originalData.dipartimento || '') ||
-        formData.numero_maglia !== (originalData.numero_maglia || '') ||
+        formData.numero_maglia !== (originalData.numero_maglia != null ? String(originalData.numero_maglia) : '') ||
         formData.tessera_asi !== (originalData.tessera_asi || '') ||
         formData.taglia_divisa !== (originalData.taglia_divisa || '') ||
         formData.default_view !== (originalData.default_view || 'ACTIVITY') ||

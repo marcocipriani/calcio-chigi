@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState } from 'react'
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -48,11 +48,6 @@ export default function ProfilePage() {
     is_manager: false
   })
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), [])
-
   useEffect(() => {
     const loadData = async () => {
         setLoading(true)
@@ -67,7 +62,7 @@ export default function ProfilePage() {
       }
 
     loadData()
-  }, [supabase, router])
+  }, [router])
 
   useEffect(() => {
     if (!originalData) return;

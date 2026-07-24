@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
-import { createBrowserClient } from '@supabase/ssr'
+import { useState, useEffect, useRef } from "react"
+import { supabaseBrowser } from '@/lib/supabaseBrowser'
 import { toPng } from 'html-to-image'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
@@ -32,6 +32,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image } from "lucide-react"
 
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
@@ -242,7 +243,6 @@ export default function SquadraPage() {
 
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
     const fieldRef = useRef<HTMLDivElement>(null)
-    const supabaseBrowser = useMemo(() => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_KEY!), [])
 
     useEffect(() => {
         checkUserAndPermissions()
@@ -252,7 +252,7 @@ export default function SquadraPage() {
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
-    }, [supabaseBrowser])
+    }, [])
 
     useEffect(() => {
         const currentPlayerIds = Object.values(lineup).map((p) => p.id);
@@ -516,7 +516,24 @@ export default function SquadraPage() {
 
     const sortedForMobile = [...filteredPlayers].sort((a, b) => { return a.cognome.localeCompare(b.cognome); });
 
-    if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>
+    if (loading) return (
+        <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start">
+            <div className="flex-none lg:w-[55%] space-y-3">
+                <div className="flex justify-between items-center mb-2">
+                    <div className="space-y-2"><Skeleton className="h-8 w-24" /><Skeleton className="h-3 w-40" /></div>
+                    <Skeleton className="h-9 w-36 rounded-md" />
+                </div>
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="aspect-[3/4] max-w-[450px] mx-auto w-full rounded-lg" />
+            </div>
+            <div className="flex-1 space-y-3 mt-4 lg:mt-0">
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+                    {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-[140px] rounded-lg" />)}
+                </div>
+            </div>
+        </div>
+    )
 
     return (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

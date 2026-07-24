@@ -1,18 +1,19 @@
 "use client"
 
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input" 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, CalendarDays, Trophy, FileText, Download, Pencil, Save } from 'lucide-react'
+import { CalendarDays, Trophy, FileText, Download, Pencil, Save } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import ClassificaPage from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
@@ -38,33 +39,30 @@ export default function TorneoPage() {
 
   const daysScrollRef = useRef<HTMLDivElement>(null)
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), [])
-
   useEffect(() => {
     async function init() {
-        const { isManager } = await getUserContext(supabase)
-        if (isManager) setIsManager(true)
+        const [{ isManager }, comunicatiData, teamsData, matches] = await Promise.all([
+            getUserContext(supabase),
+            fetchComunicati(supabase),
+            fetchTeams(supabase),
+            fetchAllMatches(supabase),
+        ])
 
-        const comunicatiData = await fetchComunicati(supabase)
+        if (isManager) setIsManager(true)
         if (comunicatiData.length > 0) setComunicati(comunicatiData)
 
-        const teamsData = await fetchTeams(supabase)
         const tMap: Record<string, string> = {}
         teamsData.forEach(t => {
             if (t.nome) tMap[t.nome.toLowerCase().trim()] = t.logo_url ?? ''
         })
         setTeamsMap(tMap)
 
-        const matches = await fetchAllMatches(supabase)
         if (matches.length > 0) setAllMatches(matches)
 
         setLoading(false)
     }
     init()
-  }, [supabase])
+  }, [])
 
   const currentPhaseMatches = useMemo(() => {
     return allMatches.filter(m => {
@@ -171,7 +169,24 @@ export default function TorneoPage() {
       }
   }
 
-  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>
+  if (loading) return (
+    <div className="container max-w-4xl mx-auto p-4 pb-24 space-y-4">
+        <div className="flex justify-between items-start mb-2">
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-28" />
+                <Skeleton className="h-3 w-52" />
+            </div>
+            <Skeleton className="h-10 w-[200px] rounded-md" />
+        </div>
+        <Skeleton className="h-12 w-full rounded-xl" />
+        <div className="flex gap-2 pb-2">
+            {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-14 rounded-2xl shrink-0" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
+        </div>
+    </div>
+  )
 
   return (
     <div className="container max-w-4xl mx-auto p-4 pb-24 space-y-4">

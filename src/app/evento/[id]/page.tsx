@@ -1,16 +1,17 @@
 "use client"
 
-import { useEffect, useState, use, useMemo, useRef } from 'react';
-import { createBrowserClient } from '@supabase/ssr'; 
+import { useEffect, useState, use, useRef } from 'react';
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'; 
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EventDialog } from '@/components/EventDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
@@ -36,11 +37,6 @@ interface RosterPlayer {
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
   const router = useRouter();
-  
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), []);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
@@ -286,7 +282,27 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     });
   };
 
-  if (loading) return <div className="flex justify-center pt-20"><Loader2 className="animate-spin" /></div>;
+  if (loading) return (
+    <div className="min-h-screen bg-background pb-24">
+      <div className="p-4 sticky top-14 z-40 bg-slate-900 flex items-center gap-3">
+        <Skeleton className="h-8 w-8 rounded-md bg-white/20" />
+        <Skeleton className="h-5 w-32 bg-white/20" />
+      </div>
+      <div className="p-4 max-w-lg mx-auto space-y-6">
+        <div className="flex flex-col items-center gap-3 mt-2">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
+        </div>
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+        </div>
+      </div>
+    </div>
+  );
   if (!event) return <div className="text-center p-10">Evento non trovato.</div>;
 
   const isMatch = event.tipo === 'PARTITA';

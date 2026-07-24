@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { useState, useEffect } from 'react'
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,11 +17,6 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false)
   const router = useRouter()
 
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), [])
-
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -30,7 +25,7 @@ export default function LoginPage() {
       }
     }
     checkUser()
-  }, [supabase, router])
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

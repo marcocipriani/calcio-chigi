@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser';
 import { EventCard } from '@/components/EventCard';
 import { EventDialog } from '@/components/EventDialog'; 
 import { Trophy, Dumbbell, CalendarDays, History, Plus, Clock, List, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -43,11 +43,6 @@ export default function Home() {
   const [isManager, setIsManager] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), [])
 
   const handleRealtimeUpdate = (payload: { eventType: string; new: Event; old: Event }) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;

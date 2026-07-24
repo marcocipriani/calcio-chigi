@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { Sun, Moon, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createBrowserClient } from '@supabase/ssr'
+import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 type HeaderProfile = {
@@ -18,11 +18,6 @@ export function SiteHeader() {
   const { setTheme, theme } = useTheme()
   const [profile, setProfile] = useState<HeaderProfile | null>(null)
   const [hasSession, setHasSession] = useState(false) 
-
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!
-  ), [])
 
   useEffect(() => {
     async function loadData() {
@@ -43,7 +38,7 @@ export function SiteHeader() {
       }
     }
     loadData()
-  }, [supabase])
+  }, [])
 
   const profileLink = (profile || hasSession) ? "/profilo" : "/login"
 

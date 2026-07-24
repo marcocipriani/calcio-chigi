@@ -77,7 +77,8 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
     return () => {
       supabase.removeChannel(channel);
     }
-  }, [fase]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase]);
 
   const getForm = (teamName: string) => {
       const teamMatches = matches.filter(m => 

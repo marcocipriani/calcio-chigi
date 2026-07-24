@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { MapPin, Clock, Trophy, Dumbbell, Pencil, Ban, LayoutTemplate } from 'lucide-react';
@@ -116,7 +117,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                         <div className="flex items-center gap-3">
                             <div className="h-14 w-14 shrink-0 rounded-full bg-background border-2 border-border flex items-center justify-center p-1 group-hover:border-primary transition-colors overflow-hidden">
                                 {opponentLogo ? (
-                                    <img src={opponentLogo} alt={`Logo ${event.avversario ?? 'avversario'}`} className="h-full w-full object-contain" />
+                                    <Image src={opponentLogo} alt={`Logo ${event.avversario ?? 'avversario'}`} width={56} height={56} className="h-full w-full object-contain" />
                                 ) : (
                                     <span className="text-sm font-bold text-muted-foreground">{event.avversario?.substring(0,2)}</span>
                                 )}

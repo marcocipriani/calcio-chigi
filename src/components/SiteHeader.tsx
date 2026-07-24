@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useTheme } from "next-themes"
 import { Sun, Moon, UserCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -48,10 +49,12 @@ export function SiteHeader() {
         
         <Link href="/" className="flex items-center gap-3 active:scale-95 transition-transform">
             <div className="h-10 w-10 relative">
-                <img 
-                    src="/icon.png" 
-                    alt="Logo Circolo Chigi" 
-                    className="object-contain h-full w-full" 
+                <Image
+                    src="/icon.png"
+                    alt="Logo Circolo Chigi"
+                    fill
+                    sizes="40px"
+                    className="object-contain"
                 />
             </div>
             <div className="leading-tight">

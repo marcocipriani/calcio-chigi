@@ -33,7 +33,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image } from "lucide-react"
+import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image as ImageIcon } from "lucide-react"
+import Image from "next/image"
 
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
@@ -258,6 +259,7 @@ export default function SquadraPage() {
         const currentPlayerIds = Object.values(lineup).map((p) => p.id);
         if (captainId && !currentPlayerIds.includes(captainId)) setCaptainId(null);
         if (viceCaptainId && !currentPlayerIds.includes(viceCaptainId)) setViceCaptainId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lineup])
 
     useEffect(() => {
@@ -578,7 +580,7 @@ export default function SquadraPage() {
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-2 flex flex-col gap-1">
                                         <Button onClick={downloadImage} variant="ghost" className="justify-start text-xs h-8">
-                                            <Image aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica formazione
+                                            <ImageIcon aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica formazione
                                         </Button>
                                         <Button onClick={downloadExcelDistinta} variant="ghost" className="justify-start text-xs h-8">
                                             <FileSpreadsheet className="mr-2 h-3 w-3" /> Scarica distinta
@@ -614,7 +616,7 @@ export default function SquadraPage() {
                             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-t-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-b-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-15 pointer-events-none">
-                                <img src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" alt="" className="w-32 h-32 grayscale brightness-200" />
+                                <Image src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" alt="" width={128} height={128} className="w-32 h-32 grayscale brightness-200" />
                             </div>
 
                             {(FORMATIONS[module] as FormationSlotDef[]).map((slot) => (

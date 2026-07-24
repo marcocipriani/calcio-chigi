@@ -6,6 +6,7 @@ import { EventCard } from '@/components/EventCard';
 import { EventDialog } from '@/components/EventDialog'; 
 import { Trophy, Dumbbell, CalendarDays, History, Plus, Clock, List, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -49,6 +50,7 @@ export default function Home() {
 
       setEvents((currentEvents) => {
           if (eventType === 'INSERT') {
+              if (currentEvents.some(e => e.id === newRecord.id)) return currentEvents;
               return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
           }
           if (eventType === 'UPDATE') {
@@ -112,10 +114,10 @@ export default function Home() {
 
       const payload = { ...eventData, ...(editingEvent && !eventData.data_ora ? { data_ora: editingEvent.data_ora } : {}) };
 
+      // Nuovo evento: niente append ottimistico (no id -> card fantasma + duplicato col realtime).
+      // L'evento inserito arriva via realtime INSERT. Per gli edit invece aggiorno subito.
       if (editingEvent) {
           setEvents(prev => prev.map(e => e.id === editingEvent.id ? { ...e, ...payload } : e));
-      } else {
-          setEvents(prev => [...prev, payload as Event].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime()));
       }
 
       let error = null;
@@ -272,7 +274,7 @@ export default function Home() {
                                                                 <X className="h-4 w-4" /> 
                                                             ) : (isMatch ? (
                                                                 opponentLogo ? (
-                                                                    <img src={opponentLogo} alt={`Logo ${evt.avversario ?? 'avversario'}`} className="h-full w-full object-cover" />
+                                                                    <Image src={opponentLogo} alt={`Logo ${evt.avversario ?? 'avversario'}`} width={28} height={28} className="h-full w-full object-cover" />
                                                                 ) : (
                                                                     <Trophy className="h-3.5 w-3.5 text-blue-600" />
                                                                 )

@@ -59,7 +59,7 @@ export async function fetchOwnProfile(supabase: SupabaseClient): Promise<FullPro
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
     return data ?? null
 }
@@ -159,7 +159,7 @@ export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Eve
         .gte('data_ora', now)
         .order('data_ora', { ascending: true })
         .limit(1)
-        .single()
+        .maybeSingle()
     return data ?? null
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useMemo, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr'; 
 import { useRouter } from 'next/navigation';
-import { format, differenceInYears } from 'date-fns';
+import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Loader2, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
 import { getUserContext, fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
+import { isU35 } from '@/lib/utils';
 
 interface RosterPlayer {
   id: string;
@@ -31,9 +32,6 @@ interface RosterPlayer {
   vote_time: string | null;
   modified_by: string | null;
 }
-
-const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
-const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
 
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
@@ -272,7 +270,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const handleCopyWhatsApp = () => {
     if (!event) return;
     const formattedPresenze = roster.map(p => ({
-        status: p.status === 'PRESENTE' ? 'PRESENT' : p.status,
+        status: p.status,
         profiles: p
     }));
 
@@ -298,8 +296,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const spectatorPlayers = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
   const absentPlayers = roster.filter(p => p.status === 'ASSENTE');
 
-  const countOver35 = presentPlayers.filter(p => !isU35Func(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
-  const countU35 = presentPlayers.filter(p => isU35Func(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
+  const countOver35 = presentPlayers.filter(p => !isU35(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
+  const countU35 = presentPlayers.filter(p => isU35(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
   const countGoalies = presentPlayers.filter(p => p.ruolo === 'PORTIERE').length;
   const countSpectators = spectatorPlayers.length;
   const countAbsents = absentPlayers.length;
@@ -532,7 +530,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         }
                     }
 
-                    const isU35Player = isU35Func(p.data_nascita ?? '');
+                    const isU35Player = isU35(p.data_nascita ?? '');
                     const voteTime = p.vote_time ? format(new Date(p.vote_time), 'dd/MM HH:mm') : '';
                     
                     const isManagerEdit = p.modified_by && p.modified_by !== p.id;

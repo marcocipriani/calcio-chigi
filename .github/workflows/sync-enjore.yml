@@ -1,9 +1,11 @@
 name: Sync Enjore
 
 on:
-  schedule:
-    # 06:00 and 18:00 UTC = 08:00 and 20:00 Rome time (CEST)
-    - cron: '0 6,18 * * *'
+  # Sync sospeso: schedule automatico disabilitato, resta solo trigger manuale.
+  # Per riattivare, togliere il commento dal cron sotto.
+  # schedule:
+  #   # 06:00 and 18:00 UTC = 08:00 and 20:00 Rome time (CEST)
+  #   - cron: '0 6,18 * * *'
   workflow_dispatch:
 
 jobs:

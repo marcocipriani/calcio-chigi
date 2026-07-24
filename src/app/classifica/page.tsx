@@ -198,7 +198,7 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
                                         </TooltipTrigger>
                                         <TooltipContent side="left" className="text-xs">
                                             <div className="text-center">
-                                                <p className="font-bold text-[10px] uppercase opacity-70 mb-1">{format(new Date(m.date), 'dd MMM', { locale: it })}</p>
+                                                <p className="font-bold text-[10px] uppercase opacity-70 mb-1">{m.date ? format(new Date(m.date), 'dd MMM', { locale: it }) : '—'}</p>
                                                 <p className="font-black mb-0.5">{m.score}</p>
                                                 <p className="text-[10px] truncate max-w-[100px]">vs {m.opponent}</p>
                                             </div>

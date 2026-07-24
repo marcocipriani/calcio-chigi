@@ -1,10 +1,14 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { differenceInYears } from "date-fns"
 import { Event, Team, StandingRow } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export const getAge = (dob?: string | null) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
+export const isU35 = (dob?: string | null) => { const age = getAge(dob); return age !== null && age < 35; };
 
 function buildMiniStats(teamNames: string[], matches: Event[]) {
     const mini: Record<string, { punti: number; diff: number; golFatti: number }> = {};

@@ -35,7 +35,7 @@ export function SiteHeader() {
           .from('profiles')
           .select('nome, cognome, avatar_url')
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
         
         if (data) {
           setProfile(data)

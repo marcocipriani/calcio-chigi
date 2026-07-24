@@ -28,7 +28,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { Event, Team } from "@/lib/types";
 import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
-import { toast } from "sonner";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';

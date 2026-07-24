@@ -18,7 +18,7 @@ import {
     DragEndEvent
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { differenceInYears, format } from "date-fns"
+import { format } from "date-fns"
 import { it } from 'date-fns/locale'
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -37,15 +37,13 @@ import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2,
 import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
 import { getUserContext, fetchAllPlayers, fetchNextChigiMatch } from "@/lib/api"
+import { getAge, isU35 } from "@/lib/utils"
 
 type Player = FullProfile
 
 type FormationSlotDef = { id: string; top?: string; left?: string };
 
 const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
-
-const getAge = (dob: string) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
-const isU35Func = (dob: string) => { const age = getAge(dob); return age !== null && age < 35; };
 
 function DraggableListCard({ player, isSelected, isManager, currentUserId, onEditPlayer, isMobile, captainId, viceCaptainId, onSetRole, onDeletePlayer }: {
     player: Player, isSelected: boolean, isManager: boolean, currentUserId: string | null, onEditPlayer: (p: Player) => void, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, onDeletePlayer: (p: Player) => void
@@ -61,7 +59,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
         zIndex: 9999,
     } : undefined;
 
-    const isU35 = isU35Func(player.data_nascita ?? '');
+    const under35 = isU35(player.data_nascita ?? '');
     const isInjured = player.note_mediche && player.note_mediche !== 'OK';
     const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : 'N.D.';
     const canEdit = isManager || currentUserId === player.id;
@@ -138,7 +136,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                 {...listeners} {...attributes}
                 className={`flex flex-col items-center justify-center p-3 gap-2 cursor-grab active:cursor-grabbing transition-all h-full hover:shadow-md border select-none
         ${!isMobile ? 'touch-none' : ''} ${isInjured ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50'}
-        ${isU35 && !isInjured ? 'border-l-4 border-l-blue-500' : ''}
+        ${under35 && !isInjured ? 'border-l-4 border-l-blue-500' : ''}
       `}>
                 <div className="relative shrink-0">
                     <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
@@ -150,7 +148,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                 </div>
                 <div className="flex-1 w-full min-w-0 flex flex-col items-center justify-center gap-1">
                     <div className="text-sm leading-tight text-slate-900 dark:text-slate-100 w-full text-center truncate px-1"><span className="font-black">{player.cognome}</span> <span className="font-normal text-slate-600 dark:text-slate-400">{player.nome}</span></div>
-                    <div className="flex items-center justify-center gap-2 w-full"><span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{player.ruolo?.substring(0, 3)}</span>{isU35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 shadow-none font-bold">U35</Badge>}<div className="relative flex items-center justify-center h-5 w-5 text-slate-800 dark:text-slate-300"><Shirt className={`h-4 w-4 fill-current opacity-20 ${player.ruolo === 'PORTIERE' ? 'text-black opacity-100' : ''}`} /> <span className={`absolute text-[9px] font-black leading-none pb-[1px] ${player.ruolo === 'PORTIERE' ? 'text-white' : 'text-foreground'}`}>{player.numero_maglia || '-'}</span></div></div>
+                    <div className="flex items-center justify-center gap-2 w-full"><span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{player.ruolo?.substring(0, 3)}</span>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 shadow-none font-bold">U35</Badge>}<div className="relative flex items-center justify-center h-5 w-5 text-slate-800 dark:text-slate-300"><Shirt className={`h-4 w-4 fill-current opacity-20 ${player.ruolo === 'PORTIERE' ? 'text-black opacity-100' : ''}`} /> <span className={`absolute text-[9px] font-black leading-none pb-[1px] ${player.ruolo === 'PORTIERE' ? 'text-white' : 'text-foreground'}`}>{player.numero_maglia || '-'}</span></div></div>
                 </div>
             </Card>
         </div>
@@ -160,7 +158,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
 function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor }: { player: Player, slotId: string, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `field-token-${slotId}`, data: { player, source: 'field', fromSlotId: slotId, isBench }, disabled: isMobile });
     const style = transform ? { transform: CSS.Translate.toString(transform), zIndex: 9999 } : undefined;
-    const isU35 = isU35Func(player.data_nascita ?? '');
+    const under35 = isU35(player.data_nascita ?? '');
     const isCaptain = captainId === player.id;
     const isVice = viceCaptainId === player.id;
     const isGk = player.ruolo === 'PORTIERE';
@@ -174,7 +172,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
                         <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" />
                         <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
-                    {isU35 && (<div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
+                    {under35 && (<div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
                     {isCaptain && (<div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white shadow-md z-10 font-black text-[10px]">C</div>)}
                     {isVice && (<div className="absolute -top-1 -right-1 bg-slate-300 text-slate-800 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white shadow-md z-10 font-black text-[9px]">VC</div>)}
                 </div>
@@ -373,7 +371,7 @@ export default function SquadraPage() {
                 if (p.id === captainId) row.getCell(4).value = 'K';
                 if (p.id === viceCaptainId) row.getCell(4).value = 'VK';
                 row.getCell(5).value = index < titolari.length ? 'T' : 'R';
-                if (isU35Func(p.data_nascita ?? '')) row.getCell(7).value = 'X';
+                if (isU35(p.data_nascita ?? '')) row.getCell(7).value = 'X';
                 const dob = p.data_nascita ? format(new Date(p.data_nascita), 'dd/MM/yyyy') : '';
                 row.getCell(8).value = `${p.tessera_asi || ''} ${dob}`;
             });
@@ -441,8 +439,8 @@ export default function SquadraPage() {
         else { setEditingPlayer({ ...editingPlayer, tags: [...currentTags, tag] }); }
     }
 
-    const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35Func(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
-    const u35TotalCount = Object.values(lineup).filter((p) => p.ruolo !== 'PORTIERE').reduce((acc, p) => acc + (isU35Func(p.data_nascita ?? '') ? 1 : 0), 0);
+    const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
+    const u35TotalCount = Object.values(lineup).filter((p) => p.ruolo !== 'PORTIERE').reduce((acc, p) => acc + (isU35(p.data_nascita ?? '') ? 1 : 0), 0);
     const isFieldU35LimitExceeded = u35FieldCount > 2;
     const isTotalU35LimitExceeded = u35TotalCount > 4;
     const isU35Warning = isFieldU35LimitExceeded || isTotalU35LimitExceeded;
@@ -792,13 +790,13 @@ export default function SquadraPage() {
                         <div className="overflow-y-auto pr-2 custom-scrollbar space-y-2 flex-1">
                             {sortedForMobile.map(p => {
                                 const isSelected = isPlayerSelected(p.id);
-                                const isU35 = isU35Func(p.data_nascita ?? '');
+                                const under35 = isU35(p.data_nascita ?? '');
                                 const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
                                     <div key={p.id} onClick={() => !isSelected && handleMobilePlayerSelect(p)} className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${isSelected ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                                         <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{isU35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
+                                            <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
                                             <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
                                         </div>
                                         {isSelected ? <Badge variant="secondary" className="text-[9px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}

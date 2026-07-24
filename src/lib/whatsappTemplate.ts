@@ -61,7 +61,7 @@ export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendan
     const over35: string[] = [];
 
     presenze.forEach(presenza => {
-        if (presenza.status !== 'PRESENT') return;
+        if (presenza.status !== 'PRESENTE') return;
         
         const profilo = presenza.profiles;
         if (!profilo) return;

@@ -4,6 +4,8 @@ const schemaPath = "supabase/schema.sql"
 const marker = "-- GENERATED TEAM MANAGEMENT MIGRATIONS"
 const migrationPaths = [
   "supabase/migrations/20260725010000_team_management.sql",
+  "supabase/migrations/20260725011000_roster_import_rpc.sql",
+  "supabase/migrations/20260725011500_api_grants.sql",
   "supabase/migrations/20260725020000_accounts_notifications_storage.sql",
 ]
 

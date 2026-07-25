@@ -43,6 +43,10 @@ type AppContextPayload = {
     ends_on: string
   } | null
   unreadNotifications?: number
+  openPayments?: {
+    count: number
+    amount: number
+  } | null
 }
 
 type AppSessionValue = {
@@ -52,6 +56,10 @@ type AppSessionValue = {
   targetSeason: AppContextPayload["targetSeason"]
   associationStatus: AssociationStatus
   unreadNotifications: number
+  openPayments: {
+    count: number
+    amount: number
+  }
   isManager: boolean
   isAssociated: boolean
   loading: boolean
@@ -65,6 +73,7 @@ const anonymousSession: Omit<AppSessionValue, "refresh"> = {
   targetSeason: null,
   associationStatus: "NONE",
   unreadNotifications: 0,
+  openPayments: { count: 0, amount: 0 },
   isManager: false,
   isAssociated: false,
   loading: true,
@@ -110,6 +119,10 @@ export function AppSessionProvider({
         targetSeason: context.targetSeason ?? null,
         associationStatus,
         unreadNotifications: Number(context.unreadNotifications ?? 0),
+        openPayments: {
+          count: Number(context.openPayments?.count ?? 0),
+          amount: Number(context.openPayments?.amount ?? 0),
+        },
         isManager: Boolean(profile?.is_manager),
         isAssociated: associationStatus === "ACTIVE",
         loading: false,

@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(34);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -71,6 +71,11 @@ select has_function(
   'public',
   'manager_review_certificate',
   array['uuid', 'medical_certificate_status', 'text']
+);
+select has_function(
+  'public',
+  'publish_official_formation',
+  array['uuid', 'text', 'text', 'uuid', 'uuid', 'jsonb', 'jsonb']
 );
 select results_eq(
   $$select count(*)::bigint

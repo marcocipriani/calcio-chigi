@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { Check, Search, UserRoundCheck } from "lucide-react"
+import Link from "next/link"
+import { Check, Search, UserRoundCheck, WalletCards } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -211,9 +212,11 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
 function SeasonConfirmationPrompt({
   client,
   seasonSlug,
+  onFinished,
 }: {
   client: SupabaseClient
   seasonSlug: string
+  onFinished: () => void
 }) {
   const { isAssociated, membership, refresh } = useAppSession()
   const [open, setOpen] = useState(false)
@@ -256,12 +259,19 @@ function SeasonConfirmationPrompt({
     }
 
     setOpen(false)
+    onFinished()
     toast.success("Disponibilità aggiornata")
     await refresh()
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        if (!nextOpen) onFinished()
+      }}
+    >
       <DialogContent className="gap-4 p-4 sm:max-w-md">
         <DialogHeader className="text-left">
           <DialogTitle>Ci sei per la stagione 2026–2027?</DialogTitle>
@@ -292,11 +302,72 @@ function SeasonConfirmationPrompt({
         <button
           className="mx-auto min-h-11 px-3 text-sm text-muted-foreground underline-offset-4 hover:underline"
           disabled={busy}
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false)
+            onFinished()
+          }}
           type="button"
         >
           Decido più tardi
         </button>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function OpenPaymentsPrompt({ enabled }: { enabled: boolean }) {
+  const { isAssociated, openPayments, targetSeason } = useAppSession()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!enabled || !isAssociated || openPayments.count === 0) return
+    const today = new Date().toISOString().slice(0, 10)
+    const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
+    if (window.localStorage.getItem(key)) return
+    setOpen(true)
+  }, [enabled, isAssociated, openPayments.count, targetSeason?.id])
+
+  function dismiss() {
+    const today = new Date().toISOString().slice(0, 10)
+    const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
+    window.localStorage.setItem(key, "seen")
+    setOpen(false)
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) dismiss()
+        else setOpen(true)
+      }}
+    >
+      <DialogContent className="gap-4 p-4 sm:max-w-sm">
+        <DialogHeader className="text-left">
+          <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
+            <WalletCards aria-hidden="true" className="size-5" />
+          </div>
+          <DialogTitle>
+            {openPayments.count === 1
+              ? "Hai una quota aperta"
+              : `Hai ${openPayments.count} quote aperte`}
+          </DialogTitle>
+          <DialogDescription>
+            Totale da regolarizzare:{" "}
+            <strong className="text-foreground">
+              € {openPayments.amount.toFixed(2)}
+            </strong>
+            . Puoi dichiarare contanti o bonifico dalla tua scheda.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={dismiss}>
+            Più tardi
+          </Button>
+          <Button asChild onClick={dismiss}>
+            <Link href="/profilo">Vedi quote</Link>
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -309,7 +380,24 @@ export function AppGates({
   client?: SupabaseClient
   seasonSlug?: string
 }) {
-  const { targetSeason } = useAppSession()
+  const { targetSeason, isAssociated, membership } = useAppSession()
+  const needsSeasonConfirmation = Boolean(
+    isAssociated &&
+      membership &&
+      shouldPromptForSeasonConfirmation(
+        membership.status,
+        membership.last_confirmation_requested_at,
+      ),
+  )
+  const [seasonPromptFinished, setSeasonPromptFinished] = useState(false)
+
+  useEffect(() => {
+    if (!isAssociated) {
+      setSeasonPromptFinished(false)
+    } else if (!needsSeasonConfirmation) {
+      setSeasonPromptFinished(true)
+    }
+  }, [isAssociated, needsSeasonConfirmation])
 
   return (
     <>
@@ -317,6 +405,10 @@ export function AppGates({
       <SeasonConfirmationPrompt
         client={client}
         seasonSlug={seasonSlug ?? targetSeason?.slug ?? "2026-2027"}
+        onFinished={() => setSeasonPromptFinished(true)}
+      />
+      <OpenPaymentsPrompt
+        enabled={!needsSeasonConfirmation || seasonPromptFinished}
       />
     </>
   )

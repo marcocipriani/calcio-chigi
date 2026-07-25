@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Shield, Sparkles, UsersRound } from "lucide-react"
+import { ChevronDown, Shield, Sparkles, UsersRound } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -167,37 +167,49 @@ export function PublicTeam() {
                 Staff
               </h2>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               {staff.map((member) => (
-                <article
-                  className="flex min-h-20 items-center gap-3 rounded-xl border bg-muted/25 p-3"
+                <details
+                  className="group overflow-hidden rounded-xl border bg-muted/25 open:bg-card"
                   key={member.id}
                 >
-                  <Avatar
-                    className={cn(
-                      "size-11 shrink-0 rounded-lg border-2 border-primary/20",
-                      "[&_[data-slot=avatar-fallback]]:rounded-lg [&_[data-slot=avatar-image]]:rounded-lg",
-                    )}
-                  >
-                    <AvatarImage
-                      alt={`${member.nome} ${member.cognome}`}
-                      className="object-cover"
-                      src={member.avatar_url ?? undefined}
-                    />
-                    <AvatarFallback className="rounded-lg text-xs font-bold">
-                      {member.nome[0]}
-                      {member.cognome[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0">
-                    <strong className="block truncate text-sm">
-                      {member.nome} {member.cognome}
-                    </strong>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {member.staff_function ?? "Staff"}
+                  <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 p-3 outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                    <Avatar
+                      className={cn(
+                        "size-11 shrink-0 rounded-lg border-2 border-primary/20",
+                        "[&_[data-slot=avatar-fallback]]:rounded-lg [&_[data-slot=avatar-image]]:rounded-lg",
+                      )}
+                    >
+                      <AvatarImage
+                        alt={`${member.nome} ${member.cognome}`}
+                        className="object-cover"
+                        src={member.avatar_url ?? undefined}
+                      />
+                      <AvatarFallback className="rounded-lg text-xs font-bold">
+                        {member.nome[0]}
+                        {member.cognome[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block truncate text-sm">
+                        {member.nome} {member.cognome}
+                      </strong>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {member.staff_function ?? "Staff"}
+                      </span>
                     </span>
-                  </span>
-                </article>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="flex items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
+                    <span>Staff · stagione in corso</span>
+                    {member.status === "MAYBE" && (
+                      <Badge variant="outline">Forse</Badge>
+                    )}
+                  </div>
+                </details>
               ))}
               {staff.length === 0 && (
                 <p className="col-span-full rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">

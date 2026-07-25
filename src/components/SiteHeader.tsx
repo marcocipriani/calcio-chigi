@@ -64,11 +64,7 @@ export function SiteHeader() {
           <NotificationBell />
 
           <Button
-            aria-label={
-              resolvedTheme === "dark"
-                ? "Attiva tema chiaro"
-                : "Attiva tema scuro"
-            }
+            aria-label="Cambia tema"
             className="relative rounded-full"
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")

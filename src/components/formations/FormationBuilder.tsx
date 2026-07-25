@@ -36,7 +36,7 @@ import Image from "next/image"
 
 import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
-import { fetchNextChigiMatch } from "@/lib/api"
+import { fetchNextChigiMatch, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { buildOfficialFormationMessage } from "@/lib/formations"
 import { getAge, isU35 } from "@/lib/utils"
@@ -221,8 +221,7 @@ export function FormationBuilder() {
     const fieldRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        getPlayers()
-        fetchNextMatch()
+        void loadFormationContext()
         const checkMobile = () => setIsMobile(window.innerWidth < 1024);
         checkMobile();
         window.addEventListener('resize', checkMobile);
@@ -243,36 +242,31 @@ export function FormationBuilder() {
         setFilteredPlayers(result);
     }, [searchTerm, players]);
 
-    async function getPlayers() {
-        const { data } = await supabaseBrowser
-            .from('authenticated_active_roster')
-            .select('*')
-            .eq('category', 'PLAYER')
-            .eq('training_only', false)
-            .order('cognome')
-        setPlayers((data ?? []).map((row) => ({
+    async function loadFormationContext() {
+        const match = await fetchNextChigiMatch(supabaseBrowser)
+        setNextMatch(match)
+        if (!match) {
+            setPlayers([])
+            setLoading(false)
+            return
+        }
+
+        const roster = await fetchRosterForEvent(supabaseBrowser, match.id)
+        setPlayers(roster.filter((row) => !row.is_staff && !row.training_only).map((row) => ({
             id: row.id,
             nome: row.nome,
             cognome: row.cognome,
             avatar_url: row.avatar_url,
             data_nascita: row.data_nascita,
-            ruolo: row.role,
-            numero_maglia: row.jersey_number,
-            dipartimento: row.department,
-            tags: [
-                ...(row.is_external ? ['EXT'] : []),
-                ...(row.is_aggregated ? ['AGG'] : []),
-            ],
+            ruolo: row.ruolo,
+            numero_maglia: row.numero_maglia,
+            dipartimento: row.dipartimento,
+            tags: row.tags,
             is_staff: false,
             is_manager: false,
             note_mediche: 'OK',
         })))
         setLoading(false)
-    }
-
-    async function fetchNextMatch() {
-        const data = await fetchNextChigiMatch(supabaseBrowser)
-        if (data) setNextMatch(data)
     }
 
     const downloadExcelDistinta = async () => {

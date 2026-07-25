@@ -1,6 +1,6 @@
 begin;
 
-select plan(30);
+select plan(36);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -60,6 +60,35 @@ cross join public.seasons season
 where season.slug in ('2025-2026', '2026-2027')
 on conflict (profile_id, season_id) do update
 set status = excluded.status;
+
+insert into public.season_memberships (
+  profile_id, season_id, category, role, jersey_number, status
+)
+select
+  '10000000-0000-0000-0000-000000000003',
+  season.id,
+  'PLAYER',
+  'CENTROCAMPISTA',
+  8,
+  'INTERESTED'
+from public.seasons season
+where season.slug = '2026-2027';
+
+insert into public.season_memberships (
+  profile_id, season_id, category, role, jersey_number, status
+)
+select
+  '10000000-0000-0000-0000-000000000004',
+  season.id,
+  'PLAYER',
+  'DIFENSORE',
+  6,
+  'YES'
+from public.seasons season
+where (now() at time zone 'Europe/Rome')::date
+      not between season.starts_on and season.ends_on
+order by season.starts_on desc
+limit 1;
 
 insert into public.events (
   id, tipo, data_ora, luogo, squadra_casa, squadra_ospite, cancellato
@@ -180,6 +209,32 @@ select results_eq(
 );
 reset role;
 
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+select lives_ok(
+  $$select public.approve_account_association(
+    (
+      select id
+      from public.account_association_requests
+      where user_id = '00000000-0000-0000-0000-000000000003'
+    ),
+    '10000000-0000-0000-0000-000000000001'
+  )$$,
+  'manager approval links an interested person account'
+);
+select results_eq(
+  $$select status::text
+      from public.season_memberships membership
+      join public.seasons season on season.id = membership.season_id
+     where membership.profile_id =
+       '10000000-0000-0000-0000-000000000003'
+       and season.slug = '2026-2027'$$,
+  array['PENDING'::text],
+  'approved interested person is moved to the confirmation queue'
+);
+reset role;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
 insert into public.rejected_account_hashes (email_hash, expires_at)
 values (
   encode(digest('rejected@test.local', 'sha256'), 'hex'),
@@ -263,6 +318,31 @@ select results_eq(
   array[3::bigint],
   'manager reads all profiles'
 );
+select results_eq(
+  $$select profile_id
+      from public.get_event_roster(
+        '20000000-0000-0000-0000-000000000001'
+      )
+     order by profile_id$$,
+  array[
+    '10000000-0000-0000-0000-000000000001'::uuid,
+    '10000000-0000-0000-0000-000000000002'::uuid,
+    '10000000-0000-0000-0000-000000000004'::uuid
+  ],
+  'event roster follows the event season and excludes interested people'
+);
+select results_eq(
+  $$select profile_id
+      from public.get_event_roster(
+        '20000000-0000-0000-0000-000000000002'
+      )
+     order by profile_id$$,
+  array[
+    '10000000-0000-0000-0000-000000000001'::uuid,
+    '10000000-0000-0000-0000-000000000002'::uuid
+  ],
+  'current event roster does not leak people from another season'
+);
 select lives_ok(
   $$insert into public.payments (
       membership_id, description, amount_due, due_on, created_by
@@ -282,7 +362,7 @@ select lives_ok(
       profile.updated_at,
       membership.updated_at,
       details.updated_at,
-      '{"nome":"Piero","cognome":"Player","joined_on":"","is_manager":false}',
+      '{"nome":"Piero","cognome":"Player","data_nascita":"1994-06-23","joined_on":"","is_manager":false}',
       '{"category":"PLAYER","status":"YES","role":"ATTACCANTE","staff_function":"","jersey_number":"9","department":"","asi_card_number":"","uniform_size":"","is_external":false,"is_aggregated":false,"training_only":false,"operational_notes":"","next_contact_on":"","registration_status":"TODO","registration_completed_on":""}',
       '{"phone":"222","operational_email":"player@test.local"}'
     )
@@ -295,6 +375,13 @@ select lives_ok(
       '10000000-0000-0000-0000-000000000002'
       and season.slug = '2026-2027'$$,
   'manager saves a person with the current row version'
+);
+select results_eq(
+  $$select data_nascita
+      from public.profiles
+     where id = '10000000-0000-0000-0000-000000000002'$$,
+  array['1994-06-23'::date],
+  'manager can update the player birth date'
 );
 select throws_ok(
   $$select public.manager_update_person(
@@ -501,6 +588,22 @@ select results_eq(
      where user_id = '00000000-0000-0000-0000-000000000002'$$,
   array[1::bigint],
   'payment creates canonical in-app notification'
+);
+reset role;
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '90000000-0000-0000-0000-000000000099',
+  true
+);
+select throws_ok(
+  $$select * from public.get_event_roster(
+    '20000000-0000-0000-0000-000000000001'
+  )$$,
+  '42501',
+  'Approved account required',
+  'unlinked account cannot enumerate an event roster'
 );
 reset role;
 

@@ -1,6 +1,19 @@
 "use client"
 
-import { useEffect, useState, type FormEvent } from "react"
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react"
+import {
+  Camera,
+  CreditCard,
+  ExternalLink,
+  FileText,
+  IdCard,
+  Upload,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -14,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,6 +46,26 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser"
 const selectClass =
   "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
+const certificateLabels = {
+  MISSING: "Mancante",
+  PENDING_REVIEW: "Da verificare",
+  VALID: "Valido",
+  REJECTED: "Respinto",
+  EXPIRED: "Scaduto",
+}
+
+const paymentLabels = {
+  DUE: "Da pagare",
+  PENDING_REVIEW: "Da verificare",
+  PAID: "Pagato",
+}
+
+const accountLabels = {
+  NONE: "non registrato",
+  REQUESTED: "da approvare",
+  ACTIVE: "attivo",
+}
+
 export function PersonDrawer({
   person,
   onOpenChange,
@@ -45,6 +79,7 @@ export function PersonDrawer({
     person?.category ?? "PLAYER",
   )
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState<"AVATAR" | "PASSPORT" | null>(null)
   const [pendingForm, setPendingForm] = useState<FormData | null>(null)
 
   useEffect(() => {
@@ -65,6 +100,8 @@ export function PersonDrawer({
         (currentPerson.asiCardNumber ?? "") ||
       String(form.get("registrationStatus")) !==
         currentPerson.registrationStatus ||
+      String(form.get("birthDate") ?? "") !==
+        (currentPerson.birthDate ?? "") ||
       (form.get("isManager") === "on") !== Boolean(currentPerson.isManager)
 
     if (sensitiveChanged) {
@@ -86,6 +123,7 @@ export function PersonDrawer({
       p_profile: {
         nome: String(form.get("nome") ?? ""),
         cognome: String(form.get("cognome") ?? ""),
+        data_nascita: String(form.get("birthDate") ?? ""),
         joined_on: String(form.get("joinedOn") ?? ""),
         is_manager: form.get("isManager") === "on",
       },
@@ -135,6 +173,106 @@ export function PersonDrawer({
     await onSaved()
   }
 
+  async function openPrivateDocument(bucket: string, path?: string | null) {
+    if (!path) return
+    const { data, error } = await supabaseBrowser.storage
+      .from(bucket)
+      .createSignedUrl(path, 60)
+    if (error) {
+      toast.error("Documento non disponibile", { description: error.message })
+      return
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer")
+  }
+
+  async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Usa un’immagine JPG, PNG o WebP")
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("L’avatar non può superare 2 MB")
+      return
+    }
+
+    setUploading("AVATAR")
+    const extension =
+      file.type === "image/png"
+        ? "png"
+        : file.type === "image/webp"
+          ? "webp"
+          : "jpg"
+    const path = `players/${currentPerson.profileId}.${extension}`
+    const { error: uploadError } = await supabaseBrowser.storage
+      .from("avatars")
+      .upload(path, file, { contentType: file.type, upsert: true })
+
+    if (uploadError) {
+      toast.error("Avatar non caricato", { description: uploadError.message })
+      setUploading(null)
+      return
+    }
+
+    const { data } = supabaseBrowser.storage.from("avatars").getPublicUrl(path)
+    const avatarUrl = `${data.publicUrl}?v=${Date.now()}`
+    const { error } = await supabaseBrowser
+      .from("profiles")
+      .update({ avatar_url: avatarUrl })
+      .eq("id", currentPerson.profileId)
+
+    setUploading(null)
+    event.target.value = ""
+    if (error) {
+      toast.error("Avatar non aggiornato", { description: error.message })
+      return
+    }
+    toast.success("Avatar aggiornato")
+    onOpenChange(false)
+    await onSaved()
+  }
+
+  async function uploadPassport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Usa una fototessera JPG, PNG o WebP")
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("La fototessera non può superare 5 MB")
+      return
+    }
+
+    setUploading("PASSPORT")
+    const path = `${currentPerson.profileId}/${currentPerson.id}/passport-photo`
+    const { error: uploadError } = await supabaseBrowser.storage
+      .from("passport-photos")
+      .upload(path, file, { contentType: file.type, upsert: true })
+    if (uploadError) {
+      toast.error("Fototessera non caricata", {
+        description: uploadError.message,
+      })
+      setUploading(null)
+      return
+    }
+
+    const { error } = await supabaseBrowser
+      .from("season_memberships")
+      .update({ passport_photo_path: path })
+      .eq("id", currentPerson.id)
+    setUploading(null)
+    event.target.value = ""
+    if (error) {
+      toast.error("Fototessera non collegata", { description: error.message })
+      return
+    }
+    toast.success("Fototessera aggiornata")
+    onOpenChange(false)
+    await onSaved()
+  }
+
   return (
     <>
       <Dialog
@@ -146,25 +284,62 @@ export function PersonDrawer({
       >
         <DialogContent className="max-h-[calc(100dvh-1rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="border-b p-4 text-left">
-          <div className="flex items-center gap-2">
-            <DialogTitle>
-              {person.nome} {person.cognome}
-            </DialogTitle>
-            {person.isManager && (
-              <Badge className="bg-violet-600">Manager</Badge>
-            )}
+          <div className="flex items-center gap-3">
+            <Avatar className="size-12 shrink-0 ring-1 ring-border">
+              <AvatarImage
+                alt={`${person.nome} ${person.cognome}`}
+                className="object-cover"
+                src={person.avatarUrl ?? undefined}
+              />
+              <AvatarFallback className="font-bold">
+                {person.nome[0]}
+                {person.cognome[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle>
+                  {person.nome} {person.cognome}
+                </DialogTitle>
+                {person.isManager && (
+                  <Badge className="bg-violet-600">Manager</Badge>
+                )}
+              </div>
+              <DialogDescription>
+                Scheda stagione · account {accountLabels[person.accountStatus]}
+              </DialogDescription>
+            </div>
+            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+              <Camera aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">
+                {uploading === "AVATAR" ? "Caricamento…" : "Avatar"}
+              </span>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={Boolean(uploading)}
+                onChange={uploadAvatar}
+                type="file"
+              />
+            </label>
           </div>
-          <DialogDescription>
-            Scheda stagione · account {person.accountStatus.toLowerCase()}
-          </DialogDescription>
         </DialogHeader>
         <form className="contents" onSubmit={submit}>
           <div className="grid flex-1 gap-5 overflow-y-auto p-4 md:grid-cols-2">
             <section className="grid content-start gap-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-sm font-semibold">
                 Persona e contatti
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="person-birth">Data di nascita</Label>
+                  <Input
+                    defaultValue={person.birthDate ?? ""}
+                    id="person-birth"
+                    name="birthDate"
+                    type="date"
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="person-name">Nome</Label>
                   <Input
@@ -235,7 +410,7 @@ export function PersonDrawer({
             </section>
 
             <section className="grid content-start gap-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-sm font-semibold">
                 Stagione
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -349,7 +524,149 @@ export function PersonDrawer({
             </section>
 
             <section className="grid content-start gap-3 md:col-span-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-sm font-semibold">
+                Documenti
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
+                  <IdCard
+                    aria-hidden="true"
+                    className="size-5 shrink-0 text-primary"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <strong className="block text-sm">Fototessera</strong>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {person.passportPhotoPath ? "Caricata" : "Mancante"}
+                    </span>
+                  </span>
+                  {person.passportPhotoPath && (
+                    <Button
+                      aria-label="Apri fototessera"
+                      onClick={() =>
+                        void openPrivateDocument(
+                          "passport-photos",
+                          person.passportPhotoPath,
+                        )
+                      }
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ExternalLink aria-hidden="true" />
+                    </Button>
+                  )}
+                  <label className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+                    <Upload aria-hidden="true" className="size-4" />
+                    <span className="sr-only">
+                      {uploading === "PASSPORT"
+                        ? "Caricamento fototessera"
+                        : "Carica fototessera"}
+                    </span>
+                    <input
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={Boolean(uploading)}
+                      onChange={uploadPassport}
+                      type="file"
+                    />
+                  </label>
+                </div>
+                <div className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
+                  <FileText
+                    aria-hidden="true"
+                    className="size-5 shrink-0 text-primary"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <strong className="block text-sm">
+                      Certificato agonistico
+                    </strong>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {certificateLabels[person.certificateStatus]}
+                      {person.certificateExpiresOn
+                        ? ` · scade ${person.certificateExpiresOn}`
+                        : ""}
+                    </span>
+                    {(person.certificateVisitOn ||
+                      person.certificateLaboratory) && (
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {person.certificateVisitOn ?? "Visita non indicata"}
+                        {person.certificateLaboratory
+                          ? ` · ${person.certificateLaboratory}`
+                          : ""}
+                      </span>
+                    )}
+                  </span>
+                  {person.certificateDocumentPath && (
+                    <Button
+                      aria-label="Apri certificato PDF"
+                      onClick={() =>
+                        void openPrivateDocument(
+                          "medical-certificates",
+                          person.certificateDocumentPath,
+                        )
+                      }
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <ExternalLink aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="grid content-start gap-3 md:col-span-2">
+              <h3 className="text-sm font-semibold">
+                Pagamenti
+              </h3>
+              {person.payments.length ? (
+                <div className="divide-y rounded-lg border">
+                  {person.payments.map((payment) => (
+                    <div
+                      className="flex min-h-12 items-center gap-3 px-3 py-2"
+                      key={payment.id}
+                    >
+                      <CreditCard
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-muted-foreground"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-sm">
+                          {payment.description ?? "Quota"}
+                        </strong>
+                        <span className="text-xs text-muted-foreground">
+                          {payment.dueOn
+                            ? `Scadenza ${payment.dueOn}`
+                            : "Nessuna scadenza"}
+                          {payment.method
+                            ? ` · ${payment.method === "CASH" ? "contanti" : "bonifico"}`
+                            : ""}
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <strong className="block text-sm tabular-nums">
+                          {payment.amountDue.toLocaleString("it-IT", {
+                            style: "currency",
+                            currency: "EUR",
+                          })}
+                        </strong>
+                        <Badge variant={payment.status === "PAID" ? "default" : "outline"}>
+                          {paymentLabels[payment.status]}
+                        </Badge>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  Nessuna quota assegnata.
+                </p>
+              )}
+            </section>
+
+            <section className="grid content-start gap-3 md:col-span-2">
+              <h3 className="text-sm font-semibold">
                 Operativo
               </h3>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -422,8 +739,8 @@ export function PersonDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>Conferma modifiche delicate</AlertDialogTitle>
             <AlertDialogDescription>
-              Stai modificando tessera ASI, stato del tesseramento o permesso
-              manager. Controlla i dati prima di continuare.
+              Stai modificando dati anagrafici o di tesseramento, tessera ASI
+              oppure permesso manager. Controlla i dati prima di continuare.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

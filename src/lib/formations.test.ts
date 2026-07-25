@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest"
 
-import { buildOfficialFormationMessage } from "@/lib/formations"
+import {
+  buildOfficialFormationMessage,
+  isUnderPlayer,
+} from "@/lib/formations"
+
+describe("isUnderPlayer", () => {
+  it("uses the match date instead of the current date", () => {
+    expect(
+      isUnderPlayer("1991-06-24", new Date("2026-06-23T21:15:00+02:00")),
+    ).toBe(true)
+    expect(
+      isUnderPlayer("1991-06-23", new Date("2026-06-23T21:15:00+02:00")),
+    ).toBe(false)
+  })
+})
 
 describe("buildOfficialFormationMessage", () => {
   it("keeps starters and bench separate with inline badges", () => {

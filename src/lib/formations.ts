@@ -17,6 +17,16 @@ type FormationMessagePlayer = {
   isStarter: boolean
 }
 
+export function isUnderPlayer(
+  birthDate: string | null | undefined,
+  matchDate: Date,
+) {
+  return Boolean(
+    birthDate &&
+      differenceInYears(matchDate, new Date(birthDate)) < 35,
+  )
+}
+
 function opponent(event: FormationEvent) {
   if (event.avversario) return event.avversario
   return event.squadra_casa?.toLocaleLowerCase("it").includes("chigi")
@@ -30,10 +40,7 @@ function playerLine(
 ) {
   const badges: string[] = []
   if (player.role === "PORTIERE") badges.push("PORTIERE")
-  if (
-    player.birthDate &&
-    differenceInYears(matchDate, new Date(player.birthDate)) < 35
-  ) {
+  if (isUnderPlayer(player.birthDate, matchDate)) {
     badges.push("UNDER")
   }
   return `${player.nome} ${player.cognome}${

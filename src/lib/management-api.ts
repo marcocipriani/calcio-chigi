@@ -8,9 +8,10 @@ import type {
   PaymentStatus,
   RegistrationStatus,
 } from "@/lib/domain"
-import type {
-  ManagementPayment,
-  ManagementPerson,
+import {
+  effectiveCertificateStatus,
+  type ManagementPayment,
+  type ManagementPerson,
 } from "@/lib/management"
 
 type UnknownRow = Record<string, unknown>
@@ -170,12 +171,17 @@ export async function fetchManagementPeople(
             method: (asText(payment.method) as ManagementPayment["method"]) ?? null,
           }),
         ),
-        certificateStatus:
+        certificateStatus: effectiveCertificateStatus(
           (latestCertificate?.status as MedicalCertificateStatus) ?? "MISSING",
+          asText(latestCertificate?.expires_on),
+        ),
         certificateId: latestCertificate
           ? String(latestCertificate.id)
           : null,
         certificateExpiresOn: asText(latestCertificate?.expires_on),
+        certificateVisitOn: asText(latestCertificate?.visit_on),
+        certificateLaboratory: asText(latestCertificate?.laboratory),
+        certificateDocumentPath: asText(latestCertificate?.document_path),
       }
     })
     .filter((person): person is ManagementPerson => Boolean(person))

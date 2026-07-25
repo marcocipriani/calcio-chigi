@@ -115,7 +115,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   async function loadAllData() {
     const [eventData, allProfiles, attendanceData] = await Promise.all([
         fetchEventById(supabase, id),
-        isAssociated ? fetchRosterForEvent(supabase) : Promise.resolve([]),
+        isAssociated ? fetchRosterForEvent(supabase, id) : Promise.resolve([]),
         isAssociated ? fetchAttendanceForEvent(supabase, id) : Promise.resolve([]),
     ]);
 
@@ -421,7 +421,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         {isAssociated ? (
-          isMatch && <OfficialFormationPanel eventId={id} />
+          isMatch && (
+            <OfficialFormationPanel
+              eventDate={event.data_ora}
+              eventId={id}
+            />
+          )
         ) : (
           <Card className="border-dashed">
             <CardContent className="p-4 text-center">

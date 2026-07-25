@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  effectiveCertificateStatus,
   filterManagementRows,
   managementKpis,
   type ManagementPerson,
 } from "@/lib/management"
+
+describe("effectiveCertificateStatus", () => {
+  it("treats a valid certificate past its deadline as expired", () => {
+    expect(
+      effectiveCertificateStatus("VALID", "2026-07-24", "2026-07-25"),
+    ).toBe("EXPIRED")
+    expect(
+      effectiveCertificateStatus("VALID", "2026-07-25", "2026-07-25"),
+    ).toBe("VALID")
+  })
+})
 
 const people: ManagementPerson[] = [
   {

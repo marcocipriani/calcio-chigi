@@ -448,10 +448,20 @@ export function ManagementTable({
                   />
                 )}
                 <TableCell>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="size-4 text-muted-foreground"
-                  />
+                  <Button
+                    aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onOpen(person)
+                    }}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <ChevronRight
+                      aria-hidden="true"
+                      className="size-4 text-muted-foreground"
+                    />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -479,6 +489,7 @@ export function ManagementTable({
               type="checkbox"
             />
             <button
+              aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
               className="flex min-w-0 flex-1 items-center gap-2 text-left transition-transform active:scale-[0.99]"
               onClick={() => onOpen(person)}
               type="button"

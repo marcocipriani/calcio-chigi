@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { romeDateKey } from "@/lib/season"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 type Player = {
@@ -36,6 +37,12 @@ type EventRow = {
   avversario: string | null
 }
 
+const emptyStats = {
+  goals: 0,
+  assists: 0,
+  player_of_match: 0,
+}
+
 export default function PlayerPage({
   params,
 }: {
@@ -44,22 +51,19 @@ export default function PlayerPage({
   const { id } = use(params)
   const { isAssociated, loading: sessionLoading, user } = useAppSession()
   const [player, setPlayer] = useState<Player | null>(null)
-  const [stats, setStats] = useState({
-    goals: 0,
-    assists: 0,
-    player_of_match: 0,
-  })
+  const [stats, setStats] = useState(emptyStats)
   const [events, setEvents] = useState<EventRow[]>([])
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
 
   useEffect(() => {
-    if (!isAssociated) return
     let active = true
     void Promise.all([
       supabaseBrowser
-        .from("authenticated_active_roster")
+        .from("public_active_roster")
         .select("id, nome, cognome, avatar_url, role, jersey_number")
+        .eq("category", "PLAYER")
         .eq("id", id)
         .maybeSingle(),
       supabaseBrowser
@@ -67,26 +71,67 @@ export default function PlayerPage({
         .select("goals, assists, player_of_match")
         .eq("profile_id", id)
         .maybeSingle(),
-      supabaseBrowser
-        .from("events")
-        .select("id, tipo, data_ora, avversario")
-        .lte("data_ora", new Date().toISOString())
-        .order("data_ora", { ascending: false }),
-      supabaseBrowser
-        .from("event_checkins")
-        .select("event_id")
-        .eq("profile_id", id)
-        .eq("status", "PRESENT"),
-    ]).then(([playerResult, statsResult, eventsResult, checkinsResult]) => {
+    ]).then(([playerResult, statsResult]) => {
       if (!active) return
       setPlayer((playerResult.data as Player | null) ?? null)
-      if (statsResult.data) setStats(statsResult.data)
-      setEvents((eventsResult.data ?? []) as EventRow[])
+      setStats(statsResult.data ?? emptyStats)
+      setLoading(false)
+    })
+    return () => {
+      active = false
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!isAssociated) {
+      setEvents([])
+      setPresentIds(new Set())
+      return
+    }
+
+    let active = true
+    setAttendanceLoading(true)
+    void (async () => {
+      const today = romeDateKey(new Date())
+      const { data: season } = await supabaseBrowser
+        .from("seasons")
+        .select("id")
+        .lte("starts_on", today)
+        .gte("ends_on", today)
+        .maybeSingle()
+
+      if (!season || !active) {
+        if (active) setAttendanceLoading(false)
+        return
+      }
+
+      const { data: eventRows } = await supabaseBrowser
+        .from("events")
+        .select("id, tipo, data_ora, avversario")
+        .eq("season_id", season.id)
+        .lte("data_ora", new Date().toISOString())
+        .order("data_ora", { ascending: false })
+
+      if (!active) return
+      const currentEvents = (eventRows ?? []) as EventRow[]
+      const eventIds = currentEvents.map(({ id: eventId }) => eventId)
+      const checkinsResult = eventIds.length
+        ? await supabaseBrowser
+            .from("event_checkins")
+            .select("event_id")
+            .eq("profile_id", id)
+            .eq("status", "PRESENT")
+            .in("event_id", eventIds)
+        : { data: [] }
+
+      if (!active) return
+      setEvents(currentEvents)
       setPresentIds(
         new Set((checkinsResult.data ?? []).map(({ event_id }) => event_id)),
       )
-      setLoading(false)
-    })
+      setAttendanceLoading(false)
+    })()
+
     return () => {
       active = false
     }
@@ -103,43 +148,11 @@ export default function PlayerPage({
     ? (trainingPresent / training.length) * 100
     : 0
 
-  if (sessionLoading) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-3 p-4">
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-52 w-full" />
-      </div>
-    )
-  }
-
-  if (!isAssociated) {
-    return (
-      <div className="mx-auto flex min-h-[70dvh] max-w-md items-center p-4 text-center">
-        <div className="rounded-xl border bg-card p-6">
-          <LockKeyhole
-            aria-hidden="true"
-            className="mx-auto size-7 text-muted-foreground"
-          />
-          <h1 className="mt-3 text-xl font-bold">Scheda giocatore riservata</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Accedi con un profilo approvato per consultare presenze e
-            statistiche personali.
-          </p>
-          <Button asChild className="mt-4">
-            <Link href={user ? "/profilo" : "/login"}>
-              {user ? "Controlla associazione" : "Accedi"}
-            </Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl space-y-3 p-4">
-        <Skeleton className="h-52 w-full" />
-        <Skeleton className="h-72 w-full" />
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-52 w-full rounded-xl" />
       </div>
     )
   }
@@ -148,8 +161,14 @@ export default function PlayerPage({
     return <p className="p-10 text-center">Giocatore non trovato.</p>
   }
 
+  const publicMetrics = [
+    ["Goal", stats.goals],
+    ["Assist", stats.assists],
+    ["MVP", stats.player_of_match],
+  ] as const
+
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-3 py-4 pb-24 sm:px-5">
+    <main className="mx-auto max-w-2xl space-y-4 px-3 py-4 pb-24 sm:px-5">
       <Button asChild size="sm" variant="ghost">
         <Link href="/statistiche">
           <ArrowLeft aria-hidden="true" />
@@ -157,9 +176,9 @@ export default function PlayerPage({
         </Link>
       </Button>
 
-      <section className="rounded-xl border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Avatar className="size-20 border-2 border-background shadow-md ring-1 ring-border">
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex items-center gap-4 p-4">
+          <Avatar className="size-20 border-2 border-background ring-1 ring-border">
             <AvatarImage
               alt={`${player.nome} ${player.cognome}`}
               className="object-cover"
@@ -171,7 +190,7 @@ export default function PlayerPage({
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-2xl font-black">
+            <h1 className="truncate text-2xl font-black tracking-tight">
               {player.nome} {player.cognome}
             </h1>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -179,76 +198,126 @@ export default function PlayerPage({
               <Badge variant="secondary">#{player.jersey_number ?? "—"}</Badge>
             </div>
           </div>
-          <AttendanceRing
-            avatarUrl={player.avatar_url}
-            name={`${player.nome} ${player.cognome}`}
-            percentage={percentage}
-            size={72}
-          />
+          {isAssociated && !attendanceLoading && (
+            <AttendanceRing
+              avatarUrl={player.avatar_url}
+              name={`${player.nome} ${player.cognome}`}
+              percentage={percentage}
+              size={72}
+            />
+          )}
         </div>
-        <div className="mt-5 grid grid-cols-4 gap-2 border-t pt-4 text-center">
-          {[
-            ["Goal", stats.goals],
-            ["Assist", stats.assists],
-            ["MVP", stats.player_of_match],
-            ["Presenze", trainingPresent],
-          ].map(([label, value]) => (
-            <div className="rounded-lg bg-muted/55 p-2" key={String(label)}>
-              <strong className="block text-xl tabular-nums">{value}</strong>
-              <span className="text-[10px] font-bold uppercase text-muted-foreground">
+        <dl
+          className={`grid border-t bg-muted/25 ${
+            isAssociated ? "grid-cols-4" : "grid-cols-3"
+          }`}
+        >
+          {publicMetrics.map(([label, value]) => (
+            <div
+              className="border-r px-2 py-3 text-center last:border-r-0"
+              key={label}
+            >
+              <dd className="text-xl font-black tabular-nums">{value}</dd>
+              <dt className="text-[10px] font-bold uppercase text-muted-foreground">
                 {label}
-              </span>
+              </dt>
             </div>
           ))}
-        </div>
+          {isAssociated && (
+            <div className="px-2 py-3 text-center">
+              <dd className="text-xl font-black tabular-nums">
+                {trainingPresent}
+              </dd>
+              <dt className="text-[10px] font-bold uppercase text-muted-foreground">
+                Presenze
+              </dt>
+            </div>
+          )}
+        </dl>
       </section>
 
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <div className="flex items-center gap-2 border-b p-3">
-          <CalendarCheck aria-hidden="true" className="size-4 text-primary" />
-          <h2 className="font-bold">Storico eventi</h2>
-        </div>
-        <div className="divide-y">
-          {events.slice(0, 30).map((event) => {
-            const present = presentIds.has(event.id)
-            return (
-              <div
-                className="flex min-h-12 items-center gap-3 px-3 py-2"
-                key={event.id}
-              >
-                {event.tipo === "PARTITA" ? (
-                  <Target
-                    aria-hidden="true"
-                    className="size-4 text-muted-foreground"
-                  />
-                ) : (
-                  <Sparkles
-                    aria-hidden="true"
-                    className="size-4 text-muted-foreground"
-                  />
-                )}
-                <span className="min-w-0 flex-1">
-                  <strong className="block truncate text-xs">
-                    {event.tipo === "PARTITA"
-                      ? event.avversario ?? "Partita"
-                      : "Allenamento"}
-                  </strong>
-                  <span className="text-[10px] text-muted-foreground">
-                    {event.data_ora
-                      ? format(new Date(event.data_ora), "d MMM yyyy", {
-                          locale: it,
-                        })
-                      : "Data non definita"}
+      {sessionLoading ? (
+        <Skeleton className="h-32 w-full rounded-xl" />
+      ) : !isAssociated ? (
+        <section className="rounded-xl border border-dashed bg-card p-6 text-center">
+          <LockKeyhole
+            aria-hidden="true"
+            className="mx-auto size-6 text-muted-foreground"
+          />
+          <h2 className="mt-3 font-bold">Accedi per vedere le presenze</h2>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Frequenza agli allenamenti e storico personale sono riservati agli
+            account approvati.
+          </p>
+          <Button asChild className="mt-4" size="sm">
+            <Link href={user ? "/profilo" : "/login"}>
+              {user ? "Controlla associazione" : "Accedi"}
+            </Link>
+          </Button>
+        </section>
+      ) : attendanceLoading ? (
+        <Skeleton className="h-72 w-full rounded-xl" />
+      ) : (
+        <section
+          aria-labelledby="player-events-title"
+          className="overflow-hidden rounded-xl border bg-card"
+        >
+          <div className="flex items-center gap-2 border-b p-3">
+            <CalendarCheck aria-hidden="true" className="size-4 text-primary" />
+            <h2 className="font-bold" id="player-events-title">
+              Storico eventi
+            </h2>
+            <Badge className="ml-auto" variant="outline">
+              Stagione in corso
+            </Badge>
+          </div>
+          <div className="divide-y">
+            {events.slice(0, 30).map((event) => {
+              const present = presentIds.has(event.id)
+              return (
+                <div
+                  className="flex min-h-12 items-center gap-3 px-3 py-2 transition-colors hover:bg-muted/35"
+                  key={event.id}
+                >
+                  {event.tipo === "PARTITA" ? (
+                    <Target
+                      aria-hidden="true"
+                      className="size-4 text-muted-foreground"
+                    />
+                  ) : (
+                    <Sparkles
+                      aria-hidden="true"
+                      className="size-4 text-muted-foreground"
+                    />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-xs">
+                      {event.tipo === "PARTITA"
+                        ? event.avversario ?? "Partita"
+                        : "Allenamento"}
+                    </strong>
+                    <span className="text-[10px] text-muted-foreground">
+                      {event.data_ora
+                        ? format(new Date(event.data_ora), "d MMM yyyy", {
+                            locale: it,
+                          })
+                        : "Data non definita"}
+                    </span>
                   </span>
-                </span>
-                <Badge variant={present ? "default" : "outline"}>
-                  {present ? "Presente" : "Assente"}
-                </Badge>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-    </div>
+                  <Badge variant={present ? "default" : "outline"}>
+                    {present ? "Presente" : "Assente"}
+                  </Badge>
+                </div>
+              )
+            })}
+            {events.length === 0 && (
+              <p className="p-5 text-center text-sm text-muted-foreground">
+                Nessun evento concluso in questa stagione.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+    </main>
   )
 }

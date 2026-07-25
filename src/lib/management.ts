@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   RegistrationStatus,
 } from "@/lib/domain"
+import { romeDateKey } from "@/lib/season"
 
 export type ManagementPayment = {
   id?: string
@@ -53,6 +54,19 @@ export type ManagementPerson = {
   certificateStatus: MedicalCertificateStatus
   certificateId?: string | null
   certificateExpiresOn?: string | null
+  certificateVisitOn?: string | null
+  certificateLaboratory?: string | null
+  certificateDocumentPath?: string | null
+}
+
+export function effectiveCertificateStatus(
+  status: MedicalCertificateStatus,
+  expiresOn: string | null | undefined,
+  today = romeDateKey(new Date()),
+): MedicalCertificateStatus {
+  return status === "VALID" && expiresOn && expiresOn < today
+    ? "EXPIRED"
+    : status
 }
 
 export type ManagementFilters = {

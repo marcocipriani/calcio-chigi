@@ -80,6 +80,21 @@ test("statistiche torneo pubbliche e presenze protette", async ({ page }) => {
   await expectNoSeriousA11yViolations(page)
 })
 
+test("profilo giocatore pubblico mostra statistiche e protegge le presenze", async ({
+  page,
+}) => {
+  await page.goto("/giocatore/91000000-0000-0000-0000-000000000002")
+
+  await expect(
+    page.getByRole("heading", { name: "Piero Player" }),
+  ).toBeVisible()
+  await expect(page.getByText("Goal").locator("..")).toContainText("2")
+  await expect(page.getByText("Assist").locator("..")).toContainText("1")
+  await expect(page.getByText("MVP").locator("..")).toContainText("1")
+  await expect(page.getByText("Accedi per vedere le presenze")).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})
+
 test("il giocatore vede quote e scheda privata", async ({ context, page }) => {
   await authenticate(context, "player@chigi.test", "Player123!")
   await page.goto("/")
@@ -115,6 +130,15 @@ test("dashboard manager densa con azioni rapide", async ({
   )
   await page.getByRole("button", { name: "Annulla" }).click()
   await expect(page.getByRole("dialog")).toBeHidden()
+  await page
+    .getByRole("button", { name: "Apri scheda di Piero Player" })
+    .click()
+  const personDialog = page.getByRole("dialog")
+  await expect(personDialog.getByRole("heading", { name: "Documenti" })).toBeVisible()
+  await expect(personDialog.getByRole("heading", { name: "Pagamenti" })).toBeVisible()
+  await expect(personDialog.getByText(/80,00/)).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+  await page.getByRole("button", { name: "Chiudi" }).click()
   await page.getByRole("button", { name: "Persona" }).click()
   await expect(page.getByRole("dialog")).toContainText("Aggiungi persona")
   await expectNoSeriousA11yViolations(page)

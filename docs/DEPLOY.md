@@ -121,7 +121,8 @@ vercel --prod
 
 ## 6. Smoke post-deploy
 
-- Senza login: calendario, rosa, torneo e statistiche pubbliche.
+- Senza login: calendario, rosa, torneo, statistiche e profilo pubblico del
+  giocatore; presenze e storico personale devono restare protetti.
 - Account non associato: selezione profilo e richiesta pendente.
 - Manager: dashboard, approvazione account, modifica persona e azione massiva.
 - Giocatore: profilo, quota aperta, upload fototessera e PDF certificato.

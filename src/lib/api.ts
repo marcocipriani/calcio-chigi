@@ -182,19 +182,53 @@ export async function fetchAllPlayers(supabase: SupabaseClient): Promise<FullPro
  * Fetches a minimal roster for the event detail page
  * (id, nome, cognome, ruolo, avatar_url, data_nascita, is_staff).
  */
-export async function fetchRosterForEvent(supabase: SupabaseClient): Promise<Pick<FullProfile, 'id' | 'nome' | 'cognome' | 'ruolo' | 'avatar_url' | 'data_nascita' | 'is_staff'>[]> {
-    const { data } = await supabase
-        .from('authenticated_active_roster')
-        .select('id, nome, cognome, role, staff_function, avatar_url, data_nascita, category')
-        .order('cognome')
-    return (data ?? []).map(row => ({
-        id: row.id,
+export type EventRosterProfile = Pick<
+    FullProfile,
+    'id' | 'nome' | 'cognome' | 'ruolo' | 'avatar_url' | 'data_nascita' |
+    'numero_maglia' | 'dipartimento' | 'tags' | 'is_staff'
+> & {
+    training_only: boolean
+}
+
+type EventRosterRpcRow = {
+    profile_id: string
+    nome: string
+    cognome: string
+    avatar_url: string | null
+    data_nascita: string | null
+    category: 'PLAYER' | 'STAFF'
+    role: string | null
+    staff_function: string | null
+    jersey_number: number | null
+    training_only: boolean
+    department: string | null
+    is_external: boolean
+    is_aggregated: boolean
+}
+
+export async function fetchRosterForEvent(
+    supabase: SupabaseClient,
+    eventId: string,
+): Promise<EventRosterProfile[]> {
+    const { data, error } = await supabase.rpc('get_event_roster', {
+        p_event_id: eventId,
+    })
+    if (error) throw error
+    return ((data ?? []) as EventRosterRpcRow[]).map(row => ({
+        id: row.profile_id,
         nome: row.nome,
         cognome: row.cognome,
         ruolo: row.category === 'STAFF' ? row.staff_function : row.role,
         avatar_url: row.avatar_url,
         data_nascita: row.data_nascita,
+        numero_maglia: row.jersey_number,
+        dipartimento: row.department,
+        tags: [
+            ...(row.is_external ? ['EXT'] : []),
+            ...(row.is_aggregated ? ['AGG'] : []),
+        ],
         is_staff: row.category === 'STAFF',
+        training_only: row.training_only,
     }))
 }
 

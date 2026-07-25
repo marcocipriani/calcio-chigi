@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import { romeDateKey } from "@/lib/season"
 
 type PlayerRow = {
   id: string
@@ -66,17 +67,28 @@ export default function StatisticsPage() {
       return
     }
     let active = true
-    const now = new Date().toISOString()
-    void Promise.all([
-      supabaseBrowser
-        .from("events")
+    void (async () => {
+      const now = new Date()
+      const today = romeDateKey(now)
+      const { data: season } = await supabaseBrowser
+        .from("seasons")
         .select("id")
-        .eq("tipo", "ALLENAMENTO")
-        .lte("data_ora", now),
-      supabaseBrowser
-        .from("event_checkins")
-        .select("event_id, profile_id, status"),
-    ]).then(([eventsResult, checkinsResult]) => {
+        .lte("starts_on", today)
+        .gte("ends_on", today)
+        .maybeSingle()
+      if (!season || !active) return
+
+      const [eventsResult, checkinsResult] = await Promise.all([
+        supabaseBrowser
+          .from("events")
+          .select("id")
+          .eq("season_id", season.id)
+          .eq("tipo", "ALLENAMENTO")
+          .lte("data_ora", now.toISOString()),
+        supabaseBrowser
+          .from("event_checkins")
+          .select("event_id, profile_id, status"),
+      ])
       if (!active) return
       const eventIds = new Set((eventsResult.data ?? []).map(({ id }) => id))
       const total = eventIds.size
@@ -103,7 +115,7 @@ export default function StatisticsPage() {
           })
           .sort((left, right) => right.percentage - left.percentage),
       )
-    })
+    })()
     return () => {
       active = false
     }
@@ -202,21 +214,15 @@ export default function StatisticsPage() {
                   </strong>
                 </>
               )
-              return isAssociated ? (
+              return (
                 <Link
+                  aria-label={`Statistiche di ${player.nome} ${player.cognome}`}
                   className="grid min-h-14 grid-cols-[32px_1fr_48px_48px_56px] items-center gap-2 border-b px-3 transition-colors last:border-b-0 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   href={`/giocatore/${player.id}`}
                   key={player.id}
                 >
                   {content}
                 </Link>
-              ) : (
-                <div
-                  className="grid min-h-14 grid-cols-[32px_1fr_48px_48px_56px] items-center gap-2 border-b px-3 last:border-b-0"
-                  key={player.id}
-                >
-                  {content}
-                </div>
               )
             })}
           </div>

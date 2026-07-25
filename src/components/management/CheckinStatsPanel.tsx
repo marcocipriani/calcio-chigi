@@ -22,6 +22,16 @@ type RosterRow = {
 
 type CheckinStatus = "PRESENT" | "ABSENT"
 
+type EventRosterRow = {
+  profile_id: string
+  nome: string
+  cognome: string
+  avatar_url: string | null
+  role: string | null
+  category: "PLAYER" | "STAFF"
+  training_only: boolean
+}
+
 export function CheckinStatsPanel({
   eventId,
   isMatch,
@@ -42,11 +52,9 @@ export function CheckinStatsPanel({
     if (!isManager) return
     let active = true
     void Promise.all([
-      supabaseBrowser
-        .from("authenticated_active_roster")
-        .select("id, nome, cognome, avatar_url, role")
-        .eq("category", "PLAYER")
-        .order("cognome"),
+      supabaseBrowser.rpc("get_event_roster", {
+        p_event_id: eventId,
+      }),
       supabaseBrowser
         .from("event_checkins")
         .select("profile_id, status")
@@ -66,7 +74,20 @@ export function CheckinStatsPanel({
         : Promise.resolve({ data: null }),
     ]).then(([rosterResult, checkinResult, statsResult, awardResult]) => {
       if (!active) return
-      setRoster((rosterResult.data ?? []) as RosterRow[])
+      const eventRoster = (rosterResult.data ?? []) as EventRosterRow[]
+      setRoster(
+        eventRoster
+          .filter(({ category, training_only }) =>
+            category === "PLAYER" && !training_only,
+          )
+          .map((row): RosterRow => ({
+            id: row.profile_id,
+            nome: row.nome,
+            cognome: row.cognome,
+            avatar_url: row.avatar_url,
+            role: row.role,
+          })),
+      )
       setCheckins(
         Object.fromEntries(
           (checkinResult.data ?? []).map((row) => [

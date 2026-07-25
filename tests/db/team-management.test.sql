@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(39);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -27,6 +27,7 @@ select has_function('public', 'get_app_context', array[]::text[]);
 select has_function('public', 'request_profile_association', array['uuid']);
 select has_function('public', 'respond_to_season_confirmation', array['text', 'text']);
 select has_function('public', 'set_event_checkin', array['uuid', 'uuid', 'event_checkin_status']);
+select has_function('public', 'get_event_roster', array['uuid']);
 select has_function('public', 'guard_notification_recipient_identity', array[]::text[]);
 select has_function('public', 'claim_notification_outbox', array['integer']);
 select has_function(

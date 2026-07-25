@@ -71,11 +71,15 @@ Eliminare il workbook locale solo dopo verifica remota riuscita.
 2. Se non è associato, sceglie nome e cognome dalla rosa.
 3. Il manager riceve una notifica e approva o rifiuta.
 4. Fino all’approvazione l’utente vede soltanto l’area pubblica.
-5. Alla prima apertura della nuova stagione, giocatore o manager registra
+5. Se il profilo era `INTERESTED`, l’approvazione lo porta a `PENDING`.
+6. Alla prima apertura della nuova stagione, giocatore o manager registra
    `YES`, `MAYBE` o `NO`.
 
 I profili `INTERESTED` sono contatti senza account e non entrano in formazione
 finché non vengono confermati.
+
+Check-in e formazione leggono sempre la rosa della stagione assegnata
+all’evento, anche consultando partite storiche dopo il cambio stagione.
 
 ## Pagamenti e certificati
 

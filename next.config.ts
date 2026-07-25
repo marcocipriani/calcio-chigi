@@ -5,6 +5,9 @@ const packageJson = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
 const version = packageJson.version;
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },

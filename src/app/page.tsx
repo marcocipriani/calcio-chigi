@@ -319,8 +319,180 @@ export default function Home() {
       )
   }
 
+  const renderDesktopCalendar = () => {
+      const monthStart = startOfMonth(currentMonth);
+      const monthEnd = endOfMonth(monthStart);
+      const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+      const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+      const days = eachDayOfInterval({ start: startDate, end: endDate });
+      const weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+      const agenda = futureRaw.slice(0, 6);
+
+      return (
+          <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,0.78fr)] gap-5">
+              <section className="overflow-hidden rounded-2xl border bg-card shadow-sm" aria-labelledby="desktop-calendar-heading">
+                  <div className="flex items-center justify-between border-b px-5 py-4">
+                      <div>
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Vista mensile</p>
+                          <h3 id="desktop-calendar-heading" className="mt-0.5 text-xl font-black capitalize">
+                              {format(currentMonth, 'MMMM yyyy', { locale: it })}
+                          </h3>
+                      </div>
+                      <div className="flex items-center gap-1">
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 text-xs font-bold"
+                              onClick={() => setCurrentMonth(new Date())}
+                          >
+                              Oggi
+                          </Button>
+                          <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Mese precedente"
+                              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                          >
+                              <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              aria-label="Mese successivo"
+                              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                          >
+                              <ChevronRight className="h-4 w-4" />
+                          </Button>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-7 border-b bg-muted/25">
+                      {weekDays.map((day) => (
+                          <div key={day} className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                              {day}
+                          </div>
+                      ))}
+                  </div>
+
+                  <div className="grid grid-cols-7">
+                      {days.map((day) => {
+                          const dayEvents = filteredEvents
+                              .filter((event) => event.data_ora && isSameDay(new Date(event.data_ora), day))
+                              .slice(0, 3);
+                          const remaining = filteredEvents.filter(
+                              (event) => event.data_ora && isSameDay(new Date(event.data_ora), day)
+                          ).length - dayEvents.length;
+                          const inMonth = isSameMonth(day, monthStart);
+                          const today = isToday(day);
+
+                          return (
+                              <div
+                                  key={day.toISOString()}
+                                  className={`min-h-32 border-b border-r p-2.5 transition-colors last:border-r-0 ${
+                                      inMonth ? 'bg-card' : 'bg-muted/15 text-muted-foreground'
+                                  } ${today ? 'bg-primary/[0.045] shadow-[inset_0_3px_0_hsl(var(--primary))]' : ''}`}
+                              >
+                                  <div className="mb-2 flex items-center justify-between">
+                                      <span
+                                          className={`grid h-7 w-7 place-items-center rounded-full text-xs font-black ${
+                                              today ? 'bg-primary text-primary-foreground' : ''
+                                          }`}
+                                          aria-current={today ? 'date' : undefined}
+                                      >
+                                          {format(day, 'd')}
+                                      </span>
+                                  </div>
+                                  <div className="space-y-1">
+                                      {dayEvents.map((event) => {
+                                          const isMatch = event.tipo === 'PARTITA';
+                                          return (
+                                              <Link
+                                                  key={event.id}
+                                                  href={`/evento/${event.id}`}
+                                                  aria-label={`${isMatch ? 'Partita' : 'Allenamento'} ${format(new Date(event.data_ora!), 'd MMMM HH:mm', { locale: it })}`}
+                                                  className={`group flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-bold transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                                      event.cancellato
+                                                          ? 'border-border bg-muted text-muted-foreground line-through'
+                                                          : isMatch
+                                                              ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300'
+                                                              : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
+                                                  }`}
+                                              >
+                                                  {isMatch ? <Trophy className="h-3 w-3 shrink-0" /> : <Dumbbell className="h-3 w-3 shrink-0" />}
+                                                  <span className="truncate">
+                                                      {format(new Date(event.data_ora!), 'HH:mm')} · {isMatch ? event.avversario : 'Allenamento'}
+                                                  </span>
+                                              </Link>
+                                          );
+                                      })}
+                                      {remaining > 0 && (
+                                          <span className="block px-2 pt-0.5 text-[10px] font-bold text-muted-foreground">
+                                              +{remaining} {remaining === 1 ? 'altro' : 'altri'}
+                                          </span>
+                                      )}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+              </section>
+
+              <aside className="space-y-3" aria-labelledby="desktop-agenda-heading">
+                  <div className="sticky top-20 rounded-2xl border bg-card p-4 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between">
+                          <div>
+                              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Agenda</p>
+                              <h3 id="desktop-agenda-heading" className="text-lg font-black">Prossimi impegni</h3>
+                          </div>
+                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-black">{futureRaw.length}</span>
+                      </div>
+
+                      {agenda.length === 0 ? (
+                          <p className="rounded-xl border border-dashed p-6 text-center text-sm font-medium text-muted-foreground">
+                              Nessun impegno in programma.
+                          </p>
+                      ) : (
+                          <div className="space-y-2">
+                              {agenda.map((event) => {
+                                  const date = new Date(event.data_ora!);
+                                  const isMatch = event.tipo === 'PARTITA';
+                                  const isNext = event.id === nextMatch?.id;
+                                  return (
+                                      <Link
+                                          key={event.id}
+                                          href={`/evento/${event.id}`}
+                                          className={`grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-xl border p-2.5 transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                              isNext ? 'border-red-500 bg-red-50/70 dark:bg-red-950/20' : 'hover:border-primary/40'
+                                          }`}
+                                      >
+                                          <div className="rounded-lg bg-muted/65 py-1.5 text-center">
+                                              <span className="block text-[9px] font-black uppercase text-muted-foreground">{format(date, 'MMM', { locale: it })}</span>
+                                              <span className="block text-lg font-black leading-none">{format(date, 'd')}</span>
+                                          </div>
+                                          <div className="min-w-0">
+                                              <p className="truncate text-sm font-black">
+                                                  {isMatch ? event.avversario : 'Allenamento'}
+                                              </p>
+                                              <p className="truncate text-[11px] font-medium text-muted-foreground">
+                                                  {format(date, 'EEEE · HH:mm', { locale: it })} · {event.luogo || 'Luogo da definire'}
+                                              </p>
+                                          </div>
+                                          <span className={`h-2.5 w-2.5 rounded-full ${isMatch ? 'bg-blue-500' : 'bg-amber-500'}`} aria-hidden="true" />
+                                      </Link>
+                                  );
+                              })}
+                          </div>
+                      )}
+                  </div>
+              </aside>
+          </div>
+      );
+  };
+
   return (
-    <main className="container max-w-md mx-auto px-4 py-4 space-y-4 pb-20">
+    <main className="container mx-auto max-w-md space-y-4 px-4 py-4 pb-20 lg:max-w-7xl lg:px-6 lg:py-6">
       
       <div className="flex flex-col gap-2">
           <div className="flex justify-between items-end">
@@ -381,7 +553,7 @@ export default function Home() {
                 </Button>
               </div>
 
-              <div className="flex items-center bg-muted/50 p-1 rounded-xl shrink-0">
+              <div className="flex items-center bg-muted/50 p-1 rounded-xl shrink-0 lg:hidden">
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -419,10 +591,11 @@ export default function Home() {
         </div>
       ) : (
         <>
-            {viewMode === 'CALENDAR' ? (
-                renderCalendar()
-            ) : (
-                <Tabs defaultValue="upcoming" className="w-full">
+            <div className="lg:hidden">
+              {viewMode === 'CALENDAR' ? (
+                  renderCalendar()
+              ) : (
+                  <Tabs defaultValue="upcoming" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/50 p-1 rounded-xl backdrop-blur-sm dark:bg-slate-900/50 border dark:border-slate-800">
                         <TabsTrigger value="upcoming" className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-all">
                             <CalendarDays className="h-4 w-4" /> Prossimi
@@ -507,8 +680,12 @@ export default function Home() {
                             ))
                         )}
                     </TabsContent>
-                </Tabs>
-            )}
+                  </Tabs>
+              )}
+            </div>
+            <div className="hidden lg:block">
+                {renderDesktopCalendar()}
+            </div>
         </>
       )}
 

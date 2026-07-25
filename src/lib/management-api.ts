@@ -59,7 +59,7 @@ export async function fetchManagementPeople(
     client.from("profiles").select("*").in("id", profileIds),
     client
       .from("profile_private_details")
-      .select("profile_id, phone, operational_email")
+      .select("profile_id, phone, operational_email, updated_at")
       .in("profile_id", profileIds),
     client.from("payments").select("*").in("membership_id", membershipIds),
     client
@@ -155,7 +155,9 @@ export async function fetchManagementPeople(
         ),
         passportPhotoPath: asText(membership.passport_photo_path),
         isManager: Boolean(profile.is_manager),
-        updatedAt: asText(membership.updated_at) ?? undefined,
+        profileUpdatedAt: String(profile.updated_at),
+        membershipUpdatedAt: String(membership.updated_at),
+        privateUpdatedAt: asText(details?.updated_at),
         accountStatus,
         associationRequestId: request ? String(request.id) : null,
         payments: (paymentsByMembership.get(String(membership.id)) ?? []).map(

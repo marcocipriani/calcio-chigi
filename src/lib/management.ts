@@ -44,7 +44,9 @@ export type ManagementPerson = {
   registrationCompletedOn?: string | null
   passportPhotoPath?: string | null
   isManager?: boolean
-  updatedAt?: string
+  profileUpdatedAt: string
+  membershipUpdatedAt: string
+  privateUpdatedAt?: string | null
   accountStatus: AccountStatus
   associationRequestId?: string | null
   payments: ManagementPayment[]

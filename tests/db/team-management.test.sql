@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(38);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -60,7 +60,16 @@ select has_function(
 select has_function(
   'public',
   'manager_update_person',
-  array['uuid', 'uuid', 'jsonb', 'jsonb', 'jsonb']
+  array[
+    'uuid',
+    'uuid',
+    'timestamptz',
+    'timestamptz',
+    'timestamptz',
+    'jsonb',
+    'jsonb',
+    'jsonb'
+  ]
 );
 select has_function(
   'public',
@@ -99,6 +108,22 @@ select results_eq(
        and column_name in ('email', 'phone', 'tax_code')$$,
   array[0::bigint],
   'public directory excludes private fields'
+);
+select results_eq(
+  $$select public, file_size_limit
+      from storage.buckets
+     where id = 'avatars'$$,
+  $$values (true, 2097152::bigint)$$,
+  'avatar bucket is provisioned declaratively with a 2 MB limit'
+);
+select results_eq(
+  $$select count(*)::bigint
+      from pg_policies
+     where schemaname = 'storage'
+       and tablename = 'objects'
+       and policyname like 'avatars_owner_manager_%'$$,
+  array[4::bigint],
+  'avatar objects have explicit owner-or-manager policies'
 );
 
 select * from finish();

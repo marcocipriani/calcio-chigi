@@ -80,6 +80,9 @@ export function PersonDrawer({
     const { error } = await supabaseBrowser.rpc("manager_update_person", {
       p_profile_id: currentPerson.profileId,
       p_membership_id: currentPerson.id,
+      p_expected_profile_updated_at: currentPerson.profileUpdatedAt,
+      p_expected_membership_updated_at: currentPerson.membershipUpdatedAt,
+      p_expected_private_updated_at: currentPerson.privateUpdatedAt,
       p_profile: {
         nome: String(form.get("nome") ?? ""),
         cognome: String(form.get("cognome") ?? ""),
@@ -113,7 +116,17 @@ export function PersonDrawer({
     setBusy(false)
 
     if (error) {
-      toast.error("Modifiche non salvate", { description: error.message })
+      toast.error(
+        error.code === "40001"
+          ? "Scheda aggiornata da un altro manager"
+          : "Modifiche non salvate",
+        {
+          description:
+            error.code === "40001"
+              ? "Riapri la scheda per usare i dati più recenti."
+              : error.message,
+        },
+      )
       return
     }
     toast.success("Scheda aggiornata")

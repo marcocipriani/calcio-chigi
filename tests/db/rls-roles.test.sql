@@ -1,12 +1,13 @@
 begin;
 
-select plan(20);
+select plan(30);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
   ('00000000-0000-0000-0000-000000000001', 'manager@test.local', 'authenticated', 'authenticated', now(), now()),
   ('00000000-0000-0000-0000-000000000002', 'player@test.local', 'authenticated', 'authenticated', now(), now()),
-  ('00000000-0000-0000-0000-000000000003', 'unlinked@test.local', 'authenticated', 'authenticated', now(), now());
+  ('00000000-0000-0000-0000-000000000003', 'unlinked@test.local', 'authenticated', 'authenticated', now(), now()),
+  ('00000000-0000-0000-0000-000000000004', 'rejected@test.local', 'authenticated', 'authenticated', now(), now());
 
 insert into public.profiles (
   id, user_id, nome, cognome, ruolo, numero_maglia, is_manager, is_staff
@@ -26,6 +27,11 @@ values
     '10000000-0000-0000-0000-000000000003',
     null,
     'Claudio', 'Claimable', 'CENTROCAMPISTA', 8, false, false
+  ),
+  (
+    '10000000-0000-0000-0000-000000000004',
+    null,
+    'Rita', 'Rejected', 'DIFENSORE', 6, false, false
   );
 
 insert into public.profile_private_details (
@@ -58,15 +64,37 @@ set status = excluded.status;
 insert into public.events (
   id, tipo, data_ora, luogo, squadra_casa, squadra_ospite, cancellato
 )
-values (
+select
   '20000000-0000-0000-0000-000000000001',
   'PARTITA',
-  '2026-09-01 21:00:00+02',
+  (season.starts_on::timestamp + interval '10 days 21 hours')
+    at time zone 'Europe/Rome',
   'Campo test',
   'CIRC. CHIGI',
   'AVVERSARI',
   false
-);
+from public.seasons season
+where (now() at time zone 'Europe/Rome')::date
+      not between season.starts_on and season.ends_on
+order by season.starts_on desc
+limit 1;
+
+insert into public.events (
+  id, tipo, data_ora, luogo, squadra_casa, squadra_ospite, cancellato
+)
+select
+  '20000000-0000-0000-0000-000000000002',
+  'PARTITA',
+  (season.starts_on::timestamp + interval '10 days 21 hours')
+    at time zone 'Europe/Rome',
+  'Campo test corrente',
+  'CIRC. CHIGI',
+  'AVVERSARI CORRENTI',
+  false
+from public.seasons season
+where (now() at time zone 'Europe/Rome')::date
+      between season.starts_on and season.ends_on
+limit 1;
 
 select ok(
   not has_table_privilege('anon', 'public.profiles', 'SELECT'),
@@ -89,6 +117,26 @@ select results_eq(
   array[2::bigint],
   'anon sees only the safe public roster view'
 );
+select results_eq(
+  $$select count(*)::bigint
+      from public.public_profile_directory
+     where id in (
+       '10000000-0000-0000-0000-000000000003',
+       '10000000-0000-0000-0000-000000000004'
+     )$$,
+  array[0::bigint],
+  'public directory excludes people outside the active confirmed roster'
+);
+select results_eq(
+  $$select count(*)::bigint
+      from public.public_player_statistics
+     where profile_id in (
+       '10000000-0000-0000-0000-000000000003',
+       '10000000-0000-0000-0000-000000000004'
+     )$$,
+  array[0::bigint],
+  'public statistics do not enumerate interested or unrostered people'
+);
 reset role;
 
 set local role authenticated;
@@ -103,6 +151,12 @@ select results_eq(
      where id = '10000000-0000-0000-0000-000000000003'$$,
   array[0::bigint],
   'unlinked account cannot query profiles'
+);
+select results_eq(
+  $$select count(*)::bigint
+      from public.authenticated_active_roster$$,
+  array[0::bigint],
+  'unlinked account cannot query the extended authenticated roster'
 );
 select results_eq(
   $$select id
@@ -123,6 +177,28 @@ select results_eq(
      where user_id = '00000000-0000-0000-0000-000000000003'$$,
   array['PENDING'::text],
   'association request remains pending'
+);
+reset role;
+
+insert into public.rejected_account_hashes (email_hash, expires_at)
+values (
+  encode(digest('rejected@test.local', 'sha256'), 'hex'),
+  now() + interval '30 days'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000004',
+  true
+);
+select throws_ok(
+  $$select public.request_profile_association(
+    '10000000-0000-0000-0000-000000000004'
+  )$$,
+  'P0001',
+  'Account temporarily blocked after rejection',
+  'rejected email cannot immediately submit another association request'
 );
 reset role;
 
@@ -199,6 +275,82 @@ select lives_ok(
        and s.slug = '2026-2027'$$,
   'manager creates a payment'
 );
+select lives_ok(
+  $$select public.manager_update_person(
+      '10000000-0000-0000-0000-000000000002',
+      membership.id,
+      profile.updated_at,
+      membership.updated_at,
+      details.updated_at,
+      '{"nome":"Piero","cognome":"Player","joined_on":"","is_manager":false}',
+      '{"category":"PLAYER","status":"YES","role":"ATTACCANTE","staff_function":"","jersey_number":"9","department":"","asi_card_number":"","uniform_size":"","is_external":false,"is_aggregated":false,"training_only":false,"operational_notes":"","next_contact_on":"","registration_status":"TODO","registration_completed_on":""}',
+      '{"phone":"222","operational_email":"player@test.local"}'
+    )
+    from public.season_memberships membership
+    join public.seasons season on season.id = membership.season_id
+    join public.profiles profile on profile.id = membership.profile_id
+    join public.profile_private_details details
+      on details.profile_id = membership.profile_id
+    where membership.profile_id =
+      '10000000-0000-0000-0000-000000000002'
+      and season.slug = '2026-2027'$$,
+  'manager saves a person with the current row version'
+);
+select throws_ok(
+  $$select public.manager_update_person(
+      '10000000-0000-0000-0000-000000000002',
+      (
+        select membership.id
+        from public.season_memberships membership
+        join public.seasons season on season.id = membership.season_id
+        where membership.profile_id =
+          '10000000-0000-0000-0000-000000000002'
+          and season.slug = '2026-2027'
+      ),
+      '2000-01-01 00:00:00+00',
+      (
+        select membership.updated_at
+        from public.season_memberships membership
+        join public.seasons season on season.id = membership.season_id
+        where membership.profile_id =
+          '10000000-0000-0000-0000-000000000002'
+          and season.slug = '2026-2027'
+      ),
+      (
+        select details.updated_at
+        from public.profile_private_details details
+        where details.profile_id =
+          '10000000-0000-0000-0000-000000000002'
+      ),
+      '{"nome":"Piero","cognome":"Player"}',
+      '{}',
+      '{}'
+    )$$,
+  '40001',
+  'Person changed by another manager',
+  'stale manager edit is rejected before overwriting newer data'
+);
+select throws_ok(
+  $$select public.manager_update_person(
+      profile.id,
+      membership.id,
+      profile.updated_at,
+      membership.updated_at,
+      '2000-01-01 00:00:00+00',
+      '{"nome":"Piero","cognome":"Player"}',
+      '{}',
+      '{}'
+    )
+    from public.profiles profile
+    join public.season_memberships membership
+      on membership.profile_id = profile.id
+    join public.seasons season on season.id = membership.season_id
+    where profile.id = '10000000-0000-0000-0000-000000000002'
+      and season.slug = '2026-2027'$$,
+  '40001',
+  'Person changed by another manager',
+  'stale private-details version is rejected before overwriting contacts'
+);
 select throws_ok(
   $$insert into public.match_player_stats (
       event_id, profile_id, goals, assists, updated_by
@@ -239,6 +391,16 @@ select lives_ok(
     )$$,
   'match stats accept a present player'
 );
+select lives_ok(
+  $$insert into public.match_awards (
+      event_id, profile_id, updated_by
+    ) values (
+      '20000000-0000-0000-0000-000000000001',
+      '10000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000001'
+    )$$,
+  'player-of-the-match accepts a present player'
+);
 update public.attendance
 set status = 'ASSENTE'
 where event_id = '20000000-0000-0000-0000-000000000001'
@@ -255,6 +417,65 @@ select results_eq(
        and profile_id = '10000000-0000-0000-0000-000000000002'$$,
   array['ASSENTE'::text],
   'absent check-in does not rewrite RSVP'
+);
+select results_eq(
+  $$select (
+      (select count(*) from public.match_player_stats
+        where event_id = '20000000-0000-0000-0000-000000000001'
+          and profile_id = '10000000-0000-0000-0000-000000000002')
+      +
+      (select count(*) from public.match_awards
+        where event_id = '20000000-0000-0000-0000-000000000001'
+          and profile_id = '10000000-0000-0000-0000-000000000002')
+    )::bigint$$,
+  array[0::bigint],
+  'absent check-in atomically removes match statistics and award'
+);
+
+select public.set_event_checkin(
+  '20000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002',
+  'PRESENT'
+);
+select public.set_event_checkin(
+  '20000000-0000-0000-0000-000000000002',
+  '10000000-0000-0000-0000-000000000002',
+  'PRESENT'
+);
+insert into public.match_player_stats (
+  event_id, profile_id, goals, assists, updated_by
+)
+values
+  (
+    '20000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002',
+    5, 3,
+    '10000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '20000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000002',
+    2, 1,
+    '10000000-0000-0000-0000-000000000001'
+  );
+insert into public.match_awards (event_id, profile_id, updated_by)
+values
+  (
+    '20000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000001'
+  ),
+  (
+    '20000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000002',
+    '10000000-0000-0000-0000-000000000001'
+  );
+select results_eq(
+  $$select goals, assists, player_of_match
+      from public.public_player_statistics
+     where profile_id = '10000000-0000-0000-0000-000000000002'$$,
+  $$values (2, 1, 1)$$,
+  'public player statistics include only events from the active season'
 );
 reset role;
 

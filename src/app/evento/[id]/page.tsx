@@ -3,6 +3,7 @@
 import { useEffect, useState, use, useRef } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'; 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
@@ -18,8 +19,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
-import { getUserContext, fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
+import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
 import { isU35 } from '@/lib/utils';
+import { useAppSession } from '@/components/auth/AppSessionProvider';
+import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
+import { CheckinStatsPanel } from '@/components/management/CheckinStatsPanel';
 
 interface RosterPlayer {
   id: string;
@@ -37,14 +41,19 @@ interface RosterPlayer {
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
   const router = useRouter();
+  const {
+    isAssociated,
+    isManager,
+    profile,
+    user,
+  } = useAppSession();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [opponentLogo, setOpponentLogo] = useState<string | null>(null);
   const [roster, setRoster] = useState<RosterPlayer[]>([]);
   const [allProfilesMap, setAllProfilesMap] = useState<Record<string, string>>({});
-  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
-  const [isManager, setIsManager] = useState(false);
-  const [myProfileId, setMyProfileId] = useState<string | null>(null);
+  const currentUser = user ? { id: user.id } : null;
+  const myProfileId = profile?.id ?? null;
   const [userStatus, setUserStatus] = useState<string | null>(null);
   const myProfileIdRef = useRef<string | null>(null);
 
@@ -76,7 +85,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
     return () => { supabase.removeChannel(channel); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, supabase]);
+  }, [id, isAssociated, myProfileId, supabase]);
 
   const handleRealtimeUpdate = (payload: { new: Record<string, string | null>; old: Record<string, string | null>; eventType: string }) => {
       const { new: newRecord, old: oldRecord, eventType } = payload;
@@ -104,21 +113,10 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   };
 
   async function loadAllData() {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUser(user);
-
-    const { isManager, profileId: currentPid } = await getUserContext(supabase);
-    if (currentPid) {
-        setIsManager(isManager);
-        setMyProfileId(currentPid);
-    } else if (user) {
-        toast.warning("Utente non associato a un profilo giocatore.");
-    }
-
     const [eventData, allProfiles, attendanceData] = await Promise.all([
         fetchEventById(supabase, id),
-        fetchRosterForEvent(supabase),
-        fetchAttendanceForEvent(supabase, id),
+        isAssociated ? fetchRosterForEvent(supabase) : Promise.resolve([]),
+        isAssociated ? fetchAttendanceForEvent(supabase, id) : Promise.resolve([]),
     ]);
 
     setOpponentLogo(null);
@@ -143,7 +141,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
     const mergedRoster = allProfiles.map(p => {
         const vote = attendanceData.find(a => a.profile_id === p.id);
-        if (p.id === currentPid) setUserStatus(vote?.status || null);
+        if (p.id === myProfileId) setUserStatus(vote?.status || null);
         return {
             ...p,
             status: vote?.status || null,
@@ -422,7 +420,28 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             {isCancelled && <p className="text-red-500 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
         </div>
 
-        {!isCancelled && (
+        {isAssociated ? (
+          isMatch && <OfficialFormationPanel eventId={id} />
+        ) : (
+          <Card className="border-dashed">
+            <CardContent className="p-4 text-center">
+              <h3 className="font-bold">Accedi alle funzioni di squadra</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Disponibilità, presenze e formazione ufficiale richiedono un
+                account associato.
+              </p>
+              <Button asChild className="mt-3" size="sm">
+                <Link href={user ? "/profilo" : "/login"}>
+                  {user ? "Controlla associazione" : "Accedi"}
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {isManager && <CheckinStatsPanel eventId={id} isMatch={isMatch} />}
+
+        {isAssociated && !isCancelled && (
             isMatch ? (
                 <div className="grid grid-cols-6 gap-2">
                     <div className="col-span-2 bg-blue-50 border-blue-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
@@ -468,7 +487,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         )}
 
         <Separator />
-        {!event.giocata && !isCancelled && (
+        {isAssociated && !event.giocata && !isCancelled && (
             <Card className="bg-muted/10 border-dashed border-2 shadow-sm border-slate-300 dark:border-slate-700">
                 <CardContent className="p-4 space-y-3">
                     <h3 className="text-center font-bold text-muted-foreground text-xs uppercase tracking-wide">La tua disponibilità</h3>
@@ -517,6 +536,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             </Card>
         )}
 
+        {isAssociated && (
         <div>
             <div className="flex flex-col mb-4 border-b pb-2 gap-2">
                 <h3 className="font-bold text-lg">Risposte</h3>
@@ -612,6 +632,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 {sortedRoster.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">Nessuno ha ancora risposto.</p>}
             </div>
         </div>
+        )}
 
       </div>
 

@@ -184,10 +184,18 @@ export async function fetchAllPlayers(supabase: SupabaseClient): Promise<FullPro
  */
 export async function fetchRosterForEvent(supabase: SupabaseClient): Promise<Pick<FullProfile, 'id' | 'nome' | 'cognome' | 'ruolo' | 'avatar_url' | 'data_nascita' | 'is_staff'>[]> {
     const { data } = await supabase
-        .from('profiles')
-        .select('id, nome, cognome, ruolo, avatar_url, data_nascita, is_staff')
+        .from('authenticated_active_roster')
+        .select('id, nome, cognome, role, staff_function, avatar_url, data_nascita, category')
         .order('cognome')
-    return data ?? []
+    return (data ?? []).map(row => ({
+        id: row.id,
+        nome: row.nome,
+        cognome: row.cognome,
+        ruolo: row.category === 'STAFF' ? row.staff_function : row.role,
+        avatar_url: row.avatar_url,
+        data_nascita: row.data_nascita,
+        is_staff: row.category === 'STAFF',
+    }))
 }
 
 // ─── Teams ────────────────────────────────────────────────────────────────────

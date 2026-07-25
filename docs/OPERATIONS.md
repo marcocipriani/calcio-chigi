@@ -119,6 +119,26 @@ Se la coda cresce:
 
 Gli endpoint scaduti con risposta 404/410 vengono rimossi automaticamente.
 
+## Controlli di sicurezza Supabase
+
+Eseguire periodicamente:
+
+```bash
+npx supabase db advisors --linked --type security
+```
+
+Le RPC esposte sono concesse esplicitamente ai soli ruoli necessari; le
+funzioni trigger interne non devono essere eseguibili da `anon` o
+`authenticated`.
+
+Le viste `public_profile_directory`, `public_active_roster`,
+`public_player_statistics`, `authenticated_active_roster` e
+`claimable_profile_directory` usano intenzionalmente il proprietario della
+vista insieme a `security_barrier`: espongono solo colonne sicure mentre le
+tabelle di base restano protette da RLS. L’advisor può quindi segnalarle come
+`security_definer_view`; non convertirle in `security_invoker` senza
+riprogettare l’accesso pubblico e rieseguire i test RLS.
+
 ## Backup e ripristino
 
 Prima di migrazioni o import:

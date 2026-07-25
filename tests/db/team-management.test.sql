@@ -1,6 +1,6 @@
 begin;
 
-select plan(39);
+select plan(45);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -14,6 +14,46 @@ select has_function('public', 'import_roster_plan', array['jsonb']);
 select ok(
   has_table_privilege('service_role', 'public.profiles', 'SELECT'),
   'service role can read profiles for administrative scripts'
+);
+select ok(
+  not has_function_privilege('anon', 'public.current_profile_id()', 'EXECUTE'),
+  'anonymous users cannot execute authenticated identity helpers'
+);
+select ok(
+  not has_function_privilege('anon', 'public.get_app_context()', 'EXECUTE'),
+  'anonymous users cannot execute the authenticated app context RPC'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.declare_payment(uuid, public.payment_method)',
+    'EXECUTE'
+  ),
+  'anonymous users cannot declare payments'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.guard_payment_owner_update()',
+    'EXECUTE'
+  ),
+  'anonymous users cannot execute internal trigger functions'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.notify_payment_change()',
+    'EXECUTE'
+  ),
+  'authenticated users cannot execute internal notification triggers directly'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.get_app_context()',
+    'EXECUTE'
+  ),
+  'authenticated users retain access to intended client RPCs'
 );
 select has_table('public'::name, 'account_association_requests'::name);
 select has_table('public'::name, 'rejected_account_hashes'::name);

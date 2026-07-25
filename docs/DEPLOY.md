@@ -65,8 +65,8 @@ npx supabase secrets set \
   VAPID_PRIVATE_KEY='<vapid-private>' \
   VAPID_SUBJECT='mailto:<email-operativa>'
 
-npx supabase functions deploy account-association
-npx supabase functions deploy notification-dispatch --no-verify-jwt
+npx supabase functions deploy account-association --use-api
+npx supabase functions deploy notification-dispatch --use-api --no-verify-jwt
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` sono forniti

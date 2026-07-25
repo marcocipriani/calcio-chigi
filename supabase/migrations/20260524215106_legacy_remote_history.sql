@@ -1,0 +1,2 @@
+-- Legacy migration applied to the production project before this repository
+-- adopted a reproducible baseline. Kept as a no-op to preserve remote history.

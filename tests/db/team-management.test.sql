@@ -1,6 +1,6 @@
 begin;
 
-select plan(29);
+select plan(33);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -41,6 +41,37 @@ select has_function(
   array['uuid', 'uuid']
 );
 select has_function('public', 'touch_manager_activity', array['text']);
+select has_function(
+  'public',
+  'manager_create_person',
+  array[
+    'text',
+    'text',
+    'text',
+    'membership_category',
+    'membership_status',
+    'text',
+    'text',
+    'text',
+    'boolean',
+    'date'
+  ]
+);
+select has_function(
+  'public',
+  'manager_update_person',
+  array['uuid', 'uuid', 'jsonb', 'jsonb', 'jsonb']
+);
+select has_function(
+  'public',
+  'manager_verify_payment',
+  array['uuid', 'payment_method']
+);
+select has_function(
+  'public',
+  'manager_review_certificate',
+  array['uuid', 'medical_certificate_status', 'text']
+);
 select results_eq(
   $$select count(*)::bigint
       from information_schema.columns

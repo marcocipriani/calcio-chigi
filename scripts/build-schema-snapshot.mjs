@@ -10,6 +10,8 @@ const migrationPaths = [
   "supabase/migrations/20260725021000_notification_storage_hardening.sql",
   "supabase/migrations/20260725022000_notification_outbox_rpc.sql",
   "supabase/migrations/20260725023000_manager_account_activity.sql",
+  "supabase/migrations/20260725024000_manager_people_rpc.sql",
+  "supabase/migrations/20260725025000_manager_update_rpcs.sql",
 ]
 
 const current = await readFile(schemaPath, "utf8")

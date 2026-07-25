@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -41,9 +43,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local docs and AI tooling
-/docs/
+# local AI tooling
+/.impeccable/
 /.claude/
 /.superpowers/
 /.worktrees/
 .mcp.json
+
+# one-off source data
+/Rosa_Squadra_2026-27.xlsx

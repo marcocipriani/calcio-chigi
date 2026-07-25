@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(29);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -28,6 +28,19 @@ select has_function('public', 'request_profile_association', array['uuid']);
 select has_function('public', 'respond_to_season_confirmation', array['text', 'text']);
 select has_function('public', 'set_event_checkin', array['uuid', 'uuid', 'event_checkin_status']);
 select has_function('public', 'guard_notification_recipient_identity', array[]::text[]);
+select has_function('public', 'claim_notification_outbox', array['integer']);
+select has_function(
+  'public',
+  'complete_notification_delivery',
+  array['uuid', 'boolean', 'text']
+);
+select has_table('public'::name, 'manager_activity'::name);
+select has_function(
+  'public',
+  'approve_account_association',
+  array['uuid', 'uuid']
+);
+select has_function('public', 'touch_manager_activity', array['text']);
 select results_eq(
   $$select count(*)::bigint
       from information_schema.columns

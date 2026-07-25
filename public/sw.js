@@ -1,4 +1,4 @@
-const CACHE_NAME = "real-chigi-cache-v2";
+const CACHE_NAME = "real-chigi-cache-v3";
 
 const STATIC_ASSETS = [
   "/manifest.json",
@@ -66,5 +66,37 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(event.request).then((cached) => cached ?? new Response("Offline", { status: 503 })))
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    payload = { body: event.data?.text() ?? "" };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "Calcio Circolo Chigi", {
+      body: payload.body || "Hai una nuova notifica.",
+      icon: "/icon-192x192.png",
+      badge: "/icon-192x192.png",
+      tag: payload.tag || undefined,
+      data: { url: payload.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const matchingClient = clients.find((client) => client.url === targetUrl);
+      if (matchingClient) return matchingClient.focus();
+      return self.clients.openWindow(targetUrl);
+    }),
   );
 });

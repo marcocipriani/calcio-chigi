@@ -35,6 +35,13 @@ type AppContextPayload = {
   profile?: AppProfile | null
   associationStatus?: AssociationStatus
   membership?: AppMembership | null
+  targetSeason?: {
+    id: string
+    slug: string
+    name: string
+    starts_on: string
+    ends_on: string
+  } | null
   unreadNotifications?: number
 }
 
@@ -42,6 +49,7 @@ type AppSessionValue = {
   user: User | null
   profile: AppProfile | null
   membership: AppMembership | null
+  targetSeason: AppContextPayload["targetSeason"]
   associationStatus: AssociationStatus
   unreadNotifications: number
   isManager: boolean
@@ -54,6 +62,7 @@ const anonymousSession: Omit<AppSessionValue, "refresh"> = {
   user: null,
   profile: null,
   membership: null,
+  targetSeason: null,
   associationStatus: "NONE",
   unreadNotifications: 0,
   isManager: false,
@@ -98,6 +107,7 @@ export function AppSessionProvider({
         user,
         profile,
         membership: context.membership ?? null,
+        targetSeason: context.targetSeason ?? null,
         associationStatus,
         unreadNotifications: Number(context.unreadNotifications ?? 0),
         isManager: Boolean(profile?.is_manager),

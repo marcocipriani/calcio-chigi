@@ -91,6 +91,14 @@ enabled = true
 # The maximum length in bytes of HTTP request headers. (default: 4096)
 # max_header_length = 4096
 
+[functions.notification-dispatch]
+verify_jwt = false
+entrypoint = "./functions/notification-dispatch/index.ts"
+
+[functions.account-association]
+verify_jwt = true
+entrypoint = "./functions/account-association/index.ts"
+
 [studio]
 enabled = true
 # Port to use for Supabase Studio.

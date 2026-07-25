@@ -304,15 +304,20 @@ function SeasonConfirmationPrompt({
 
 export function AppGates({
   client = supabaseBrowser,
-  seasonSlug = "2026-2027",
+  seasonSlug,
 }: {
   client?: SupabaseClient
   seasonSlug?: string
 }) {
+  const { targetSeason } = useAppSession()
+
   return (
     <>
       <AccountAssociationPrompt client={client} />
-      <SeasonConfirmationPrompt client={client} seasonSlug={seasonSlug} />
+      <SeasonConfirmationPrompt
+        client={client}
+        seasonSlug={seasonSlug ?? targetSeason?.slug ?? "2026-2027"}
+      />
     </>
   )
 }

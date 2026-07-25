@@ -2,20 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarDays, Users, Trophy } from 'lucide-react'
+import { BarChart3, CalendarDays, Trophy, Users } from 'lucide-react'
 
 export function BottomNav() {
   const pathname = usePathname()
 
   const links = [
     { href: '/', label: 'Calendario', icon: CalendarDays },
-    { href: '/squadra', label: 'Rosa', icon: Users },
+    { href: '/squadra', label: 'Squadra', icon: Users },
     { href: '/torneo', label: 'Torneo', icon: Trophy },
+    { href: '/statistiche', label: 'Statistiche', icon: BarChart3 },
   ]
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-safe z-40 shadow-[0_-1px_3px_rgba(0,0,0,0.05)]">
-      <div className="flex justify-around items-center h-16 max-w-md mx-auto">
+      <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
         {links.map(({ href, label, icon: Icon }) => {
           // Logica attiva: Home esatta oppure sottopagina (es. /torneo/classifica)
           const isActive = href === '/' ? pathname === '/' : pathname?.startsWith(href);

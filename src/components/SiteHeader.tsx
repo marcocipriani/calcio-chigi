@@ -1,97 +1,133 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
+import { Moon, Settings2, Sun, UserCircle } from "lucide-react"
 import { useTheme } from "next-themes"
-import { Sun, Moon, UserCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-type HeaderProfile = {
-  nome?: string | null;
-  cognome?: string | null;
-  avatar_url?: string | null;
-};
+import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { NotificationBell } from "@/components/notifications/NotificationBell"
+import { ManagerPresence } from "@/components/management/ManagerPresence"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export function SiteHeader() {
-  const { setTheme, theme } = useTheme()
-  const [profile, setProfile] = useState<HeaderProfile | null>(null)
-  const [hasSession, setHasSession] = useState(false) 
-
-  useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        setHasSession(true)
-        
-        const { data } = await supabase
-          .from('profiles')
-          .select('nome, cognome, avatar_url')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        
-        if (data) {
-          setProfile(data)
-        }
-      }
-    }
-    loadData()
-  }, [])
-
-  const profileLink = (profile || hasSession) ? "/profilo" : "/login"
+  const { resolvedTheme, setTheme } = useTheme()
+  const { isManager, profile, user } = useAppSession()
+  const profileLink = user ? "/profilo" : "/login"
+  const displayName = profile
+    ? `${profile.nome} ${profile.cognome}`.trim()
+    : user
+      ? "Profilo in attesa"
+      : "Accedi"
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-16 shadow-sm">
-      <div className="container mx-auto h-full px-4 flex items-center justify-between max-w-md">
-        
-        <Link href="/" className="flex items-center gap-3 active:scale-95 transition-transform">
-            <div className="h-10 w-10 relative">
-                <Image
-                    src="/icon.png"
-                    alt="Logo Circolo Chigi"
-                    fill
-                    sizes="40px"
-                    className="object-contain"
-                />
-            </div>
-            <div className="leading-tight">
-                <h1 className="font-black text-slate-900 dark:text-slate-100 text-sm tracking-tight">CIRCOLO CHIGI</h1>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase block -mt-0.5">Campionato ASI Over35_ARTI&MESTIERI_2025/2026</span>
-            </div>
+    <header className="fixed inset-x-0 top-0 z-50 h-16 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-5">
+        <Link
+          className="group flex min-w-0 items-center gap-2.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
+          href="/"
+        >
+          <span className="relative size-9 shrink-0">
+            <Image
+              alt=""
+              className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
+              fill
+              priority
+              sizes="36px"
+              src="/icon.png"
+            />
+          </span>
+          <span className="truncate text-sm font-black uppercase tracking-tight sm:text-base">
+            Calcio Circolo Chigi
+          </span>
         </Link>
 
-        <div className="flex items-center gap-2">
-            
-            {/* Theme Toggle */}
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full h-9 w-9"
-            >
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
-            </Button>
-            
-            {/* Profile / Login */}
-            <Link href={profileLink}>
-                {profile ? (
-                    <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 cursor-pointer transition-transform hover:scale-105">
-                        <AvatarImage src={profile.avatar_url ?? undefined} alt={`${profile.nome ?? ''} ${profile.cognome ?? ''}`.trim() || 'Profilo'} className="object-cover" />
-                        <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
-                            {profile.nome?.[0] || "U"}
-                        </AvatarFallback>
-                    </Avatar>
-                ) : (
-                    <Button variant="ghost" size="icon" className={`rounded-full ${hasSession ? 'text-green-600 bg-green-50' : 'text-blue-600 hover:bg-blue-50'}`}>
-                        <UserCircle className="h-7 w-7" />
-                    </Button>
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+          {isManager && (
+            <>
+              <ManagerPresence />
+              <Button
+                asChild
+                className="hidden h-9 gap-1.5 px-3 sm:inline-flex"
+                size="sm"
+              >
+                <Link href="/gestione">
+                  <Settings2 aria-hidden="true" />
+                  Gestione squadra
+                </Link>
+              </Button>
+            </>
+          )}
+
+          <NotificationBell />
+
+          <Button
+            aria-label={
+              resolvedTheme === "dark"
+                ? "Attiva tema chiaro"
+                : "Attiva tema scuro"
+            }
+            className="relative rounded-full"
+            onClick={() =>
+              setTheme(resolvedTheme === "dark" ? "light" : "dark")
+            }
+            size="icon"
+            variant="ghost"
+          >
+            <Sun
+              aria-hidden="true"
+              className="size-5 scale-100 rotate-0 transition-transform dark:scale-0 dark:-rotate-90"
+            />
+            <Moon
+              aria-hidden="true"
+              className="absolute size-5 scale-0 rotate-90 transition-transform dark:scale-100 dark:rotate-0"
+            />
+          </Button>
+
+          <Link
+            aria-label={displayName}
+            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            href={profileLink}
+          >
+            {profile ? (
+              <Avatar
+                className={cn(
+                  "size-9 transition-transform duration-150 hover:scale-105",
+                  isManager
+                    ? "ring-2 ring-violet-500 ring-offset-2 ring-offset-background"
+                    : "border",
                 )}
-            </Link>
+              >
+                <AvatarImage
+                  alt={displayName}
+                  className="object-cover"
+                  src={profile.avatar_url ?? undefined}
+                />
+                <AvatarFallback
+                  className={cn(
+                    "text-xs font-bold",
+                    isManager
+                      ? "bg-violet-600 text-white"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {profile.nome?.[0]}
+                  {profile.cognome?.[0]}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <span
+                className={cn(
+                  "flex size-9 items-center justify-center rounded-full",
+                  user ? "bg-emerald-50 text-emerald-700" : "text-primary",
+                )}
+              >
+                <UserCircle aria-hidden="true" className="size-7" />
+              </span>
+            )}
+          </Link>
         </div>
       </div>
     </header>

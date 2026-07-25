@@ -1,0 +1,142 @@
+import AxeBuilder from "@axe-core/playwright"
+import { createClient } from "@supabase/supabase-js"
+import { expect, test, type BrowserContext, type Page } from "@playwright/test"
+
+async function authenticate(
+  context: BrowserContext,
+  email: string,
+  password: string,
+) {
+  const url = process.env.E2E_SUPABASE_URL!
+  const anonKey = process.env.E2E_SUPABASE_ANON_KEY!
+  const client = createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { data, error } = await client.auth.signInWithPassword({ email, password })
+  if (error || !data.session) throw error ?? new Error("E2E login failed")
+  const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`
+  const encoded = `base64-${Buffer.from(JSON.stringify(data.session)).toString("base64url")}`
+  const chunks = Array.from(
+    { length: Math.ceil(encoded.length / 3180) },
+    (_, index) => encoded.slice(index * 3180, (index + 1) * 3180),
+  )
+  await context.addCookies(
+    chunks.map((value, index) => ({
+      name: chunks.length === 1 ? storageKey : `${storageKey}.${index}`,
+      value,
+      domain: "127.0.0.1",
+      path: "/",
+      httpOnly: false,
+      sameSite: "Lax",
+      secure: false,
+    })),
+  )
+}
+
+async function expectNoSeriousA11yViolations(page: Page) {
+  const result = await new AxeBuilder({ page }).analyze()
+  expect(
+    result.violations.filter(({ impact }) =>
+      impact === "critical" || impact === "serious",
+    ),
+  ).toEqual([])
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+})
+
+test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  await page.goto("/")
+
+  await expect(page.getByRole("heading", { name: "Calendario" })).toBeVisible()
+  await expect(page.getByText("Vista mensile")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Prossimi impegni" })).toBeVisible()
+  await expect(page.locator("aside").getByText("PSICOLOGOL")).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("rosa pubblica mobile separa lo staff ed esclude i no", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  await page.goto("/squadra")
+
+  await expect(page.getByRole("heading", { name: "Player" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Forse" })).toBeVisible()
+  await expect(page.getByText("Sara Massaggiatrice")).toBeVisible()
+  await expect(page.getByText("Nino Escluso")).toHaveCount(0)
+  await expect(page.getByText(/accedi con un profilo approvato/i)).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("statistiche torneo pubbliche e presenze protette", async ({ page }) => {
+  await page.goto("/statistiche")
+
+  await expect(page.getByText("Player Piero")).toBeVisible()
+  await expect(page.getByText("Accedi per vedere le presenze")).toBeVisible()
+  await expect(page.getByText("2", { exact: true }).first()).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("il giocatore vede quote e scheda privata", async ({ context, page }) => {
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto("/")
+
+  await expect(page.getByRole("dialog")).toContainText("quota aperta")
+  await page.getByRole("link", { name: "Vedi quote" }).click()
+  await expect(page).toHaveURL(/\/profilo$/)
+  await expect(page.getByText("€ 80.00").first()).toBeVisible()
+  await expect(
+    page.getByText("Certificato agonistico", { exact: true }),
+  ).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("dashboard manager densa con azioni rapide", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto("/gestione")
+
+  await expect(page.getByRole("heading", { name: "Gestione squadra" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Persona" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Tesseramenti" })).toBeVisible()
+  await expect(
+    page.getByRole("table").getByText("Piero Player", { exact: true }),
+  ).toBeVisible()
+  await page.getByRole("checkbox", { name: "Seleziona Piero Player" }).check()
+  await page.getByRole("button", { name: "Scadenza" }).click()
+  await expect(page.getByRole("dialog")).toContainText(
+    "Scadenza prossimo contatto",
+  )
+  await page.getByRole("button", { name: "Annulla" }).click()
+  await expect(page.getByRole("dialog")).toBeHidden()
+  await page.getByRole("button", { name: "Persona" }).click()
+  await expect(page.getByRole("dialog")).toContainText("Aggiungi persona")
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("builder formazione privato e leggero", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto("/squadra")
+
+  await page.getByRole("button", { name: "Più tardi" }).click()
+  await page.getByRole("button", { name: "Crea formazione" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Crea formazione" }),
+  ).toBeVisible()
+  await expect(page.getByLabel("Maglia blu")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(page.getByText("Piero", { exact: true }).first()).toBeVisible()
+  await expectNoSeriousA11yViolations(page)
+})

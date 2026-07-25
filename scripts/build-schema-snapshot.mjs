@@ -15,6 +15,7 @@ const migrationPaths = [
   "supabase/migrations/20260725026000_public_stats_official_formation.sql",
   "supabase/migrations/20260725027000_profile_self_service_hardening.sql",
   "supabase/migrations/20260725028000_app_context_open_payments.sql",
+  "supabase/migrations/20260725029000_notification_dispatch_schedule.sql",
 ]
 
 const current = await readFile(schemaPath, "utf8")

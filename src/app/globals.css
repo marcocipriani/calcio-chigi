@@ -55,6 +55,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
 
   /* Sfondi Chiari */
@@ -67,7 +68,7 @@
   --popover-foreground: oklch(0.141 0.005 285.823);
 
   /* BLU CHIGI (Primario) - Vibrante */
-  --primary: oklch(0.55 0.22 260); /* Blu Reale */
+  --primary: oklch(0.52 0.22 260); /* Blu Reale, contrasto AA con testo chiaro */
   --primary-foreground: oklch(0.985 0 0); /* Testo Bianco */
 
   /* ROSSO CHIGI (Secondario) */
@@ -79,7 +80,7 @@
 
   /* Neutri */
   --muted: oklch(0.96 0.005 285);
-  --muted-foreground: oklch(0.55 0.02 285);
+  --muted-foreground: oklch(0.48 0.02 285);
   --accent: oklch(0.96 0.005 285);
   --accent-foreground: oklch(0.21 0.01 285);
   
@@ -107,6 +108,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   /* Sfondi Scuri (Blu Notte Profondo per brand identity) */
   --background: oklch(0.15 0.05 260); /* Blu scurissimo, non nero */
   --foreground: oklch(0.985 0 0);
@@ -162,5 +164,16 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

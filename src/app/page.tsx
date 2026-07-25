@@ -113,11 +113,6 @@ export default function Home() {
       setDialogOpen(true);
   }
 
-  const handleEditEvent = (event: Event) => {
-      setEditingEvent({ ...event });
-      setDialogOpen(true);
-  }
-
   const handleSaveEvent = async (eventData: Partial<Event>) => {
       const previousEvents = [...events];
 
@@ -221,13 +216,13 @@ export default function Home() {
       return (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 select-none">
               <div className="flex items-center justify-between mb-4 px-2">
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <Button aria-label="Mese precedente" variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                       <ChevronLeft className="h-5 w-5" />
                   </Button>
                   <span className="font-black text-lg capitalize text-foreground">
                       {format(currentMonth, 'MMMM yyyy', { locale: it })}
                   </span>
-                  <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <Button aria-label="Mese successivo" variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
                       <ChevronRight className="h-5 w-5" />
                   </Button>
               </div>
@@ -468,7 +463,7 @@ export default function Home() {
                                           }`}
                                       >
                                           <div className="rounded-lg bg-muted/65 py-1.5 text-center">
-                                              <span className="block text-[9px] font-black uppercase text-muted-foreground">{format(date, 'MMM', { locale: it })}</span>
+                                              <span className="block text-[9px] font-black uppercase text-slate-700 dark:text-slate-200">{format(date, 'MMM', { locale: it })}</span>
                                               <span className="block text-lg font-black leading-none">{format(date, 'd')}</span>
                                           </div>
                                           <div className="min-w-0">
@@ -519,7 +514,7 @@ export default function Home() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('ALL')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-all border border-transparent 
+                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
                         ${filter === 'ALL' 
                             ? 'bg-slate-800 text-white shadow-md' 
                             : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
@@ -531,7 +526,7 @@ export default function Home() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('PARTITA')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-all border border-transparent
+                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
                         ${filter === 'PARTITA' 
                             ? 'bg-blue-600 text-white shadow-md' 
                             : 'text-gray-600 hover:bg-blue-100 hover:text-blue-700'
@@ -543,7 +538,7 @@ export default function Home() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('ALLENAMENTO')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-all border border-transparent
+                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
                         ${filter === 'ALLENAMENTO' 
                             ? 'bg-orange-500 text-white shadow-md' 
                             : 'text-gray-600 hover:bg-orange-100 hover:text-orange-700'
@@ -557,7 +552,8 @@ export default function Home() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className={`h-8 w-9 p-0 rounded-lg transition-all border border-transparent
+                    aria-label="Vista lista"
+                    className={`h-8 w-9 p-0 rounded-lg transition-[color,background-color,box-shadow] border border-transparent
                         ${viewMode === 'ACTIVITY' 
                             ? 'bg-slate-800 text-white shadow-sm' 
                             : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
@@ -569,7 +565,8 @@ export default function Home() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className={`h-8 w-9 p-0 rounded-lg transition-all border border-transparent
+                    aria-label="Vista calendario"
+                    className={`h-8 w-9 p-0 rounded-lg transition-[color,background-color,box-shadow] border border-transparent
                         ${viewMode === 'CALENDAR' 
                             ? 'bg-slate-800 text-white shadow-sm' 
                             : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
@@ -597,10 +594,10 @@ export default function Home() {
               ) : (
                   <Tabs defaultValue="upcoming" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/50 p-1 rounded-xl backdrop-blur-sm dark:bg-slate-900/50 border dark:border-slate-800">
-                        <TabsTrigger value="upcoming" className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-all">
+                        <TabsTrigger value="upcoming" className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-[color,background-color,box-shadow]">
                             <CalendarDays className="h-4 w-4" /> Prossimi
                         </TabsTrigger>
-                        <TabsTrigger value="history" className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-all">
+                        <TabsTrigger value="history" className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-[color,background-color,box-shadow]">
                             <History className="h-4 w-4" /> Archivio
                         </TabsTrigger>
                     </TabsList>
@@ -629,13 +626,11 @@ export default function Home() {
                 
                                             <Link 
                                                 href={`/evento/${event.id}`} 
-                                                className="block w-full transform transition-all duration-200 hover:scale-[1.02]"
+                                                className="block w-full transform transition-transform duration-200 hover:scale-[1.02] motion-reduce:transform-none"
                                             >
                                                 <EventCard 
                                                     event={event} 
                                                     opponentLogo={getLogo(event.avversario)} 
-                                                    isManager={isManager}
-                                                    onEdit={handleEditEvent}
                                                     className="border-2 border-red-600 dark:border-red-600 shadow-lg shadow-red-500/10"
                                                 />
                                             </Link>
@@ -644,12 +639,10 @@ export default function Home() {
                                 }
 
                                 return (
-                                    <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02]">
+                                    <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-transform duration-200 hover:scale-[1.02] motion-reduce:transform-none">
                                         <EventCard 
                                             event={event} 
                                             opponentLogo={getLogo(event.avversario)} 
-                                            isManager={isManager}
-                                            onEdit={handleEditEvent}
                                             className='mb-3'
                                         />
                                     </Link>
@@ -668,12 +661,10 @@ export default function Home() {
                             </div>
                         ) : (
                             pastRaw.map(event => (
-                                <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-all duration-200 hover:scale-[1.02] opacity-95 hover:opacity-100">
+                                <Link key={event.id} href={`/evento/${event.id}`} className="block transform opacity-95 transition-[transform,opacity] duration-200 hover:scale-[1.02] hover:opacity-100 motion-reduce:transform-none">
                                     <EventCard 
                                         event={event} 
                                         opponentLogo={getLogo(event.avversario)} 
-                                        isManager={isManager}
-                                        onEdit={handleEditEvent}
                                         className="mb-3"
                                     />
                                 </Link>
@@ -691,6 +682,7 @@ export default function Home() {
 
       {isManager && (
           <Button 
+            aria-label="Aggiungi evento"
             className="fixed bottom-24 right-4 h-14 w-14 rounded-md shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
             onClick={handleCreateNew}
           >

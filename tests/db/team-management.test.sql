@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(36);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -76,6 +76,20 @@ select has_function(
   'public',
   'publish_official_formation',
   array['uuid', 'text', 'text', 'uuid', 'uuid', 'jsonb', 'jsonb']
+);
+select has_function(
+  'private',
+  'dispatch_pending_notifications',
+  array[]::text[]
+);
+select results_eq(
+  $$select count(*)::bigint
+      from cron.job
+     where jobname = 'dispatch-team-notifications'
+       and schedule = '* * * * *'
+       and active$$,
+  array[1::bigint],
+  'push outbox dispatcher is scheduled every minute'
 );
 select results_eq(
   $$select count(*)::bigint

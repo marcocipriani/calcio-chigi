@@ -23,9 +23,29 @@ import {
 } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import {
   filterManagementRows,
   type ManagementFilters,
@@ -53,6 +73,11 @@ const emptyFilters: ManagementFilters = {
   tag: "ALL",
 }
 
+type QuickDialog =
+  | { kind: "DEADLINE" }
+  | { kind: "PAYMENT"; paymentId: string }
+  | { kind: "CERTIFICATE"; certificateId: string }
+
 export function ManagementDashboard() {
   const {
     associationStatus,
@@ -74,6 +99,13 @@ export function ManagementDashboard() {
   const [addOpen, setAddOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [quickDialog, setQuickDialog] = useState<QuickDialog | null>(null)
+  const [quickValue, setQuickValue] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState<
+    "CASH" | "BANK_TRANSFER"
+  >("BANK_TRANSFER")
+  const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
 
   useEffect(() => {
     if (targetSeason?.slug) setSeasonSlug(targetSeason.slug)
@@ -157,22 +189,29 @@ export function ManagementDashboard() {
     })
   }
 
-  async function applyDeadline() {
+  function applyDeadline() {
     if (!selected.size) {
       toast.error("Seleziona almeno una persona")
       return
     }
-    const date = window.prompt("Data del prossimo contatto (AAAA-MM-GG)")
-    if (!date) return
+    setQuickValue("")
+    setQuickDialog({ kind: "DEADLINE" })
+  }
+
+  async function saveDeadline() {
+    if (!quickValue) return
+    setActionBusy(true)
     const { error } = await supabaseBrowser
       .from("season_memberships")
-      .update({ next_contact_on: date, updated_by: profile?.id })
+      .update({ next_contact_on: quickValue, updated_by: profile?.id })
       .in("id", [...selected])
+    setActionBusy(false)
     if (error) {
       toast.error("Scadenza non aggiornata", { description: error.message })
       return
     }
     toast.success("Scadenza aggiornata")
+    setQuickDialog(null)
     await load()
   }
 
@@ -180,41 +219,50 @@ export function ManagementDashboard() {
     requestId: string,
     action: "APPROVE" | "REJECT",
   ) {
-    if (
-      action === "REJECT" &&
-      !window.confirm(
-        "Il rifiuto cancella definitivamente l’account e la richiesta. Confermi?",
-      )
-    ) {
+    if (action === "REJECT") {
+      setRejectRequestId(requestId)
       return
     }
+    await submitAccountAction(requestId, action)
+  }
+
+  async function submitAccountAction(
+    requestId: string,
+    action: "APPROVE" | "REJECT",
+  ) {
+    setActionBusy(true)
     const { error } = await supabaseBrowser.functions.invoke(
       "account-association",
       { body: { requestId, action } },
     )
+    setActionBusy(false)
     if (error) {
       toast.error("Richiesta non aggiornata", { description: error.message })
       return
     }
     toast.success(action === "APPROVE" ? "Account approvato" : "Account eliminato")
+    setRejectRequestId(null)
     await load()
   }
 
-  async function verifyPayment(paymentId: string) {
-    const method = window.prompt(
-      "Metodo di pagamento: CASH oppure BANK_TRANSFER",
-      "BANK_TRANSFER",
-    )
-    if (method !== "CASH" && method !== "BANK_TRANSFER") return
+  function verifyPayment(paymentId: string) {
+    setPaymentMethod("BANK_TRANSFER")
+    setQuickDialog({ kind: "PAYMENT", paymentId })
+  }
+
+  async function submitPayment(paymentId: string) {
+    setActionBusy(true)
     const { error } = await supabaseBrowser.rpc("manager_verify_payment", {
       p_payment_id: paymentId,
-      p_method: method,
+      p_method: paymentMethod,
     })
+    setActionBusy(false)
     if (error) {
       toast.error("Pagamento non verificato", { description: error.message })
       return
     }
     toast.success("Pagamento verificato")
+    setQuickDialog(null)
     await load()
   }
 
@@ -222,18 +270,29 @@ export function ManagementDashboard() {
     certificateId: string,
     approved: boolean,
   ) {
-    const reason = approved
-      ? null
-      : window.prompt("Motivo del rifiuto del certificato")
-    if (!approved && !reason) return
+    if (!approved) {
+      setQuickValue("")
+      setQuickDialog({ kind: "CERTIFICATE", certificateId })
+      return
+    }
+    await submitCertificateReview(certificateId, true)
+  }
+
+  async function submitCertificateReview(
+    certificateId: string,
+    approved: boolean,
+  ) {
+    if (!approved && !quickValue.trim()) return
+    setActionBusy(true)
     const { error } = await supabaseBrowser.rpc(
       "manager_review_certificate",
       {
         p_certificate_id: certificateId,
         p_status: approved ? "VALID" : "REJECTED",
-        p_rejection_reason: reason,
+        p_rejection_reason: approved ? null : quickValue.trim(),
       },
     )
+    setActionBusy(false)
     if (error) {
       toast.error("Certificato non aggiornato", {
         description: error.message,
@@ -241,6 +300,7 @@ export function ManagementDashboard() {
       return
     }
     toast.success(approved ? "Certificato approvato" : "Certificato respinto")
+    setQuickDialog(null)
     await load()
   }
 
@@ -482,6 +542,164 @@ export function ManagementDashboard() {
         onSaved={load}
         person={openPerson}
       />
+
+      <Dialog
+        open={Boolean(quickDialog)}
+        onOpenChange={(open) => !open && setQuickDialog(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          {quickDialog?.kind === "DEADLINE" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Scadenza prossimo contatto</DialogTitle>
+                <DialogDescription>
+                  Applica la data alle {selected.size} persone selezionate.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="next-contact-date">Data</Label>
+                <Input
+                  autoFocus
+                  id="next-contact-date"
+                  onChange={(event) => setQuickValue(event.target.value)}
+                  type="date"
+                  value={quickValue}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={actionBusy}
+                  onClick={() => setQuickDialog(null)}
+                  variant="outline"
+                >
+                  Annulla
+                </Button>
+                <Button
+                  disabled={actionBusy || !quickValue}
+                  onClick={saveDeadline}
+                >
+                  Salva scadenza
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {quickDialog?.kind === "PAYMENT" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Verifica pagamento</DialogTitle>
+                <DialogDescription>
+                  Registra il metodo effettivamente ricevuto.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="verified-payment-method">Metodo</Label>
+                <select
+                  className={`${selectClass} w-full`}
+                  id="verified-payment-method"
+                  onChange={(event) =>
+                    setPaymentMethod(
+                      event.target.value as "CASH" | "BANK_TRANSFER",
+                    )
+                  }
+                  value={paymentMethod}
+                >
+                  <option value="BANK_TRANSFER">Bonifico</option>
+                  <option value="CASH">Contanti</option>
+                </select>
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={actionBusy}
+                  onClick={() => setQuickDialog(null)}
+                  variant="outline"
+                >
+                  Annulla
+                </Button>
+                <Button
+                  disabled={actionBusy}
+                  onClick={() => submitPayment(quickDialog.paymentId)}
+                >
+                  Verifica pagamento
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {quickDialog?.kind === "CERTIFICATE" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Respingi certificato</DialogTitle>
+                <DialogDescription>
+                  Il motivo sarà visibile alla persona per correggere il
+                  documento.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="certificate-rejection-reason">Motivo</Label>
+                <Textarea
+                  autoFocus
+                  id="certificate-rejection-reason"
+                  onChange={(event) => setQuickValue(event.target.value)}
+                  placeholder="Es. documento illeggibile o non agonistico"
+                  value={quickValue}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  disabled={actionBusy}
+                  onClick={() => setQuickDialog(null)}
+                  variant="outline"
+                >
+                  Annulla
+                </Button>
+                <Button
+                  disabled={actionBusy || !quickValue.trim()}
+                  onClick={() =>
+                    submitCertificateReview(
+                      quickDialog.certificateId,
+                      false,
+                    )
+                  }
+                  variant="destructive"
+                >
+                  Respingi certificato
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(rejectRequestId)}
+        onOpenChange={(open) => !open && setRejectRequestId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare account e richiesta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Il rifiuto è definitivo: elimina l’utente di autenticazione e la
+              richiesta di associazione. Il profilo rosa rimane disponibile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionBusy}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={actionBusy}
+              onClick={(event) => {
+                event.preventDefault()
+                if (rejectRequestId) {
+                  void submitAccountAction(rejectRequestId, "REJECT")
+                }
+              }}
+            >
+              Elimina account
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

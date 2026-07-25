@@ -67,13 +67,13 @@ export async function fetchOwnProfile(supabase: SupabaseClient): Promise<FullPro
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 /**
- * Fetches all Chigi events (matches + trainings) for the home calendar,
- * including attendance preview. Ordered ascending by date.
+ * Fetches public Chigi events (matches + trainings), without attendance or
+ * profile joins. Ordered ascending by date.
  */
 export async function fetchCalendarEvents(supabase: SupabaseClient): Promise<Event[]> {
     const { data, error } = await supabase
         .from('events')
-        .select('*, attendance (status, profiles:profiles!attendance_profile_id_fkey (cognome, avatar_url))')
+        .select('*')
         .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%,tipo.neq.PARTITA')
         .order('data_ora', { ascending: true })
 

@@ -17,10 +17,10 @@ export function AppCredits({ uid }: AppCreditsProps) {
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.0.0";
 
   return (
-    <div className="w-full flex flex-col items-center justify-center py-8 border-t border-border/50 gap-3 mt-8 opacity-60 hover:opacity-100 transition-opacity">
+    <div className="mt-8 flex w-full flex-col items-center justify-center gap-3 border-t border-border/50 py-8">
         
         {uid && (
-            <code className="text-[11px] text-muted-foreground/30 font-mono select-all bg-muted/30 px-2 py-1 rounded">
+            <code className="rounded bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground select-all">
                 UID: {uid}
             </code>
         )}
@@ -32,7 +32,7 @@ export function AppCredits({ uid }: AppCreditsProps) {
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                 Dev: <span className="font-bold">Marco Cipriani</span>
             </p>
-            <p className="text-[10px] text-muted-foreground/70">
+            <p className="text-[10px] text-muted-foreground">
                 Ultimo aggiornamento: 24 luglio 2026
             </p>
         </div>

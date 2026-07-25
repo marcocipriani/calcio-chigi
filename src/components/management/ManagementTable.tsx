@@ -69,7 +69,7 @@ function PersonIdentity({ person }: { person: ManagementPerson }) {
       </Avatar>
       <span className="min-w-0">
         <span className="block truncate text-sm font-semibold">
-          {person.cognome} {person.nome}
+          {person.nome} {person.cognome}
         </span>
         <span className="block truncate text-[11px] text-muted-foreground">
           {person.category === "PLAYER"

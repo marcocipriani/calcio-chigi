@@ -212,8 +212,8 @@ export default function TorneoPage() {
 
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10">
-                            <FileText className="h-5 w-5" />
+                        <Button aria-label="Apri comunicati" variant="outline" size="icon" className="h-10 w-10 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10">
+                            <FileText aria-hidden="true" className="h-5 w-5" />
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-sm rounded-2xl">
@@ -244,6 +244,7 @@ export default function TorneoPage() {
 
                 {isManager && (
                     <Button 
+                        aria-label="Modifica risultati"
                         onClick={handleOpenScoreDialog}
                         size="icon"
                         className="h-10 w-10 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
@@ -276,11 +277,14 @@ export default function TorneoPage() {
                 >
                     {giornate.map(g => (
                         <button
+                            aria-label={`Giornata ${g}`}
+                            aria-pressed={selectedGiornata === g}
                             key={g}
                             id={`day-btn-${g}`}
                             onClick={() => setSelectedGiornataOverride(g)}
+                            type="button"
                             className={`
-                                flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl border-2 transition-all font-black
+                                flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl border-2 transition-[color,background-color,border-color,box-shadow,transform] font-black
                                 ${selectedGiornata === g 
                                     ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
                                     : 'bg-card text-muted-foreground border-transparent hover:bg-muted'
@@ -374,6 +378,7 @@ export default function TorneoPage() {
                                             
                                             {isManager && (
                                                 <Button 
+                                                    aria-label="Modifica partita"
                                                     size="icon" 
                                                     variant="ghost" 
                                                     className="absolute bottom-1 right-1 h-6 w-6 text-muted-foreground hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -445,8 +450,8 @@ export default function TorneoPage() {
                                             })}
                                         />
                                     </div>
-                                    <Button size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700 shrink-0" onClick={() => handleSaveScore(match.id)}>
-                                        <Save className="h-4 w-4 text-white" />
+                                    <Button aria-label="Salva risultato" size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700 shrink-0" onClick={() => handleSaveScore(match.id)}>
+                                        <Save aria-hidden="true" className="h-4 w-4 text-white" />
                                     </Button>
                                 </div>
                             </div>

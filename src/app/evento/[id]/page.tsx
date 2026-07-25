@@ -362,7 +362,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     <div className="min-h-screen bg-background text-foreground pb-24">
       <div className={`p-4 sticky top-14 z-40 shadow-md flex items-center justify-between transition-colors ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
             <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20"><ArrowLeft className="h-6 w-6" /></Button>
+                <Button aria-label="Torna indietro" variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20"><ArrowLeft aria-hidden="true" className="h-6 w-6" /></Button>
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="font-bold text-lg leading-none">{isCancelled ? 'ANNULLATO' : (isMatch ? 'Match Day' : 'Allenamento')}</h1>
@@ -378,16 +378,16 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             {isManager && (
                 <div className="flex gap-2">
                     <Button 
+                        aria-label="Copia informazioni per WhatsApp"
                         onClick={handleCopyWhatsApp}
                         size="icon"
                         className="h-8 w-8 bg-green-600 hover:bg-green-700 text-white shadow-md rounded-md"
-                        title="Copia per WhatsApp"
                     >
-                        <Share2 className="h-4 w-4" /> 
+                        <Share2 aria-hidden="true" className="h-4 w-4" />
                     </Button>
                     <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none"><Pencil className="h-3 w-3" /> Modifica</Button>
                     <AlertDialog>
-                        <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
+                        <AlertDialogTrigger asChild><Button aria-label="Elimina evento" variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700"><Trash2 aria-hidden="true" className="h-4 w-4" /></Button></AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader><AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle><AlertDialogDescription>Azione irreversibile.</AlertDialogDescription></AlertDialogHeader>
                             <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
@@ -494,7 +494,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     <div className="grid grid-cols-3 gap-2">
                         <Button 
                             variant={userStatus === 'PRESENTE' ? 'default' : 'outline'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'PRESENTE' ? 'bg-green-600 hover:bg-green-700 border-transparent text-white' : 'hover:bg-green-500/10 hover:text-green-600 border-muted'}`}
+                            aria-pressed={userStatus === 'PRESENTE'}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'PRESENTE' ? 'bg-green-700 hover:bg-green-800 border-transparent text-white' : 'hover:bg-green-500/10 hover:text-green-700 border-muted'}`}
                             onClick={() => handleVote('PRESENTE')}
                             disabled={loading}
                         >
@@ -504,7 +505,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
                         <Button 
                             variant={userStatus === 'INFORTUNATO_PRESENTE' ? 'default' : 'outline'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'INFORTUNATO_PRESENTE' 
+                            aria-pressed={userStatus === 'INFORTUNATO_PRESENTE'}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'INFORTUNATO_PRESENTE'
                                 ? (isMatch ? 'bg-slate-600 hover:bg-slate-700 border-transparent text-white' : 'bg-yellow-500 hover:bg-yellow-600 border-transparent text-white') 
                                 : 'hover:bg-slate-200 border-muted'}`}
                             onClick={() => handleVote('INFORTUNATO_PRESENTE')}
@@ -518,7 +520,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
                         <Button 
                             variant={userStatus === 'ASSENTE' ? 'default' : 'outline'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-all ${userStatus === 'ASSENTE' ? 'bg-red-600 hover:bg-red-700 border-transparent text-white' : 'hover:bg-red-500/10 hover:text-red-600 border-muted'}`}
+                            aria-pressed={userStatus === 'ASSENTE'}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'ASSENTE' ? 'bg-red-700 hover:bg-red-800 border-transparent text-white' : 'hover:bg-red-500/10 hover:text-red-700 border-muted'}`}
                             onClick={() => handleVote('ASSENTE')}
                             disabled={loading}
                         >
@@ -577,7 +580,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     const managerName = isManagerEdit ? allProfilesMap[p.modified_by ?? '']?.split(' ')[0] : null;
 
                     return (
-                        <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-all duration-300`}>
+                        <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-[border-color,background-color,opacity] duration-300`}>
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
                                     <AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} />

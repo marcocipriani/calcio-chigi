@@ -27,16 +27,14 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
-import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Loader2, Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Mail, Pencil, Plus, Crown, Award, FileSpreadsheet, ShieldCheck, Users, Camera, Image as ImageIcon, Copy, Send } from "lucide-react"
+import { Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Plus, Crown, Award, FileSpreadsheet, Users, Image as ImageIcon, Copy, Send } from "lucide-react"
 import Image from "next/image"
 
-import { BOMBER_TAGS, FORMATIONS } from "@/lib/constants"
+import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
 import { fetchNextChigiMatch } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -49,8 +47,8 @@ type FormationSlotDef = { id: string; top?: string; left?: string };
 
 const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
 
-function DraggableListCard({ player, isSelected, isManager, currentUserId, onEditPlayer, isMobile, captainId, viceCaptainId, onSetRole, onDeletePlayer }: {
-    player: Player, isSelected: boolean, isManager: boolean, currentUserId: string | null, onEditPlayer: (p: Player) => void, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, onDeletePlayer: (p: Player) => void
+function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole }: {
+    player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `list-${player.id}`,
@@ -66,7 +64,6 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
     const under35 = isU35(player.data_nascita ?? '');
     const isInjured = player.note_mediche && player.note_mediche !== 'OK';
     const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : 'N.D.';
-    const canEdit = isManager || currentUserId === player.id;
     const isCaptain = captainId === player.id;
     const isVice = viceCaptainId === player.id;
     const playerTags = player.tags || [];
@@ -77,8 +74,8 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
         <div ref={setNodeRef} style={style} className={`h-full relative group ${isSelected ? 'opacity-40 grayscale' : ''}`}>
             <Dialog>
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 z-20 text-slate-300 hover:text-primary hover:bg-slate-100/50 rounded-full" onClick={(e) => e.stopPropagation()} >
-                        <Info className="h-4 w-4" />
+                    <Button aria-label={`Dettagli di ${player.nome} ${player.cognome}`} variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 z-20 text-slate-600 hover:text-primary hover:bg-slate-100/50 rounded-full dark:text-slate-300" onClick={(e) => e.stopPropagation()} >
+                        <Info aria-hidden="true" className="h-4 w-4" />
                     </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md rounded-xl p-0 overflow-hidden bg-card">
@@ -93,24 +90,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                                 <h2 className="text-2xl font-black leading-none">{player.cognome}</h2>
                                 <p className="text-lg font-medium text-muted-foreground">{player.nome}</p>
                                 <Badge variant="outline" className="bg-background text-xs font-bold mr-2">{player.ruolo}</Badge>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1"><Mail className="h-3 w-3" /> {player.email}</div>
                             </div>
-                        </div>
-                        <div className="absolute top-3 right-10 flex items-center gap-2">
-                            {false && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-md bg-purple-100 text-purple-700 hover:bg-red-100 hover:text-red-600 transition-colors shadow-sm"><Trash2 className="h-4 w-4" /></Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>Eliminare {player.cognome}?</AlertDialogTitle><AlertDialogDescription>Questa azione è irreversibile.</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={() => onDeletePlayer(player)} className="bg-red-600">Elimina</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
-                            {canEdit && (
-                                <Button size="icon" className={`h-8 w-8 rounded-md shadow-sm ${isManager ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`} onClick={() => onEditPlayer(player)}><Pencil className="h-4 w-4" /></Button>
-                            )}
                         </div>
                     </div>
                     <div className="p-6 pt-4 space-y-5">
@@ -123,7 +103,6 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label><div className="flex items-center gap-2 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded w-fit"><CreditCard className="h-3 w-3" /> {player.tessera_asi || 'N/A'}</div></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><div className="flex items-center gap-2 font-black text-lg"><Shirt className="h-4 w-4 text-muted-foreground" /> {player.numero_maglia || '-'}</div></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label><div className="flex items-center gap-2 font-bold"><Ruler className="h-3.5 w-3.5 text-muted-foreground" /> {player.taglia_divisa || '-'}</div></div>
-                            {isManager && (<div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Staff Tecnico</Label><div className="font-bold text-purple-600">{player.is_staff ? 'SI' : 'NO'}</div></div>)}
                         </div>
                         <div className={`p-3 rounded-lg border flex items-start gap-3 ${isInjured ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
                             {isInjured ? <Ambulance className="h-5 w-5 mt-0.5" /> : <div className="h-5 w-5 rounded-full bg-green-200 flex items-center justify-center font-bold text-xs">OK</div>}
@@ -138,7 +117,7 @@ function DraggableListCard({ player, isSelected, isManager, currentUserId, onEdi
             </Dialog>
             <Card
                 {...listeners} {...attributes}
-                className={`flex flex-col items-center justify-center p-3 gap-2 cursor-grab active:cursor-grabbing transition-all h-full hover:shadow-md border select-none
+                className={`flex flex-col items-center justify-center p-3 gap-2 cursor-grab active:cursor-grabbing transition-[border-color,box-shadow,opacity,filter] h-full hover:shadow-md border select-none
         ${!isMobile ? 'touch-none' : ''} ${isInjured ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50'}
         ${under35 && !isInjured ? 'border-l-4 border-l-blue-500' : ''}
       `}>
@@ -188,7 +167,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
 
 function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void }) {
     const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.id}`, data: { slotId: slot.id } });
-    const baseStyle = isBench ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-all duration-200 z-10";
+    const baseStyle = isBench ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-[transform,border-color,background-color] duration-200 z-10";
     const displayRole = slot.id.replace(/[0-9]/g, '');
     return (
         <div ref={isMobile ? null : setNodeRef} className={`${baseStyle} ${isOver && !isMobile ? 'scale-110 border-blue-500 bg-blue-500/20' : ''}`} style={!isBench ? { top: slot.top, left: slot.left } : {}} onClick={onMobileClick}>
@@ -210,7 +189,7 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                             </div>
                         </PopoverContent>
                     </Popover>
-                    <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95" title="Rimuovi dal campo"><X className="h-3 w-3 stroke-[3]" /></button>
+                    <button aria-label={`Rimuovi ${playerInSlot.nome} ${playerInSlot.cognome} dal campo`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-700 hover:bg-red-800 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95" type="button"><X aria-hidden="true" className="h-3 w-3 stroke-[3]" /></button>
                 </div>
             ) : (
                 <div className={`${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${isOver && !isMobile ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5 hover:bg-white/10'}`}>
@@ -228,20 +207,14 @@ export function FormationBuilder() {
     const [module, setModule] = useState("4-4-2")
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
-    const [filterStatus, setFilterStatus] = useState<'ALL' | 'OK' | 'KO'>('ALL')
     const [lineup, setLineup] = useState<Record<string, Player>>({})
     const [activePlayer, setActivePlayer] = useState<Player | null>(null)
     const [captainId, setCaptainId] = useState<string | null>(null)
     const [viceCaptainId, setViceCaptainId] = useState<string | null>(null)
     const [jerseyColor, setJerseyColor] = useState<'BLU' | 'ROSSA'>('BLU')
     const [nextMatch, setNextMatch] = useState<Event | null>(null)
-    const currentUserId: string | null = null
     const [isMobile, setIsMobile] = useState(false)
     const [mobileSlotToFill, setMobileSlotToFill] = useState<string | null>(null)
-    const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false)
-    const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
-    const [newPlayer, setNewPlayer] = useState({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' })
-    const [uploading, setUploading] = useState(false)
 
 
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
@@ -265,12 +238,10 @@ export function FormationBuilder() {
 
     useEffect(() => {
         let result = players;
-        if (filterStatus === 'OK') result = result.filter(p => !p.note_mediche || p.note_mediche === 'OK');
-        else if (filterStatus === 'KO') result = result.filter(p => p.note_mediche && p.note_mediche !== 'OK');
         const lowerTerm = searchTerm.toLowerCase();
         if (lowerTerm) result = result.filter(p => p.nome?.toLowerCase().includes(lowerTerm) || p.cognome?.toLowerCase().includes(lowerTerm));
         setFilteredPlayers(result);
-    }, [searchTerm, filterStatus, players]);
+    }, [searchTerm, players]);
 
     async function getPlayers() {
         const { data } = await supabaseBrowser
@@ -302,46 +273,6 @@ export function FormationBuilder() {
     async function fetchNextMatch() {
         const data = await fetchNextChigiMatch(supabaseBrowser)
         if (data) setNextMatch(data)
-    }
-
-    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        try {
-            setUploading(true)
-            if (!event.target.files || event.target.files.length === 0 || !editingPlayer) return
-
-            const file = event.target.files[0]
-            const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-            if (!ALLOWED_TYPES.includes(file.type)) {
-                toast.error("Formato non supportato. Usa JPG, PNG o WebP.")
-                return
-            }
-            if (file.size > 2 * 1024 * 1024) {
-                toast.error("File troppo grande. Massimo 2MB.")
-                return
-            }
-
-            const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-            const filePath = `players/${editingPlayer.id}.${ext}`
-
-            const { error: uploadError } = await supabaseBrowser.storage
-                .from('avatars')
-                .upload(filePath, file, { upsert: true, contentType: file.type })
-
-            if (uploadError) throw uploadError
-
-            const { data: { publicUrl } } = supabaseBrowser.storage
-                .from('avatars')
-                .getPublicUrl(filePath)
-
-            const bust = `?t=${Date.now()}`
-            setEditingPlayer({ ...editingPlayer, avatar_url: publicUrl + bust })
-            toast.success("Foto caricata! Ricordati di salvare.")
-
-        } catch (error) {
-            toast.error("Errore caricamento: " + (error instanceof Error ? error.message : String(error)))
-        } finally {
-            setUploading(false)
-        }
     }
 
     const downloadExcelDistinta = async () => {
@@ -413,48 +344,6 @@ export function FormationBuilder() {
         if (role === 'K') { setCaptainId(playerId); if (viceCaptainId === playerId) setViceCaptainId(null); }
         else if (role === 'VK') { setViceCaptainId(playerId); if (captainId === playerId) setCaptainId(null); }
         else { if (captainId === playerId) setCaptainId(null); if (viceCaptainId === playerId) setViceCaptainId(null); }
-    }
-
-    const handleAddPlayer = async () => {
-        const payload = { ...newPlayer, note_mediche: 'OK', data_nascita: newPlayer.data_nascita ? newPlayer.data_nascita : null, numero_maglia: newPlayer.numero_maglia ? parseInt(newPlayer.numero_maglia.toString()) : null };
-        const { error } = await supabaseBrowser.from('profiles').insert([payload]);
-        if (error) toast.error("Errore aggiunta giocatore: " + error.message); else { setIsAddPlayerOpen(false); setNewPlayer({ nome: '', cognome: '', email: '', ruolo: 'DIFENSORE', numero_maglia: '', data_nascita: '' }); getPlayers(); }
-    }
-
-    const handleUpdatePlayer = async () => {
-        if (!editingPlayer) return;
-
-        const { error } = await supabaseBrowser.from('profiles').update({
-            nome: editingPlayer.nome,
-            cognome: editingPlayer.cognome,
-            ruolo: editingPlayer.ruolo,
-            numero_maglia: editingPlayer.numero_maglia,
-            data_nascita: editingPlayer.data_nascita || null,
-            note_mediche: editingPlayer.note_mediche,
-            dipartimento: editingPlayer.dipartimento,
-            taglia_divisa: editingPlayer.taglia_divisa,
-            tags: editingPlayer.tags || [],
-            tessera_asi: editingPlayer.tessera_asi,
-            avatar_url: editingPlayer.avatar_url,
-            is_staff: editingPlayer.is_staff || false,
-            is_manager: editingPlayer.is_manager || false,
-        }).eq('id', editingPlayer.id);
-
-        if (error) toast.error("Errore aggiornamento: " + error.message);
-        else { setEditingPlayer(null); getPlayers(); }
-    }
-
-    const handleDeletePlayer = async (player: Player) => {
-        if (!player) return;
-        const { error } = await supabaseBrowser.from('profiles').delete().eq('id', player.id);
-        if (error) toast.error("Errore eliminazione: " + error.message); else { const newLineup = { ...lineup }; Object.keys(newLineup).forEach(key => { if (newLineup[key].id === player.id) delete newLineup[key]; }); setLineup(newLineup); setEditingPlayer(null); getPlayers(); }
-    }
-
-    const handleToggleTag = (tag: string) => {
-        if (!editingPlayer) return;
-        const currentTags = editingPlayer.tags || [];
-        if (currentTags.includes(tag)) { setEditingPlayer({ ...editingPlayer, tags: currentTags.filter((t: string) => t !== tag) }); }
-        else { setEditingPlayer({ ...editingPlayer, tags: [...currentTags, tag] }); }
     }
 
     const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
@@ -628,33 +517,33 @@ export function FormationBuilder() {
 
                         <div className="flex items-center gap-2">
                             <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-md p-0.5 border border-slate-200">
-                                <button onClick={() => setJerseyColor('BLU')} className={`p-1.5 rounded-sm transition-all ${jerseyColor === 'BLU' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-50 hover:opacity-100'}`} title="Maglia Blu">
-                                    <Shirt className="h-5 w-5 text-blue-600 fill-blue-600" />
+                                <button aria-label="Maglia blu" aria-pressed={jerseyColor === 'BLU'} onClick={() => setJerseyColor('BLU')} className={`p-1.5 rounded-sm transition-[opacity,box-shadow,background-color] ${jerseyColor === 'BLU' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-60 hover:opacity-100'}`} type="button">
+                                    <Shirt aria-hidden="true" className="h-5 w-5 text-blue-700 fill-blue-700" />
                                 </button>
-                                <button onClick={() => setJerseyColor('ROSSA')} className={`p-1.5 rounded-sm transition-all ${jerseyColor === 'ROSSA' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-50 hover:opacity-100'}`} title="Maglia Rossa">
-                                    <Shirt className="h-5 w-5 text-red-600 fill-red-600" />
+                                <button aria-label="Maglia rossa" aria-pressed={jerseyColor === 'ROSSA'} onClick={() => setJerseyColor('ROSSA')} className={`p-1.5 rounded-sm transition-[opacity,box-shadow,background-color] ${jerseyColor === 'ROSSA' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-60 hover:opacity-100'}`} type="button">
+                                    <Shirt aria-hidden="true" className="h-5 w-5 text-red-700 fill-red-700" />
                                 </button>
                             </div>
 
                             <Select value={module} onValueChange={handleModuleChange}>
-                                <SelectTrigger className="w-[85px] h-9 text-xs font-bold border-border bg-background"><SelectValue placeholder="Modulo" /></SelectTrigger>
+                                <SelectTrigger aria-label="Modulo formazione" className="w-[85px] h-9 text-xs font-bold border-border bg-background"><SelectValue placeholder="Modulo" /></SelectTrigger>
                                 <SelectContent>{Object.keys(FORMATIONS).map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
                             </Select>
 
                             <div className="ml-auto flex items-center gap-2">
                                 <Button
+                                    aria-label="Svuota campo"
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => { setLineup({}); setCaptainId(null); setViceCaptainId(null); }}
                                     className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                    title="Svuota campo"
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 aria-hidden="true" className="h-4 w-4" />
                                 </Button>
 
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button size="icon" variant="outline" className="h-9 w-9"><Download className="h-4 w-4" /></Button>
+                                        <Button aria-label="Esporta formazione" size="icon" variant="outline" className="h-9 w-9"><Download aria-hidden="true" className="h-4 w-4" /></Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-48 p-2 flex flex-col gap-1">
                                         <Button onClick={downloadImage} variant="ghost" className="justify-start text-xs h-8">
@@ -737,7 +626,7 @@ export function FormationBuilder() {
                         </div>
 
                         <div className="flex flex-col gap-1.5 p-1 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner w-14 items-center overflow-x-hidden overflow-y-auto scrollbar-hide">
-                            <span className="text-[7px] font-black text-slate-300 uppercase vertical-text py-1 tracking-widest">Panchina</span>
+                            <span className="py-1 text-[9px] font-black uppercase tracking-widest text-slate-600 vertical-text dark:text-slate-300">Panchina</span>
                             {BENCH_SLOTS.map((slot) => (
                                 <FormationSlot
                                     key={slot.id}
@@ -763,45 +652,12 @@ export function FormationBuilder() {
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                                <Input placeholder="Cerca giocatore..." className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                <Label className="sr-only" htmlFor="formation-player-search">Cerca giocatore</Label>
+                                <Input id="formation-player-search" name="playerSearch" autoComplete="off" placeholder="Cerca giocatore…" className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
 
-                            {false && (
-                                <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button size="icon" className="h-8 w-8 rounded-md bg-purple-600 hover:bg-purple-700 shadow"><Plus className="h-4 w-4 text-white" /></Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-w-sm rounded-xl">
-                                        <DialogHeader><DialogTitle>Nuovo Giocatore</DialogTitle></DialogHeader>
-                                        <div className="grid gap-3 py-2">
-                                            <Input placeholder="Nome" value={newPlayer.nome} onChange={(e) => setNewPlayer({ ...newPlayer, nome: e.target.value })} />
-                                            <Input placeholder="Cognome" value={newPlayer.cognome} onChange={(e) => setNewPlayer({ ...newPlayer, cognome: e.target.value })} />
-                                            <Input placeholder="Email (per login)" value={newPlayer.email} onChange={(e) => setNewPlayer({ ...newPlayer, email: e.target.value })} />
-                                            <Select value={newPlayer.ruolo} onValueChange={(val) => setNewPlayer({ ...newPlayer, ruolo: val })}>
-                                                <SelectTrigger><SelectValue placeholder="Ruolo" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="PORTIERE">Portiere</SelectItem>
-                                                    <SelectItem value="DIFENSORE">Difensore</SelectItem>
-                                                    <SelectItem value="CENTROCAMPISTA">Centrocampista</SelectItem>
-                                                    <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <div className="space-y-1"><Label className="text-xs">Data di nascita</Label><Input type="date" value={newPlayer.data_nascita} onChange={(e) => setNewPlayer({ ...newPlayer, data_nascita: e.target.value })} /></div>
-                                            <div className="space-y-1"><Label className="text-xs">Numero maglia</Label><Input type="number" placeholder="Maglia" value={newPlayer.numero_maglia} onChange={(e) => setNewPlayer({ ...newPlayer, numero_maglia: e.target.value })} /></div>
-                                        </div>
-                                        <DialogFooter><Button onClick={handleAddPlayer} className="w-full bg-purple-600">Salva</Button></DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                            )}
                         </div>
 
-                        <div className="flex bg-muted p-0.5 rounded-md">
-                            {['ALL', 'OK', 'KO'].map(status => (
-                                <button key={status} onClick={() => setFilterStatus(status as 'ALL' | 'OK' | 'KO')} className={`flex-1 py-1 rounded-sm text-[9px] font-bold transition-all ${filterStatus === status ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}>
-                                    {status === 'ALL' ? 'Tutti' : status === 'OK' ? 'Disponibili' : 'Infortunati'}
-                                </button>
-                            ))}
-                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2">
@@ -810,99 +666,15 @@ export function FormationBuilder() {
                                 <DraggableListCard
                                     player={player}
                                     isSelected={isPlayerSelected(player.id)}
-                                    isManager={false}
-                                    currentUserId={currentUserId}
-                                    onEditPlayer={setEditingPlayer}
                                     isMobile={isMobile}
                                     captainId={captainId}
                                     viceCaptainId={viceCaptainId}
                                     onSetRole={handleSetRole}
-                                    onDeletePlayer={handleDeletePlayer}
                                 />
                             </div>
                         ))}
                     </div>
                 </div>
-
-                <Dialog open={!!editingPlayer} onOpenChange={(open) => !open && setEditingPlayer(null)}>
-                    <DialogContent className="max-w-md rounded-xl p-0 overflow-hidden bg-card">
-                        <DialogTitle className="sr-only">Modifica {editingPlayer?.cognome}</DialogTitle>
-                        {editingPlayer && (
-                            <>
-                                <div className="bg-slate-50 dark:bg-slate-900 p-6 pb-4 border-b relative">
-                                    <div className="flex items-center gap-4">
-                                        <div className="relative group">
-                                            <Avatar className="h-20 w-20 border-4 border-background shadow-xl">
-                                            <AvatarImage src={editingPlayer.avatar_url ?? undefined} alt={`${editingPlayer.nome} ${editingPlayer.cognome}`} className="object-cover"/>
-                                                <AvatarFallback className="text-xl font-bold">{editingPlayer.cognome[0]}</AvatarFallback>
-                                            </Avatar>
-                                            {(isManager || editingPlayer.id === currentUserId) && (
-                                                <>
-                                                    <label
-                                                        htmlFor="avatar-upload"
-                                                        className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-opacity"
-                                                    >
-                                                        {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-                                                    </label>
-                                                    <input
-                                                        id="avatar-upload"
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        onChange={handleAvatarUpload}
-                                                        disabled={uploading}
-                                                    />
-                                                </>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2 flex-1">
-                                            <Input value={editingPlayer.cognome} onChange={(e) => setEditingPlayer({ ...editingPlayer, cognome: e.target.value })} className="text-xl font-black h-9" placeholder="Cognome" />
-                                            <Input value={editingPlayer.nome} onChange={(e) => setEditingPlayer({ ...editingPlayer, nome: e.target.value })} className="font-medium h-8" placeholder="Nome" />
-                                            <Select value={editingPlayer.ruolo ?? ''} onValueChange={(val) => setEditingPlayer({ ...editingPlayer, ruolo: val })}>
-                                                <SelectTrigger className="h-8 text-xs font-bold"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="PORTIERE">Portiere</SelectItem>
-                                                    <SelectItem value="DIFENSORE">Difensore</SelectItem>
-                                                    <SelectItem value="CENTROCAMPISTA">Centrocampista</SelectItem>
-                                                    <SelectItem value="ATTACCANTE">Attaccante</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Input value={editingPlayer.email ?? ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })} disabled={!isManager && editingPlayer.id !== currentUserId} className="h-7 text-xs" placeholder="Email" />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label><Input value={editingPlayer.tessera_asi || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, tessera_asi: e.target.value })} /></div>
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di nascita</Label><Input type="date" value={editingPlayer.data_nascita || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, data_nascita: e.target.value })} /></div>
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><Input type="number" value={editingPlayer.numero_maglia ?? ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, numero_maglia: e.target.value ? parseInt(e.target.value) : null })} /></div>
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label><Input value={editingPlayer.taglia_divisa || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, taglia_divisa: e.target.value })} /></div>
-                                    </div>
-                                    <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Note mediche / Infermeria</Label><Input placeholder="OK oppure descrivi infortunio..." value={editingPlayer.note_mediche || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, note_mediche: e.target.value })} className={editingPlayer.note_mediche && editingPlayer.note_mediche !== 'OK' ? 'border-red-300 bg-red-50 text-red-900' : 'border-green-300 bg-green-50 text-green-900'} /></div>
-                                    <div className="pt-4 border-t space-y-5">
-                                        <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Dipartimento</Label><Input value={editingPlayer.dipartimento || ''} onChange={(e) => setEditingPlayer({ ...editingPlayer, dipartimento: e.target.value })} /></div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Caratteristiche</Label>
-                                            <div className="flex flex-wrap gap-2">{BOMBER_TAGS.map((tag) => { const isActive = (editingPlayer.tags || []).includes(tag); return (<Badge key={tag} variant={isActive ? "default" : "outline"} className={`cursor-pointer transition-all ${isActive ? 'bg-purple-600 hover:bg-purple-700' : 'hover:bg-slate-100'}`} onClick={() => handleToggleTag(tag)}>{tag}</Badge>) })}</div>
-                                        </div>
-                                        {isManager && (
-                                            <div className="p-3 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 space-y-3 mt-4">
-                                                <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-purple-700" /><span className="text-xs font-bold text-purple-700 uppercase tracking-wider">Permessi avanzati</span></div>
-                                                <div className="flex items-center justify-between"><Label htmlFor="edit-is-staff" className="text-xs font-medium cursor-pointer">Staff</Label><Switch id="edit-is-staff" checked={editingPlayer.is_staff || false} onCheckedChange={(checked) => setEditingPlayer({ ...editingPlayer, is_staff: checked })} /></div>
-                                                <div className="flex items-center justify-between"><Label htmlFor="edit-is-manager" className="text-xs font-medium cursor-pointer">Gestore</Label><Switch id="edit-is-manager" checked={editingPlayer.is_manager || false} onCheckedChange={(checked) => setEditingPlayer({ ...editingPlayer, is_manager: checked })} /></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <DialogFooter className="p-4 border-t bg-slate-50 dark:bg-slate-900 flex gap-2">
-                                    <Button variant="outline" onClick={() => setEditingPlayer(null)} className="flex-1">Annulla</Button>
-                                    <Button onClick={handleUpdatePlayer} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white">Salva</Button>
-                                </DialogFooter>
-                            </>
-                        )}
-                    </DialogContent>
-                </Dialog>
 
                 <Dialog open={!!mobileSlotToFill} onOpenChange={(open) => !open && setMobileSlotToFill(null)}>
                     <DialogContent className="max-w-sm rounded-xl max-h-[80vh] flex flex-col">
@@ -913,14 +685,14 @@ export function FormationBuilder() {
                                 const under35 = isU35(p.data_nascita ?? '');
                                 const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
-                                    <div key={p.id} onClick={() => !isSelected && handleMobilePlayerSelect(p)} className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${isSelected ? 'opacity-50 cursor-not-allowed bg-muted' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+                                    <button disabled={isSelected} key={p.id} onClick={() => handleMobilePlayerSelect(p)} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${isSelected ? 'cursor-not-allowed bg-muted opacity-50' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`} type="button">
                                         <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
                                             <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
                                         </div>
                                         {isSelected ? <Badge variant="secondary" className="text-[9px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}
-                                    </div>
+                                    </button>
                                 )
                             })}
                         </div>

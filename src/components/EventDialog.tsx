@@ -195,9 +195,9 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-                <Label>Tipo</Label>
+                <Label htmlFor="event-type">Tipo</Label>
                 <Select value={tipo} onValueChange={(v: 'ALLENAMENTO'|'PARTITA') => setTipo(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="event-type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="PARTITA">Partita</SelectItem>
                         <SelectItem value="ALLENAMENTO">Allenamento</SelectItem>
@@ -211,32 +211,32 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           </div>
 
           <div className="space-y-2">
-            <Label>Data</Label>
-            <Input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} required className="block w-full" />
+            <Label htmlFor="event-date">Data</Label>
+            <Input id="event-date" name="date" type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} required className="block w-full" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-                <Label>Inizio</Label>
-                <Input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} required className="block w-full" />
+                <Label htmlFor="event-start">Inizio</Label>
+                <Input id="event-start" name="startTime" type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} required className="block w-full" />
             </div>
             <div className="space-y-2">
-                <Label>Fine (Opzionale)</Label>
-                <Input type="time" value={endTimeStr} onChange={(e) => setEndTimeStr(e.target.value)} className="block w-full" />
+                <Label htmlFor="event-end">Fine (opzionale)</Label>
+                <Input id="event-end" name="endTime" type="time" value={endTimeStr} onChange={(e) => setEndTimeStr(e.target.value)} className="block w-full" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Luogo</Label>
-            <Input value={luogo} onChange={(e) => setLuogo(e.target.value)} required />
+            <Label htmlFor="event-place">Luogo</Label>
+            <Input id="event-place" name="place" value={luogo} onChange={(e) => setLuogo(e.target.value)} required />
           </div>
 
           {tipo === 'ALLENAMENTO' && (
               <div className="space-y-2">
-                <Label>Tipo Campo</Label>
+                <Label htmlFor="event-field-type">Tipo campo</Label>
                 <Select value={tipoCampo || "none"} onValueChange={(v) => setTipoCampo(v === "none" ? null : v as 'a8'|'a11')}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Seleziona..." />
+                    <SelectTrigger id="event-field-type">
+                        <SelectValue placeholder="Seleziona…" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="none">Non specificato</SelectItem>
@@ -250,26 +250,26 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           {tipo === 'PARTITA' && (
              <div className="space-y-4 border rounded-lg p-3 bg-muted/30 mt-2">
                 <div className="space-y-2">
-                    <Label>Avversario / Titolo</Label>
-                    <Input value={avversario} onChange={(e) => setAvversario(e.target.value)} placeholder="Es: vs Real Madrid" />
+                    <Label htmlFor="event-opponent">Avversario / Titolo</Label>
+                    <Input id="event-opponent" name="opponent" value={avversario} onChange={(e) => setAvversario(e.target.value)} placeholder="Es. Real Madrid" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                        <Label className="text-xs">Squadra Casa</Label>
-                        <Input value={squadraCasa} onChange={(e) => setSquadraCasa(e.target.value)} placeholder="CIRC. CHIGI" className="text-xs" />
+                        <Label className="text-xs" htmlFor="event-home-team">Squadra casa</Label>
+                        <Input id="event-home-team" name="homeTeam" value={squadraCasa} onChange={(e) => setSquadraCasa(e.target.value)} placeholder="CIRC. CHIGI" className="text-xs" />
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-xs">Squadra Ospite</Label>
-                        <Input value={squadraOspite} onChange={(e) => setSquadraOspite(e.target.value)} placeholder="Avversario" className="text-xs" />
+                        <Label className="text-xs" htmlFor="event-away-team">Squadra ospite</Label>
+                        <Input id="event-away-team" name="awayTeam" value={squadraOspite} onChange={(e) => setSquadraOspite(e.target.value)} placeholder="Avversario" className="text-xs" />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                        <Label className="text-xs">Fase Torneo</Label>
+                        <Label className="text-xs" htmlFor="event-phase">Fase torneo</Label>
                         <Select value={fase} onValueChange={(v) => setFase(v as EventFase | '')}>
-                            <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Nessuna" /></SelectTrigger>
+                            <SelectTrigger className="text-xs h-8" id="event-phase"><SelectValue placeholder="Nessuna" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="">Nessuna</SelectItem>
                                 <SelectItem value="FASE_1">Fase 1</SelectItem>
@@ -280,8 +280,8 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label className="text-xs">Giornata</Label>
-                        <Input type="number" value={giornata} onChange={(e) => setGiornata(e.target.value)} placeholder="Es: 1" className="text-xs h-8" min={1} />
+                        <Label className="text-xs" htmlFor="event-round">Giornata</Label>
+                        <Input id="event-round" name="round" type="number" inputMode="numeric" value={giornata} onChange={(e) => setGiornata(e.target.value)} placeholder="Es. 1" className="text-xs h-8" min={1} />
                     </div>
                 </div>
 
@@ -293,12 +293,12 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                 {giocata && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>Gol Casa</Label>
-                            <Input type="number" value={golNostri} onChange={(e) => setGolNostri(e.target.value)} />
+                            <Label htmlFor="event-home-goals">Gol casa</Label>
+                            <Input id="event-home-goals" name="homeGoals" type="number" inputMode="numeric" value={golNostri} onChange={(e) => setGolNostri(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                            <Label>Gol Ospite</Label>
-                            <Input type="number" value={golAvversario} onChange={(e) => setGolAvversario(e.target.value)} />
+                            <Label htmlFor="event-away-goals">Gol ospite</Label>
+                            <Input id="event-away-goals" name="awayGoals" type="number" inputMode="numeric" value={golAvversario} onChange={(e) => setGolAvversario(e.target.value)} />
                         </div>
                     </div>
                 )}
@@ -306,11 +306,13 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           )}
 
           <div className="space-y-2">
-            <Label>Note (Visibili a tutti)</Label>
+            <Label htmlFor="event-notes">Note (visibili a tutti)</Label>
             <Textarea 
+                id="event-notes"
+                name="notes"
                 value={note} 
                 onChange={(e) => setNote(e.target.value)} 
-                placeholder="Es: Portare maglia rossa..."
+                placeholder="Es. Portare maglia rossa…"
                 className="min-h-[80px]"
             />
           </div>

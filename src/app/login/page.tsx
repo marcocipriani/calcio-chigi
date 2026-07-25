@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Mail } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
+import { Label } from "@/components/ui/label"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -152,7 +153,10 @@ export default function LoginPage() {
 
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
+                        <Label className="sr-only" htmlFor="login-email">Email</Label>
                         <Input 
+                            id="login-email"
+                            name="email"
                             type="email" 
                             placeholder="nome@esempio.com" 
                             value={email} 
@@ -165,7 +169,7 @@ export default function LoginPage() {
                     
                     <Button className="w-full h-11 font-bold text-base shadow-lg shadow-primary/20" type="submit" disabled={loading || googleLoading}>
                         {loading ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Invio...</>
+                            <><Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" /> Invio…</>
                         ) : (
                             'Invia link di accesso'
                         )}

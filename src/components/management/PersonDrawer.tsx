@@ -3,6 +3,16 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,9 +45,13 @@ export function PersonDrawer({
     person?.category ?? "PLAYER",
   )
   const [busy, setBusy] = useState(false)
+  const [pendingForm, setPendingForm] = useState<FormData | null>(null)
 
   useEffect(() => {
-    if (person) setCategory(person.category)
+    if (person) {
+      setCategory(person.category)
+      setPendingForm(null)
+    }
   }, [person])
 
   if (!person) return null
@@ -53,15 +67,15 @@ export function PersonDrawer({
         currentPerson.registrationStatus ||
       (form.get("isManager") === "on") !== Boolean(currentPerson.isManager)
 
-    if (
-      sensitiveChanged &&
-      !window.confirm(
-        "Stai modificando tessera, tesseramento o permesso manager. Confermi?",
-      )
-    ) {
+    if (sensitiveChanged) {
+      setPendingForm(form)
       return
     }
 
+    await save(form)
+  }
+
+  async function save(form: FormData) {
     setBusy(true)
     const { error } = await supabaseBrowser.rpc("manager_update_person", {
       p_profile_id: currentPerson.profileId,
@@ -103,13 +117,21 @@ export function PersonDrawer({
       return
     }
     toast.success("Scheda aggiornata")
+    setPendingForm(null)
     onOpenChange(false)
     await onSaved()
   }
 
   return (
-    <Dialog open={Boolean(person)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl">
+    <>
+      <Dialog
+        open={Boolean(person)}
+        onOpenChange={(open) => {
+          if (!open) setPendingForm(null)
+          onOpenChange(open)
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-1rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="border-b p-4 text-left">
           <div className="flex items-center gap-2">
             <DialogTitle>
@@ -376,7 +398,35 @@ export function PersonDrawer({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={Boolean(pendingForm)}
+        onOpenChange={(open) => !open && setPendingForm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma modifiche delicate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stai modificando tessera ASI, stato del tesseramento o permesso
+              manager. Controlla i dati prima di continuare.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Torna alla scheda</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={(event) => {
+                event.preventDefault()
+                if (pendingForm) void save(pendingForm)
+              }}
+            >
+              Conferma e salva
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

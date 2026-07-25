@@ -1,25 +1,22 @@
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Clock, Trophy, Dumbbell, Pencil, Ban, LayoutTemplate } from 'lucide-react';
+import { MapPin, Clock, Trophy, Dumbbell, Ban, LayoutTemplate } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Event } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface EventProps {
   event: Event;
   opponentLogo?: string | null;
-  isManager?: boolean;
-  onEdit?: (event: Event) => void;
   className?: string;
 }
 
 type EventAttendancePreview = NonNullable<Event["attendance"]>[number];
 
-export function EventCard({ event, opponentLogo, isManager, onEdit, className }: EventProps) {
+export function EventCard({ event, opponentLogo, className }: EventProps) {
   const date = event.data_ora ? new Date(event.data_ora) : null;
   const isMatch = event.tipo === 'PARTITA';
   const isPlayed = event.giocata === true;
@@ -61,7 +58,7 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
 
   return (
     <Card className={cn(
-        "border shadow-sm relative overflow-hidden transition-all group dark:border-slate-800",
+        "border shadow-sm relative overflow-hidden transition-[border-color,opacity,filter] group dark:border-slate-800",
         isCancelled ? 'opacity-60 grayscale' : '',
         !isCancelled && (isMatch ? 'hover:border-blue-500/50' : 'hover:border-amber-500/50'),
         className
@@ -96,16 +93,6 @@ export function EventCard({ event, opponentLogo, isManager, onEdit, className }:
                     </div>
                 )}
                 
-                {isManager && (
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7 rounded-full bg-white/50 hover:bg-white dark:bg-black/20 dark:hover:bg-black/40"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit?.(event); }}
-                    >
-                        <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                )}
             </div>
         </div>
 

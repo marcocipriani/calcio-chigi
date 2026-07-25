@@ -29,8 +29,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#020617" },
@@ -45,7 +43,12 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={`${inter.className} bg-background text-foreground antialiased overscroll-none`}>
-        
+        <a
+          className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-foreground shadow-lg transition-transform focus:translate-y-0"
+          href="#main-content"
+        >
+          Vai al contenuto
+        </a>
         <ServiceWorkerRegister />
 
         <ThemeProvider
@@ -57,9 +60,9 @@ export default function RootLayout({
             <AppSessionProvider>
               <AppGates />
               <SiteHeader />
-              <main className="pt-16 pb-safe min-h-screen"> 
+              <div className="pt-16 pb-safe min-h-screen" id="main-content">
                 {children}
-              </main>
+              </div>
               <Toaster />
               <BottomNav />
             </AppSessionProvider>

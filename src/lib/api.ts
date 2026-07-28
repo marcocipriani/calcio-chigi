@@ -190,6 +190,61 @@ export type EventRosterProfile = Pick<
     training_only: boolean
 }
 
+export type FormationRosterPlayer = {
+    id: string
+    nome: string
+    cognome: string
+    avatar_url: string | null
+    data_nascita: string | null
+    ruolo: string | null
+    numero_maglia: number | null
+    dipartimento: string | null
+    tags: string[]
+    is_staff: boolean
+    training_only: boolean
+}
+
+type PublicFormationRosterRow = {
+    id: string
+    nome: string
+    cognome: string
+    avatar_url: string | null
+    role: string | null
+    jersey_number: number | null
+    status: "YES" | "MAYBE"
+}
+
+/**
+ * Fetches selectable players for the anonymous formation playground.
+ * The public roster view deliberately excludes private profile fields.
+ */
+export async function fetchPublicFormationRoster(
+    supabase: SupabaseClient,
+): Promise<FormationRosterPlayer[]> {
+    const { data, error } = await supabase
+        .from("public_active_roster")
+        .select("id,nome,cognome,avatar_url,role,jersey_number,status")
+        .in("status", ["YES", "MAYBE"])
+        .eq("category", "PLAYER")
+        .order("cognome")
+
+    if (error) throw error
+
+    return ((data ?? []) as PublicFormationRosterRow[]).map((row) => ({
+        id: row.id,
+        nome: row.nome,
+        cognome: row.cognome,
+        avatar_url: row.avatar_url,
+        data_nascita: null,
+        ruolo: row.role,
+        numero_maglia: row.jersey_number,
+        dipartimento: null,
+        tags: [],
+        is_staff: false,
+        training_only: false,
+    }))
+}
+
 type EventRosterRpcRow = {
     profile_id: string
     nome: string

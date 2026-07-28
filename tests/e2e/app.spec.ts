@@ -286,6 +286,16 @@ test("dashboard manager densa con azioni rapide", async ({
   await expectNoSeriousA11yViolations(page)
 })
 
+test("il playground anonimo usa soltanto la rosa pubblica", async ({ page }) => {
+  await page.goto("/squadra")
+  await page.getByRole("button", { name: "Crea la tua formazione" }).click()
+  const builder = page.locator('[data-formation-builder-mode="PLAYGROUND"]')
+  await expect(builder.getByText("Piero", { exact: true }).first()).toBeVisible()
+  await expect(builder.getByText("Marco", { exact: true }).first()).toBeVisible()
+  await expect(builder.getByText("Nino", { exact: true })).toHaveCount(0)
+  await expect(builder.getByText("Sara", { exact: true })).toHaveCount(0)
+})
+
 test("builder formazione privato e leggero", async ({
   context,
   page,

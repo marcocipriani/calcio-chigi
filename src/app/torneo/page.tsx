@@ -15,7 +15,7 @@ import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageContainer } from "@/components/layout/PageContainer"
-import ClassificaPage from '../classifica/page'
+import { StandingsContent } from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
@@ -267,7 +267,7 @@ export default function TorneoPage() {
             </TabsList>
 
             <TabsContent value="classifica" className="space-y-4 animate-in fade-in slide-in-from-left-2">
-                <ClassificaPage fase={activePhase} />
+                <StandingsContent fase={activePhase} />
             </TabsContent>
 
             <TabsContent value="calendario" className="space-y-4 animate-in fade-in slide-in-from-right-2">

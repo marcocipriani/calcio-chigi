@@ -23,7 +23,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 
 interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
 
-export default function ClassificaPage({ fase }: { fase?: string }) {
+export function StandingsContent({ fase }: { fase?: string }) {
   const [standings, setStandings] = useState<StandingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Event[]>([]);
@@ -109,24 +109,21 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
   };
 
   if (loading) return (
-    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden p-4 space-y-4">
-            <div className="flex items-center justify-between">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-6 w-16" />
-            </div>
-            <div className="space-y-2">
-                {[...Array(8)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                ))}
-            </div>
-        </div>
-    </PageContainer>
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-6 w-16" />
+      </div>
+      <div className="space-y-2">
+        {[...Array(8)].map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+        ))}
+      </div>
+    </div>
   );
 
   return (
-    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in duration-500">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in duration-500">
         <TooltipProvider>
         <div className="overflow-x-auto">
             <Table>
@@ -228,7 +225,14 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
             </Table>
         </div>
         </TooltipProvider>
-      </div>
-    </PageContainer>
+    </div>
   );
+}
+
+export default function ClassificaPage({ fase }: { fase?: string }) {
+  return (
+    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
+      <StandingsContent fase={fase} />
+    </PageContainer>
+  )
 }

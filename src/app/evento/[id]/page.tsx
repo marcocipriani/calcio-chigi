@@ -288,13 +288,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   if (loading) return (
     <PageContainer
       className="bg-background"
-      contentClassName="mx-auto max-w-lg space-y-6 pb-24"
+      contentClassName="space-y-6 pb-24"
     >
       <div className="p-4 sticky top-14 z-40 bg-slate-900 flex items-center gap-3">
         <Skeleton className="h-8 w-8 rounded-md bg-white/20" />
         <Skeleton className="h-5 w-32 bg-white/20" />
       </div>
-      <div className="space-y-6">
+      <div className="mx-auto max-w-lg space-y-6">
         <div className="flex flex-col items-center gap-3 mt-2">
           <Skeleton className="h-20 w-20 rounded-full" />
           <Skeleton className="h-8 w-48" />
@@ -369,7 +369,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   return (
     <PageContainer
       className="bg-background text-foreground"
-      contentClassName="mx-auto max-w-lg space-y-6 pb-24"
+      contentClassName="space-y-6 pb-24"
     >
       <div className={`p-4 sticky top-14 z-40 shadow-md flex items-center justify-between transition-colors ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
             <div className="flex items-center gap-3">
@@ -408,7 +408,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             )}
       </div>
 
-      <div className="space-y-6">
+      <div className="mx-auto max-w-lg space-y-6">
         <div className="text-center space-y-3 mt-2">
             {isMatch && opponentLogo && (
                 <div className="flex justify-center mb-2">

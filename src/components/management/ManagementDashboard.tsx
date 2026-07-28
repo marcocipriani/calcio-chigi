@@ -143,7 +143,7 @@ export function ManagementDashboard() {
 
   if (sessionLoading) {
     return (
-      <div className="mx-auto grid max-w-7xl gap-3 p-4">
+      <div className="grid gap-3">
         <Skeleton className="h-12 w-64" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-96 w-full" />
@@ -305,7 +305,7 @@ export function ManagementDashboard() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl space-y-3 px-3 py-4 sm:px-5">
+    <div className="min-h-screen space-y-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
@@ -714,8 +714,8 @@ function AccessState({
   action?: { href: string; label: string }
 }) {
   return (
-    <div className="mx-auto flex min-h-[70dvh] max-w-md items-center px-4 text-center">
-      <div className="w-full rounded-xl border bg-card p-6 shadow-sm">
+    <div className="flex min-h-[70dvh] items-center justify-center text-center">
+      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm">
         <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-muted">
           <UsersRound aria-hidden="true" className="size-5" />
         </span>

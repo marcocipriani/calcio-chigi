@@ -59,7 +59,9 @@ async function expectBottomNavClearance(page: Page) {
 }
 
 async function expectSharedPageViewport(page: Page) {
-  const container = page.locator("[data-page-container]").first()
+  const containers = page.locator("[data-page-container]")
+  await expect(containers).toHaveCount(1)
+  const container = containers
   await expect(container).toBeVisible()
   const box = await container.boundingBox()
   const viewport = page.viewportSize()

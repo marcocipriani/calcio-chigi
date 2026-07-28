@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 
 import {
+  buildImportPlan,
   buildGlobalPatch,
   mapDepartmentFlags,
   mapExcelMembership,
@@ -136,6 +137,72 @@ describe("buildGlobalPatch", () => {
         cognome: "D'Oria",
         data_nascita: "1989-03-11",
         avatar_url: "https://example.test/avatar.jpg",
+      },
+    )
+  })
+})
+
+describe("buildImportPlan", () => {
+  it("keeps Elio Dorbolò in the player roster even when legacy notes say dirigente", () => {
+    const plan = buildImportPlan(
+      [{
+        rowNumber: 4,
+        nome: "Elio",
+        cognome: "Dorbolò",
+        adhesion: "OK",
+        note: "DIRIGENTE",
+      }],
+      [{
+        id: "dorbolo",
+        nome: "Elio",
+        cognome: "Dorbolò",
+        ruolo: "CENTROCAMPISTA",
+        is_staff: true,
+      }],
+    )
+
+    assert.deepEqual(
+      {
+        category: plan.people[0].membership.category,
+        role: plan.people[0].membership.role,
+        staff_function: plan.people[0].membership.staff_function,
+      },
+      {
+        category: "PLAYER",
+        role: "CENTROCAMPISTA",
+        staff_function: null,
+      },
+    )
+  })
+
+  it("classifies Maria Carla Menichini as presidente", () => {
+    const plan = buildImportPlan(
+      [{
+        rowNumber: 5,
+        nome: "Maria Carla",
+        cognome: "Menichini",
+        adhesion: "OK",
+        note: "",
+      }],
+      [{
+        id: "menichini",
+        nome: "Maria Carla",
+        cognome: "Menichini",
+        ruolo: null,
+        is_staff: false,
+      }],
+    )
+
+    assert.deepEqual(
+      {
+        category: plan.people[0].membership.category,
+        role: plan.people[0].membership.role,
+        staff_function: plan.people[0].membership.staff_function,
+      },
+      {
+        category: "STAFF",
+        role: null,
+        staff_function: "Presidente",
       },
     )
   })

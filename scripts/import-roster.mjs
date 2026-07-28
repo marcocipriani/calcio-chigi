@@ -10,6 +10,13 @@ const FINAL_MAYBE = /\bIN FORSE\b|\bFORSE\b/i
 const FINAL_NO = /\bNO\b/i
 const CONTACT_ONLY = /\bCHIESTO\b|\bDA RISENTIRE\b|\bSENTIR|\bRICONTATT|\bRISENTIAMO\b/i
 const DEPARTMENT_TAGS = new Set(["DPC", "SNA", "DIP"])
+const MEMBERSHIP_OVERRIDES = new Map([
+  ["elio dorbolo", { category: "PLAYER" }],
+  [
+    "maria carla menichini",
+    { category: "STAFF", staff_function: "Presidente" },
+  ],
+])
 
 export function normalizePersonKey(nome, cognome) {
   return `${nome ?? ""} ${cognome ?? ""}`
@@ -110,17 +117,20 @@ export function buildImportPlan(excelRows, dbProfiles) {
     if (existing) matchedProfileIds.add(existing.id)
     const excelOnly = existing === null
     const flags = mapDepartmentFlags(row.tag)
-    const membership = mapExcelMembership({
+    const inferredMembership = mapExcelMembership({
       adhesion: row.adhesion,
       note: row.note,
       excelOnly,
     })
+    const membershipOverride = MEMBERSHIP_OVERRIDES.get(key)
+    const category =
+      membershipOverride?.category ?? inferredMembership.category
     const noteParts = [row.note, row.adhesion]
       .map(cleanText)
       .filter((value) => value && !/^C\d+$/i.test(value) && value !== "-")
 
     const role =
-      membership.category === "STAFF"
+      category === "STAFF"
         ? null
         : existing?.ruolo ||
           (/\bPORTIERE\b/i.test(noteParts.join(" ")) ? "PORTIERE" : null)
@@ -145,9 +155,12 @@ export function buildImportPlan(excelRows, dbProfiles) {
       }),
       historyMembership: historyHasData
         ? compactObject({
-            category: existing?.is_staff ? "STAFF" : "PLAYER",
-            role: existing?.is_staff ? null : existing?.ruolo || null,
-            staff_function: existing?.is_staff ? "Staff" : null,
+            category,
+            role,
+            staff_function:
+              category === "STAFF"
+                ? membershipOverride?.staff_function ?? "Staff"
+                : null,
             jersey_number: row.jersey_2025,
             uniform_size: row.uniform_2025,
             asi_card_number: row.asi_2025,
@@ -158,10 +171,13 @@ export function buildImportPlan(excelRows, dbProfiles) {
           })
         : null,
       membership: compactObject({
-        ...membership,
+        ...inferredMembership,
+        category,
         role,
         staff_function:
-          membership.category === "STAFF" ? "Dirigente" : null,
+          category === "STAFF"
+            ? membershipOverride?.staff_function ?? "Dirigente"
+            : null,
         jersey_number: row.jersey_2026,
         uniform_size: row.uniform_2026,
         asi_card_number: row.asi_2026,

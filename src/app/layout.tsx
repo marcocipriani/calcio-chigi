@@ -29,6 +29,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#020617" },
@@ -60,7 +61,7 @@ export default function RootLayout({
             <AppSessionProvider>
               <AppGates />
               <SiteHeader />
-              <div className="pt-16 pb-safe min-h-screen" id="main-content">
+              <div className="min-h-screen pt-16 pb-bottom-nav" id="main-content">
                 {children}
               </div>
               <Toaster />

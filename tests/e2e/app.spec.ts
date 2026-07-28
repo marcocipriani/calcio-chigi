@@ -42,8 +42,69 @@ async function expectNoSeriousA11yViolations(page: Page) {
   ).toEqual([])
 }
 
+async function expectBottomNavClearance(page: Page) {
+  const main = page.locator("#main-content")
+  const navigation = page.getByRole("navigation")
+  await expect(main).toBeVisible()
+  await expect(navigation).toBeVisible()
+
+  const metrics = await Promise.all([
+    main.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).paddingBottom),
+    ),
+    navigation.evaluate((element) => element.getBoundingClientRect().height),
+  ])
+
+  expect(metrics[0]).toBeGreaterThanOrEqual(metrics[1])
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
+})
+
+test("tutte le pagine pubbliche lasciano spazio alla navbar mobile", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  const routes = [
+    "/",
+    "/squadra",
+    "/torneo",
+    "/classifica",
+    "/statistiche",
+    "/giocatore/91000000-0000-0000-0000-000000000002",
+    "/evento/92000000-0000-0000-0000-000000000001",
+    "/login",
+  ]
+
+  for (const route of routes) {
+    await page.goto(route)
+    await expectBottomNavClearance(page)
+  }
+})
+
+test("il profilo riservato lascia spazio alla navbar mobile", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto("/")
+  await expect(page.getByRole("dialog")).toContainText("quota aperta")
+  await page.getByRole("link", { name: "Vedi quote" }).click()
+  await expect(page.getByRole("heading", { name: "Profilo" })).toBeVisible()
+  await expectBottomNavClearance(page)
+})
+
+test("la gestione riservata lascia spazio alla navbar mobile", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto("/gestione")
+  await expect(page.getByRole("heading", { name: "Gestione squadra" })).toBeVisible()
+  await expectBottomNavClearance(page)
 })
 
 test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {

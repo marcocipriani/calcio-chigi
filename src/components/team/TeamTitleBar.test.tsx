@@ -56,4 +56,30 @@ describe("TeamTitleBar", () => {
       screen.getByRole("button", { name: "Pubblica formazione" }),
     ).toBeDisabled()
   })
+
+  it("makes the disabled reason keyboard-accessible on every viewport", () => {
+    render(
+      <TeamTitleBar
+        isManager
+        match={null}
+        onOpenOfficial={() => undefined}
+        onOpenPlayground={() => undefined}
+      />,
+    )
+    const explanationTrigger = screen.getByRole("group", {
+      name: "Pubblica formazione: Nessuna prossima partita",
+    })
+
+    expect(explanationTrigger).toHaveAttribute("tabindex", "0")
+    expect(explanationTrigger).toHaveAccessibleDescription(
+      "Nessuna prossima partita",
+    )
+    const officialAction = screen.getByRole("button", {
+      name: "Pubblica formazione",
+    })
+    expect(officialAction).toBeDisabled()
+    expect(officialAction).toHaveAccessibleDescription(
+      "Nessuna prossima partita",
+    )
+  })
 })

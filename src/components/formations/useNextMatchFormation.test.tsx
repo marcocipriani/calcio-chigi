@@ -30,11 +30,12 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 }))
 
 function Probe() {
-  const { loading, match } = useNextMatchFormation()
+  const { error, loading, match } = useNextMatchFormation()
   return (
     <>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="match">{JSON.stringify(match)}</span>
+      <span data-testid="error">{error?.message ?? ""}</span>
     </>
   )
 }
@@ -81,5 +82,22 @@ describe("useNextMatchFormation", () => {
       }),
     )
     expect(databaseMocks.query.select).toHaveBeenCalledWith("id,published_at")
+  })
+
+  it("does not represent a failed official lookup as an unpublished formation", async () => {
+    databaseMocks.query.maybeSingle.mockResolvedValue({
+      data: null,
+      error: new Error("official lookup failed"),
+    })
+
+    render(<Probe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("loading")).toHaveTextContent("false")
+    })
+    expect(screen.getByTestId("match")).toHaveTextContent(/^null$/)
+    expect(screen.getByTestId("error")).toHaveTextContent(
+      "official lookup failed",
+    )
   })
 })

@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { ClipboardList, Radio } from "lucide-react"
 
 import {
@@ -24,6 +25,8 @@ export function TeamTitleBar({
   onOpenPlayground: () => void
   onOpenOfficial: () => void
 }): React.JSX.Element {
+  const unavailableDescriptionId = useId()
+
   return (
     <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
       <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
@@ -52,8 +55,23 @@ export function TeamTitleBar({
         {isManager && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex">
+              <span
+                aria-describedby={
+                  match === null ? unavailableDescriptionId : undefined
+                }
+                aria-label={
+                  match === null
+                    ? "Pubblica formazione: Nessuna prossima partita"
+                    : undefined
+                }
+                className="inline-flex rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                role={match === null ? "group" : undefined}
+                tabIndex={match === null ? 0 : undefined}
+              >
                 <Button
+                  aria-describedby={
+                    match === null ? unavailableDescriptionId : undefined
+                  }
                   aria-label="Pubblica formazione"
                   className="size-9 bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:px-3"
                   disabled={match === null}
@@ -65,11 +83,16 @@ export function TeamTitleBar({
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent className="sm:hidden">
+            <TooltipContent className={match === null ? undefined : "sm:hidden"}>
               {match === null
                 ? "Nessuna prossima partita"
                 : "Pubblica formazione"}
             </TooltipContent>
+            {match === null && (
+              <span className="sr-only" id={unavailableDescriptionId}>
+                Nessuna prossima partita
+              </span>
+            )}
           </Tooltip>
         )}
       </div>

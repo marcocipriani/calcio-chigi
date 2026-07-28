@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect, useRef } from "react"
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 import { toPng } from 'html-to-image'
 import ExcelJS from 'exceljs'
@@ -36,19 +36,19 @@ import Image from "next/image"
 
 import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
-import { fetchNextChigiMatch, fetchRosterForEvent } from "@/lib/api"
+import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
-import { buildOfficialFormationMessage } from "@/lib/formations"
+import { buildOfficialFormationMessage, buildPersonalFormationMessage } from "@/lib/formations"
 import { getAge, isU35 } from "@/lib/utils"
 
-type Player = FullProfile
+type Player = FullProfile & { training_only?: boolean }
 
 type FormationSlotDef = { id: string; top?: string; left?: string };
 
 const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
 
-function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole }: {
-    player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void
+function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole, showOfficialControls }: {
+    player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, showOfficialControls: boolean
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `list-${player.id}`,
@@ -72,7 +72,7 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
 
     return (
         <div ref={setNodeRef} style={style} className={`h-full relative group ${isSelected ? 'opacity-40 grayscale' : ''}`}>
-            <Dialog>
+            {showOfficialControls && <Dialog>
                 <DialogTrigger asChild>
                     <Button aria-label={`Dettagli di ${player.nome} ${player.cognome}`} variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 z-20 text-slate-600 hover:text-primary hover:bg-slate-100/50 rounded-full dark:text-slate-300" onClick={(e) => e.stopPropagation()} >
                         <Info aria-hidden="true" className="h-4 w-4" />
@@ -114,7 +114,7 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
                         </div>
                     </div>
                 </DialogContent>
-            </Dialog>
+            </Dialog>}
             <Card
                 {...listeners} {...attributes}
                 className={`flex flex-col items-center justify-center p-3 gap-2 cursor-grab active:cursor-grabbing transition-[border-color,box-shadow,opacity,filter] h-full hover:shadow-md border select-none
@@ -165,12 +165,13 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
     )
 }
 
-function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void }) {
+function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole, showOfficialControls }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, showOfficialControls: boolean }) {
     const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.id}`, data: { slotId: slot.id } });
     const baseStyle = isBench ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-[transform,border-color,background-color] duration-200 z-10";
     const displayRole = slot.id.replace(/[0-9]/g, '');
+    const emptySlotClassName = `${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${isOver && !isMobile ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5 hover:bg-white/10'}`;
     return (
-        <div ref={isMobile ? null : setNodeRef} className={`${baseStyle} ${isOver && !isMobile ? 'scale-110 border-blue-500 bg-blue-500/20' : ''}`} style={!isBench ? { top: slot.top, left: slot.left } : {}} onClick={onMobileClick}>
+        <div ref={isMobile ? null : setNodeRef} className={`${baseStyle} ${isOver && !isMobile ? 'scale-110 border-blue-500 bg-blue-500/20' : ''}`} style={!isBench ? { top: slot.top, left: slot.left } : {}} onClick={isMobile && playerInSlot ? onMobileClick : undefined}>
             {playerInSlot ? (
                 <div className="relative group">
                     <Popover>
@@ -182,9 +183,11 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                         <PopoverContent className="w-40 p-2">
                             <div className="grid gap-2">
                                 <div className="font-bold text-xs border-b pb-1 text-center">{playerInSlot.cognome}</div>
-                                <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('K', playerInSlot.id)}><Crown className="mr-2 h-3 w-3 text-yellow-500" /> Capitano</Button>
-                                <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('VK', playerInSlot.id)}><Award className="mr-2 h-3 w-3 text-slate-500" /> Vice Cap.</Button>
-                                <Button size="sm" variant="ghost" className="h-8 justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onSetRole(null, playerInSlot.id)}><X className="mr-2 h-3 w-3" /> Rimuovi Ruoli</Button>
+                                {showOfficialControls && <>
+                                    <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('K', playerInSlot.id)}><Crown className="mr-2 h-3 w-3 text-yellow-500" /> Capitano</Button>
+                                    <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('VK', playerInSlot.id)}><Award className="mr-2 h-3 w-3 text-slate-500" /> Vice Cap.</Button>
+                                    <Button size="sm" variant="ghost" className="h-8 justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onSetRole(null, playerInSlot.id)}><X className="mr-2 h-3 w-3" /> Rimuovi Ruoli</Button>
+                                </>}
                                 <Button size="sm" variant="destructive" className="h-8 justify-start text-xs mt-1" onClick={onRemove}><Trash2 className="mr-2 h-3 w-3" /> Togli dal campo</Button>
                             </div>
                         </PopoverContent>
@@ -192,20 +195,40 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                     <button aria-label={`Rimuovi ${playerInSlot.nome} ${playerInSlot.cognome} dal campo`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-700 hover:bg-red-800 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95" type="button"><X aria-hidden="true" className="h-3 w-3 stroke-[3]" /></button>
                 </div>
             ) : (
-                <div className={`${isBench ? 'h-10 w-10 rounded-lg' : 'h-14 w-14 rounded-full'} border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${isOver && !isMobile ? 'border-amber-400 bg-amber-400/30' : 'border-white/30 bg-white/5 hover:bg-white/10'}`}>
-                    {isBench ? <UserPlus className="h-4 w-4 text-slate-300" /> : <span className="text-[10px] font-black text-white/40 tracking-wider">{displayRole}</span>}
-                </div>
+                isMobile ? (
+                    <button
+                        aria-label={`Seleziona giocatore per ${slot.id}`}
+                        className={emptySlotClassName}
+                        onClick={onMobileClick}
+                        type="button"
+                    >
+                        {isBench ? <UserPlus aria-hidden="true" className="h-4 w-4 text-slate-300" /> : <span className="text-[10px] font-black text-white/40 tracking-wider">{displayRole}</span>}
+                    </button>
+                ) : (
+                    <div className={emptySlotClassName}>
+                        {isBench ? <UserPlus className="h-4 w-4 text-slate-300" /> : <span className="text-[10px] font-black text-white/40 tracking-wider">{displayRole}</span>}
+                    </div>
+                )
             )}
         </div>
     )
 }
 
-export function FormationBuilder() {
+export type FormationBuilderMode = "PLAYGROUND" | "OFFICIAL"
+
+export function FormationBuilder({
+    mode,
+    onPublished,
+}: {
+    mode: FormationBuilderMode
+    onPublished?: () => void | Promise<void>
+}): React.JSX.Element {
     const { isManager, profile } = useAppSession()
     const [players, setPlayers] = useState<Player[]>([])
     const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([])
     const [module, setModule] = useState("4-4-2")
     const [loading, setLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState("")
     const [lineup, setLineup] = useState<Record<string, Player>>({})
     const [activePlayer, setActivePlayer] = useState<Player | null>(null)
@@ -220,13 +243,33 @@ export function FormationBuilder() {
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
     const fieldRef = useRef<HTMLDivElement>(null)
 
+    const loadFormationContext = useCallback(async function loadFormationContext() {
+        setLoading(true)
+        try {
+            if (mode === "PLAYGROUND") {
+                setNextMatch(null)
+                setPlayers(await fetchPublicFormationRoster(supabaseBrowser))
+            } else {
+                const match = await fetchNextChigiMatch(supabaseBrowser)
+                setNextMatch(match)
+                setPlayers(match ? await fetchRosterForEvent(supabaseBrowser, match.id) : [])
+            }
+            setLoadError(null)
+        } catch (error) {
+            setPlayers([])
+            setLoadError(error instanceof Error ? error.message : "Rosa non disponibile")
+        } finally {
+            setLoading(false)
+        }
+    }, [mode])
+
     useEffect(() => {
         void loadFormationContext()
         const checkMobile = () => setIsMobile(window.innerWidth < 1024);
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
-    }, [])
+    }, [loadFormationContext])
 
     useEffect(() => {
         const currentPlayerIds = Object.values(lineup).map((p) => p.id);
@@ -236,38 +279,11 @@ export function FormationBuilder() {
     }, [lineup])
 
     useEffect(() => {
-        let result = players;
+        let result = players.filter((player) => !player.is_staff && !player.training_only);
         const lowerTerm = searchTerm.toLowerCase();
         if (lowerTerm) result = result.filter(p => p.nome?.toLowerCase().includes(lowerTerm) || p.cognome?.toLowerCase().includes(lowerTerm));
         setFilteredPlayers(result);
     }, [searchTerm, players]);
-
-    async function loadFormationContext() {
-        const match = await fetchNextChigiMatch(supabaseBrowser)
-        setNextMatch(match)
-        if (!match) {
-            setPlayers([])
-            setLoading(false)
-            return
-        }
-
-        const roster = await fetchRosterForEvent(supabaseBrowser, match.id)
-        setPlayers(roster.filter((row) => !row.is_staff && !row.training_only).map((row) => ({
-            id: row.id,
-            nome: row.nome,
-            cognome: row.cognome,
-            avatar_url: row.avatar_url,
-            data_nascita: row.data_nascita,
-            ruolo: row.ruolo,
-            numero_maglia: row.numero_maglia,
-            dipartimento: row.dipartimento,
-            tags: row.tags,
-            is_staff: false,
-            is_manager: false,
-            note_mediche: 'OK',
-        })))
-        setLoading(false)
-    }
 
     const downloadExcelDistinta = async () => {
         try {
@@ -411,7 +427,28 @@ export function FormationBuilder() {
                 link.download = `circolo-chigi-formazione-${timestamp}.png`;
                 link.href = dataUrl;
                 link.click();
-            } catch (err) { console.error("Errore salvataggio", err); }
+            } catch (err) {
+                console.error("Errore salvataggio", err);
+                toast.error("Impossibile scaricare la formazione");
+            }
+        }
+    }
+
+    const copyPersonalFormation = async () => {
+        const message = buildPersonalFormationMessage(
+            module,
+            jerseyColor,
+            Object.entries(lineup).map(([positionKey, player]) => ({
+                positionKey,
+                nome: player.nome,
+                cognome: player.cognome,
+            })),
+        )
+        try {
+            await navigator.clipboard.writeText(message)
+            toast.success("Formazione copiata")
+        } catch {
+            toast.error("Impossibile copiare la formazione")
         }
     }
 
@@ -451,6 +488,10 @@ export function FormationBuilder() {
     }
 
     const publishOfficialFormation = async () => {
+        if (mode !== "OFFICIAL" || !isManager) {
+            toast.error("Operazione riservata ai manager.")
+            return
+        }
         if (!nextMatch || !profile || Object.keys(lineup).length === 0) {
             toast.error("Servono una partita e almeno un convocato.")
             return
@@ -475,12 +516,18 @@ export function FormationBuilder() {
             return
         }
         toast.success("Formazione ufficiale pubblicata e notificata")
+        await onPublished?.()
     }
 
     const sortedForMobile = [...filteredPlayers].sort((a, b) => { return a.cognome.localeCompare(b.cognome); });
+    const showOfficialControls = mode === "OFFICIAL" && isManager
+    const title = mode === "PLAYGROUND" ? "Crea la tua formazione" : "Formazione ufficiale"
+    const subtitle = mode === "PLAYGROUND"
+        ? "Playground locale: la formazione resta su questo dispositivo"
+        : "Prepara distinta, messaggio e pubblicazione della prossima partita"
 
     if (loading) return (
-        <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start">
+        <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start" data-formation-builder-mode={mode}>
             <div className="flex-none lg:w-[55%] space-y-3">
                 <div className="flex justify-between items-center mb-2">
                     <div className="space-y-2"><Skeleton className="h-8 w-24" /><Skeleton className="h-3 w-40" /></div>
@@ -498,18 +545,30 @@ export function FormationBuilder() {
         </div>
     )
 
+    if (loadError) return (
+        <div className="container max-w-7xl mx-auto p-4 pb-24" data-formation-builder-mode={mode}>
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+                <h2 className="text-xl font-black">{title}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+                <Button className="mt-4" onClick={() => void loadFormationContext()} type="button">
+                    Riprova
+                </Button>
+            </div>
+        </div>
+    )
+
     return (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start">
+            <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start" data-formation-builder-mode={mode}>
 
                 <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-2xl font-black text-foreground tracking-tight">Crea formazione</h2>
-                            <p className="text-xs text-muted-foreground font-bold">Libera e salvabile come immagine</p>
+                            <h2 className="text-2xl font-black text-foreground tracking-tight">{title}</h2>
+                            <p className="text-xs text-muted-foreground font-bold">{subtitle}</p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
                             <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-md p-0.5 border border-slate-200">
                                 <button aria-label="Maglia blu" aria-pressed={jerseyColor === 'BLU'} onClick={() => setJerseyColor('BLU')} className={`p-1.5 rounded-sm transition-[opacity,box-shadow,background-color] ${jerseyColor === 'BLU' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-60 hover:opacity-100'}`} type="button">
                                     <Shirt aria-hidden="true" className="h-5 w-5 text-blue-700 fill-blue-700" />
@@ -539,16 +598,23 @@ export function FormationBuilder() {
                                     <PopoverTrigger asChild>
                                         <Button aria-label="Esporta formazione" size="icon" variant="outline" className="h-9 w-9"><Download aria-hidden="true" className="h-4 w-4" /></Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-48 p-2 flex flex-col gap-1">
-                                        <Button onClick={downloadImage} variant="ghost" className="justify-start text-xs h-8">
-                                            <ImageIcon aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica formazione
+                                    <PopoverContent className="w-48 p-2 flex flex-col gap-1" role="menu">
+                                        <Button onClick={downloadImage} role="menuitem" variant="ghost" className="justify-start text-xs h-8">
+                                            <ImageIcon aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica PNG
                                         </Button>
-                                        <Button onClick={downloadExcelDistinta} variant="ghost" className="justify-start text-xs h-8">
-                                            <FileSpreadsheet className="mr-2 h-3 w-3" /> Scarica distinta
-                                        </Button>
+                                        {mode === "PLAYGROUND" && (
+                                            <Button onClick={copyPersonalFormation} role="menuitem" variant="ghost" className="justify-start text-xs h-8">
+                                                <Copy aria-hidden="true" className="mr-2 h-3 w-3" /> Copia messaggio
+                                            </Button>
+                                        )}
+                                        {showOfficialControls && (
+                                            <Button onClick={downloadExcelDistinta} role="menuitem" variant="ghost" className="justify-start text-xs h-8">
+                                                <FileSpreadsheet aria-hidden="true" className="mr-2 h-3 w-3" /> Scarica distinta
+                                            </Button>
+                                        )}
                                     </PopoverContent>
                                 </Popover>
-                                {isManager && (
+                                {showOfficialControls && (
                                     <>
                                         <Button
                                             aria-label="Copia messaggio WhatsApp"
@@ -558,7 +624,7 @@ export function FormationBuilder() {
                                             title="Copia messaggio WhatsApp"
                                             variant="outline"
                                         >
-                                            <Copy className="h-4 w-4" />
+                                            <Copy aria-hidden="true" className="h-4 w-4" />
                                         </Button>
                                         <Button
                                             aria-label="Pubblica formazione ufficiale"
@@ -567,7 +633,7 @@ export function FormationBuilder() {
                                             size="icon"
                                             title="Pubblica formazione ufficiale"
                                         >
-                                            <Send className="h-4 w-4" />
+                                            <Send aria-hidden="true" className="h-4 w-4" />
                                         </Button>
                                     </>
                                 )}
@@ -615,6 +681,7 @@ export function FormationBuilder() {
                                     viceCaptainId={viceCaptainId}
                                     jerseyColor={jerseyColor}
                                     onSetRole={handleSetRole}
+                                    showOfficialControls={showOfficialControls}
                                 />
                             ))}
                         </div>
@@ -634,6 +701,7 @@ export function FormationBuilder() {
                                     viceCaptainId={viceCaptainId}
                                     jerseyColor={jerseyColor}
                                     onSetRole={handleSetRole}
+                                    showOfficialControls={showOfficialControls}
                                 />
                             ))}
                         </div>
@@ -664,6 +732,7 @@ export function FormationBuilder() {
                                     captainId={captainId}
                                     viceCaptainId={viceCaptainId}
                                     onSetRole={handleSetRole}
+                                    showOfficialControls={showOfficialControls}
                                 />
                             </div>
                         ))}
@@ -682,7 +751,7 @@ export function FormationBuilder() {
                                     <button disabled={isSelected} key={p.id} onClick={() => handleMobilePlayerSelect(p)} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${isSelected ? 'cursor-not-allowed bg-muted opacity-50' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`} type="button">
                                         <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2"><p className={`font-bold text-sm ${isInjured ? 'text-red-600' : ''}`}>{p.cognome} {p.nome}</p>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
+                                            <div className="flex items-center gap-2"><p className={`text-sm ${isInjured ? 'text-red-600' : ''}`}><span className="font-bold">{p.cognome}</span>{" "}<span>{p.nome}</span></p>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
                                             <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
                                         </div>
                                         {isSelected ? <Badge variant="secondary" className="text-[9px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}

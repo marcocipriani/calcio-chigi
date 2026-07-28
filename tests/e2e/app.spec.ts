@@ -286,14 +286,122 @@ test("dashboard manager densa con azioni rapide", async ({
   await expectNoSeriousA11yViolations(page)
 })
 
-test("il playground anonimo usa soltanto la rosa pubblica", async ({ page }) => {
+test("il playground anonimo usa soltanto la rosa pubblica", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  await context.grantPermissions(["clipboard-read"], {
+    origin: "http://127.0.0.1:3100",
+  })
+  const supabaseWrites: string[] = []
+  page.on("request", (request) => {
+    if (
+      request.url().includes("/rest/v1/") &&
+      ["DELETE", "PATCH", "POST", "PUT"].includes(request.method())
+    ) {
+      supabaseWrites.push(`${request.method()} ${request.url()}`)
+    }
+  })
   await page.goto("/squadra")
   await page.getByRole("button", { name: "Crea la tua formazione" }).click()
   const builder = page.locator('[data-formation-builder-mode="PLAYGROUND"]')
+  await expect(
+    page.getByRole("heading", { name: "Crea la tua formazione" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Esporta formazione" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Esporta formazione" }).click()
+  await expect(page.getByRole("menuitem", { name: "Scarica PNG" })).toBeVisible()
+  await expect(
+    page.getByRole("menuitem", { name: "Copia messaggio" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Pubblica formazione ufficiale" }),
+  ).toHaveCount(0)
+  await expect(page.getByText("Scarica distinta")).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Copia messaggio WhatsApp" }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: "Dettagli di Piero Player" }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("button", { name: /^(Vice )?Capitano$/ }),
+  ).toHaveCount(0)
   await expect(builder.getByText("Piero", { exact: true }).first()).toBeVisible()
   await expect(builder.getByText("Marco", { exact: true }).first()).toBeVisible()
   await expect(builder.getByText("Nino", { exact: true })).toHaveCount(0)
   await expect(builder.getByText("Sara", { exact: true })).toHaveCount(0)
+
+  await page
+    .getByRole("button", { name: "Seleziona giocatore per POR" })
+    .click()
+  await page.getByRole("dialog").getByText("Piero", { exact: true }).click()
+  await page.getByRole("button", { name: "Esporta formazione" }).click()
+  await page.getByRole("menuitem", { name: "Copia messaggio" }).click()
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain("LA MIA FORMAZIONE")
+  const downloadPng = page.getByRole("menuitem", { name: "Scarica PNG" })
+  if (!(await downloadPng.isVisible())) {
+    await page.getByRole("button", { name: "Esporta formazione" }).click()
+  }
+  const downloadPromise = page.waitForEvent("download")
+  await downloadPng.click()
+  await expect.poll(async () => (await downloadPromise).suggestedFilename()).toMatch(
+    /^circolo-chigi-formazione-.+\.png$/,
+  )
+  expect(supabaseWrites).toEqual([])
+})
+
+test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto("/squadra")
+
+  await expect(page.getByTestId("next-match-capsule")).toHaveAttribute(
+    "data-state",
+    "draft",
+  )
+  await page.getByRole("button", { name: "Pubblica formazione" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Formazione ufficiale" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Pubblica formazione ufficiale" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Esporta formazione" }).click()
+  await expect(page.getByText("Scarica distinta")).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileWidth = await page.evaluate(() => ({
+    content: document.documentElement.scrollWidth,
+    viewport: window.innerWidth,
+  }))
+  expect(mobileWidth.content).toBeLessThanOrEqual(mobileWidth.viewport)
+  await page
+    .getByRole("button", { name: "Seleziona giocatore per ATT1" })
+    .click()
+  await page.getByRole("dialog").getByText("Piero", { exact: true }).click()
+  await page
+    .getByRole("button", { name: "Dettagli di Piero Player" })
+    .click()
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Capitano", exact: true })
+    .click()
+  await page.keyboard.press("Escape")
+  await page
+    .getByRole("button", { name: "Pubblica formazione ufficiale" })
+    .click()
+  await expect(
+    page.getByText("Formazione ufficiale pubblicata e notificata"),
+  ).toBeVisible()
+  await expect(page.getByTestId("next-match-capsule")).toHaveAttribute(
+    "data-state",
+    "published",
+  )
 })
 
 test("builder formazione privato e leggero", async ({
@@ -305,9 +413,9 @@ test("builder formazione privato e leggero", async ({
   await page.goto("/squadra")
 
   await page.getByRole("button", { name: "Più tardi" }).click()
-  await page.getByRole("button", { name: "Crea formazione" }).click()
+  await page.getByRole("button", { name: "Crea la tua formazione" }).click()
   await expect(
-    page.getByRole("heading", { name: "Crea formazione" }),
+    page.getByRole("heading", { name: "Crea la tua formazione" }),
   ).toBeVisible()
   await expect(page.getByLabel("Maglia blu")).toHaveAttribute(
     "aria-pressed",

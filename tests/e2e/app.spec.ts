@@ -1,6 +1,12 @@
 import AxeBuilder from "@axe-core/playwright"
 import { createClient } from "@supabase/supabase-js"
-import { expect, test, type BrowserContext, type Page } from "@playwright/test"
+import {
+  devices,
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test"
 
 async function authenticate(
   context: BrowserContext,
@@ -167,6 +173,41 @@ test("rosa pubblica mobile separa lo staff ed esclude i no", async ({
   await expect(page.getByText("Nino Escluso")).toHaveCount(0)
   await expect(page.getByText(/accedi con un profilo approvato/i)).toBeVisible()
   await expectNoSeriousA11yViolations(page)
+})
+
+test("griglia rosa responsive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto("/squadra")
+  const grid = page.locator("[data-player-grid]")
+  await expect(grid).toBeVisible()
+
+  const columnCount = () =>
+    grid.evaluate(
+      (element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").length,
+    )
+
+  const expectNoHorizontalOverflow = async () => {
+    const metrics = await page.evaluate(() => ({
+      contentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    }))
+    expect(metrics.contentWidth).toBeLessThanOrEqual(metrics.viewportWidth)
+  }
+
+  await expect.poll(columnCount).toBe(2)
+  await expectNoHorizontalOverflow()
+  await page.setViewportSize({ width: 350, height: 800 })
+  await expect.poll(columnCount).toBe(2)
+  await page.setViewportSize({ width: 360, height: 800 })
+  await expect.poll(columnCount).toBe(3)
+  await expectNoHorizontalOverflow()
+  await page.setViewportSize(devices["iPhone 13"].viewport)
+  await expect.poll(columnCount).toBe(3)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await expect.poll(columnCount).toBe(6)
 })
 
 test("statistiche torneo pubbliche e presenze protette", async ({ page }) => {

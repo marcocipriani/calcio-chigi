@@ -1,6 +1,8 @@
 import { differenceInYears, format, subMinutes } from "date-fns"
 import { it } from "date-fns/locale"
 
+import { FORMATIONS } from "@/lib/constants"
+
 type FormationEvent = {
   data_ora: string | null
   luogo?: string | null
@@ -15,6 +17,12 @@ type FormationMessagePlayer = {
   role?: string | null
   birthDate?: string | null
   isStarter: boolean
+}
+
+export type PersonalFormationEntry = {
+  nome: string
+  cognome: string
+  positionKey: string
 }
 
 export function isUnderPlayer(
@@ -81,4 +89,38 @@ ${lines(starters)}
 ${lines(bench)}
 
 Ci vediamo al campo! 💪`
+}
+
+export function buildPersonalFormationMessage(
+  module: string,
+  shirtColor: string,
+  entries: PersonalFormationEntry[],
+): string {
+  const roleBySlot = new Map(
+    (FORMATIONS[module] ?? []).map(({ id, role }) => [id, role]),
+  )
+  const groups = [
+    { role: "PT", title: "🧤 PORTIERE" },
+    { role: "DIF", title: "🛡️ DIFESA" },
+    { role: "CEN", title: "⚙️ CENTROCAMPO" },
+    { role: "ATT", title: "🎯 ATTACCO" },
+    { role: "BENCH", title: "🪑 PANCHINA" },
+  ]
+  const sections = groups.flatMap(({ role, title }) => {
+    const players = entries.filter(({ positionKey }) =>
+      role === "BENCH"
+        ? positionKey.startsWith("P") && !roleBySlot.has(positionKey)
+        : roleBySlot.get(positionKey) === role,
+    )
+    return players.length
+      ? [
+          `${title}\n${players
+            .map(({ nome, cognome }) => `${nome} ${cognome}`)
+            .join("\n")}`,
+        ]
+      : []
+  })
+  const shirt = shirtColor === "ROSSA" ? "🔴 Maglia rossa" : "🔵 Maglia blu"
+
+  return `⚽ LA MIA FORMAZIONE · ${module}\n\n${sections.join("\n\n")}\n\n${shirt}`
 }

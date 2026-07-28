@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildOfficialFormationMessage,
+  buildPersonalFormationMessage,
   isUnderPlayer,
 } from "@/lib/formations"
 
@@ -47,5 +48,44 @@ describe("buildOfficialFormationMessage", () => {
     expect(message).toContain("Marco Portiere [PORTIERE]")
     expect(message).toContain("PANCHINA")
     expect(message).toContain("Luca Under [UNDER]")
+  })
+})
+
+describe("buildPersonalFormationMessage", () => {
+  it("groups selected players by formation department", () => {
+    expect(
+      buildPersonalFormationMessage("4-3-3", "BLU", [
+        { nome: "Marco", cognome: "Rossi", positionKey: "POR" },
+        { nome: "Gianluca", cognome: "Menichini", positionKey: "DC1" },
+        { nome: "Elio", cognome: "Dorbolò", positionKey: "CC" },
+        { nome: "Luca", cognome: "Palladino", positionKey: "ATT" },
+      ]),
+    ).toBe(`⚽ LA MIA FORMAZIONE · 4-3-3
+
+🧤 PORTIERE
+Marco Rossi
+
+🛡️ DIFESA
+Gianluca Menichini
+
+⚙️ CENTROCAMPO
+Elio Dorbolò
+
+🎯 ATTACCO
+Luca Palladino
+
+🔵 Maglia blu`)
+  })
+
+  it("omits empty departments and keeps bench separate", () => {
+    const message = buildPersonalFormationMessage("4-4-2", "ROSSA", [
+      { nome: "Luca", cognome: "Palladino", positionKey: "ATT1" },
+      { nome: "Andrea", cognome: "Fontana", positionKey: "P1" },
+    ])
+
+    expect(message).not.toContain("PORTIERE")
+    expect(message).toContain("🎯 ATTACCO\nLuca Palladino")
+    expect(message).toContain("🪑 PANCHINA\nAndrea Fontana")
+    expect(message).toContain("🔴 Maglia rossa")
   })
 })

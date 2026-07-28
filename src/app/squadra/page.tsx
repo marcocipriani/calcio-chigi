@@ -6,11 +6,12 @@ import Link from "next/link"
 import { ClipboardList, LogIn } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { useNextMatchFormation } from "@/components/formations/useNextMatchFormation"
+import { PageContainer } from "@/components/layout/PageContainer"
 import { PublicTeam } from "@/components/team/PublicTeam"
-import { OfficialFormationCard } from "@/components/formations/OfficialFormationCard"
+import { TeamTitleBar } from "@/components/team/TeamTitleBar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { PageContainer } from "@/components/layout/PageContainer"
 
 const FormationBuilder = dynamic(
   () =>
@@ -24,16 +25,19 @@ const FormationBuilder = dynamic(
 )
 
 export default function TeamPage() {
-  const { isAssociated, loading, user } = useAppSession()
+  const { isAssociated, isManager, loading, user } = useAppSession()
+  const { match } = useNextMatchFormation()
   const [builderOpen, setBuilderOpen] = useState(false)
 
   return (
     <PageContainer contentClassName="mx-auto max-w-7xl space-y-5 pb-24">
-      <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
-        Squadra
-      </h1>
+      <TeamTitleBar
+        isManager={isManager}
+        match={match}
+        onOpenOfficial={() => undefined}
+        onOpenPlayground={() => undefined}
+      />
       <PublicTeam />
-      {isAssociated && <OfficialFormationCard />}
 
       <section className="rounded-xl border bg-card p-4 shadow-xs">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

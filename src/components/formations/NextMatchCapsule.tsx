@@ -41,7 +41,7 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
   const published = match.publishedAt !== null
 
   return (
-    <span
+    <div
       className={cn(
         "flex min-h-14 min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2",
         published
@@ -61,25 +61,25 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
           {match.opponent.trim().charAt(0).toLocaleUpperCase("it")}
         </AvatarFallback>
       </Avatar>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-black leading-tight">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black leading-tight">
           {match.opponent}
-        </span>
-        <span
+        </p>
+        <p
           className={cn(
-            "block text-[11px] leading-tight",
+            "text-[11px] leading-tight",
             published ? "text-white/80" : "text-red-700/80",
           )}
         >
           {formatInRome(match.startsAt, "EEE d MMM · HH:mm")}
-        </span>
-        <span className="mt-0.5 block text-[11px] font-semibold leading-tight">
+        </p>
+        <p className="mt-0.5 text-[11px] font-semibold leading-tight">
           {published
             ? `Pubblicata il ${formatInRome(match.publishedAt!, "d MMM · HH:mm")}`
             : "Da pubblicare"}
-        </span>
-      </span>
-    </span>
+        </p>
+      </div>
+    </div>
   )
 }
 

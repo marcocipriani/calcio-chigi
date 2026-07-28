@@ -9,6 +9,8 @@ import {
 } from "@playwright/test"
 
 const E2E_MATCH_ID = "92000000-0000-0000-0000-000000000001"
+const OFFICIAL_FORMATION_TEST_TITLE =
+  "capsula formazione passa da bozza a pubblicata"
 
 async function authenticate(
   context: BrowserContext,
@@ -80,11 +82,12 @@ async function expectSharedPageViewport(page: Page) {
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
-  const metrics = await page.evaluate(() => ({
-    contentWidth: document.documentElement.scrollWidth,
-    viewportWidth: window.innerWidth,
-  }))
-  expect(metrics.contentWidth).toBeLessThanOrEqual(metrics.viewportWidth)
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(1)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -92,7 +95,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.afterEach(async ({}, testInfo) => {
-  if (testInfo.title !== "modalità ufficiale manager") return
+  if (testInfo.title !== OFFICIAL_FORMATION_TEST_TITLE) return
 
   const serviceClient = createClient(
     process.env.E2E_SUPABASE_URL!,
@@ -199,7 +202,12 @@ test("rosa pubblica mobile separa lo staff ed esclude i no", async ({
   await expect(page.getByRole("heading", { name: "Forse" })).toBeVisible()
   await expect(page.getByText("Sara Massaggiatrice")).toBeVisible()
   await expect(page.getByText("Nino Escluso")).toHaveCount(0)
-  await expect(page.getByText(/accedi con un profilo approvato/i)).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Crea la tua formazione" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Pubblica formazione" }),
+  ).toHaveCount(0)
   await expectNoSeriousA11yViolations(page)
 })
 
@@ -226,8 +234,24 @@ test("griglia rosa responsive", async ({ page }, testInfo) => {
   await expectNoHorizontalOverflow(page)
   await page.setViewportSize(devices["iPhone 13"].viewport)
   await expect.poll(columnCount).toBe(3)
+  await page.setViewportSize({ width: 768, height: 1024 })
+  await expect.poll(columnCount).toBe(4)
+  await expectNoHorizontalOverflow(page)
   await page.setViewportSize({ width: 1440, height: 1000 })
   await expect.poll(columnCount).toBe(6)
+})
+
+test("overflow orizzontale assente su squadra e torneo", async ({
+  page,
+}) => {
+  for (const route of ["/squadra", "/torneo"]) {
+    await test.step(route, async () => {
+      await page.goto(route)
+      await expectBottomNavClearance(page)
+      await expectSharedPageViewport(page)
+      await expectNoHorizontalOverflow(page)
+    })
+  }
 })
 
 test("selettore torneo", async ({ page }) => {
@@ -427,7 +451,7 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   expect(supabaseWrites).toEqual([])
 })
 
-test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
+test(OFFICIAL_FORMATION_TEST_TITLE, async ({ context, page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop")
   await authenticate(context, "manager@chigi.test", "Manager123!")
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
@@ -501,6 +525,14 @@ test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
     "data-state",
     "published",
   )
+  await expect(page.getByTestId("next-match-capsule")).toContainText(
+    "Pubblicata il",
+  )
+  await expect(
+    page.getByRole("link", {
+      name: "Formazione ufficiale contro PSICOLOGOL",
+    }),
+  ).toHaveAttribute("href", `/evento/${E2E_MATCH_ID}`)
   expect(publishRequestCount).toBe(1)
 
   const serviceClient = createClient(

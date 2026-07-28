@@ -39,10 +39,10 @@ export function TournamentSelector({
       <Select onValueChange={onValueChange} value={value}>
         <SelectTrigger
           aria-label="Torneo"
-          className="mt-1 w-full sm:w-[320px]"
+          className="mt-1 min-w-0 w-full sm:w-[320px]"
           id="tournament-selector"
         >
-          <SelectValue />
+          <SelectValue className="truncate" />
         </SelectTrigger>
         <SelectContent>
           {TOURNAMENTS.map((tournament) => (

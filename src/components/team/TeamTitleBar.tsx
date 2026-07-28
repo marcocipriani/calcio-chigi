@@ -28,12 +28,12 @@ export function TeamTitleBar({
   const unavailableDescriptionId = useId()
 
   return (
-    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
-      <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+    <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+      <h1 className="min-w-0 text-2xl font-black tracking-tight sm:text-3xl">
         Squadra
       </h1>
 
-      <div className="order-2 flex items-center gap-1.5 sm:order-3 sm:col-start-3">
+      <div className="order-2 flex min-w-0 items-center gap-1.5 sm:order-3 sm:col-start-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -44,7 +44,9 @@ export function TeamTitleBar({
               variant="outline"
             >
               <ClipboardList aria-hidden="true" />
-              <span className="hidden sm:inline">Crea la tua formazione</span>
+              <span className="sr-only sm:not-sr-only">
+                Crea la tua formazione
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent className="sm:hidden">
@@ -79,7 +81,9 @@ export function TeamTitleBar({
                   size="sm"
                 >
                   <Radio aria-hidden="true" />
-                  <span className="hidden sm:inline">Pubblica formazione</span>
+                  <span className="sr-only sm:not-sr-only">
+                    Pubblica formazione
+                  </span>
                 </Button>
               </span>
             </TooltipTrigger>

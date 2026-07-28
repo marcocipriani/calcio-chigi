@@ -574,7 +574,7 @@ export function FormationBuilder({
 
                 <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
                     <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
+                        <div className="min-w-0 flex-1">
                             <h2 className="text-2xl font-black text-foreground tracking-tight">{title}</h2>
                             <p className="text-xs text-muted-foreground font-bold">{subtitle}</p>
                         </div>

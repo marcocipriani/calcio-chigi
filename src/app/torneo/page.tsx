@@ -194,13 +194,13 @@ export default function TorneoPage() {
   return (
     <PageContainer contentClassName="mx-auto max-w-4xl space-y-4 pb-24">
         
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
-            <div>
+        <div className="flex min-w-0 flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
+            <div className="min-w-0 flex-1">
                 <h1 className="text-3xl font-black text-foreground tracking-tight">Torneo</h1>
                 <TournamentSelector value={tournamentId} onValueChange={setTournamentId} />
             </div>
             
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Select value={activePhase} onValueChange={(v) => { setActivePhase(v as EventFase); setSelectedGiornataOverride(null); }}>
                     <SelectTrigger className="w-[200px] h-10 font-bold bg-card border-primary/20">
                         <SelectValue placeholder="Seleziona Fase" />

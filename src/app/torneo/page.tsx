@@ -15,6 +15,7 @@ import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageContainer } from "@/components/layout/PageContainer"
+import { TournamentSelector, TOURNAMENTS } from "@/components/tournament/TournamentSelector"
 import { StandingsContent } from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
@@ -27,6 +28,7 @@ export default function TorneoPage() {
   const [allMatches, setAllMatches] = useState<Event[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
+  const [tournamentId, setTournamentId] = useState(TOURNAMENTS[0].id)
   const [activePhase, setActivePhase] = useState<EventFase>('FASE_2_PROFESSIONISTI')
   const [comunicati, setComunicati] = useState<Comunicato[]>([])
 
@@ -195,7 +197,7 @@ export default function TorneoPage() {
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
             <div>
                 <h1 className="text-3xl font-black text-foreground tracking-tight">Torneo</h1>
-                <p className="text-xs text-muted-foreground font-bold">Campionato ASI Over35 2025/2026</p>
+                <TournamentSelector value={tournamentId} onValueChange={setTournamentId} />
             </div>
             
             <div className="flex flex-wrap items-center gap-2">

@@ -230,6 +230,17 @@ test("griglia rosa responsive", async ({ page }, testInfo) => {
   await expect.poll(columnCount).toBe(6)
 })
 
+test("selettore torneo", async ({ page }) => {
+  await page.goto("/torneo")
+
+  await expect(page.getByRole("combobox", { name: "Torneo" })).toHaveText(
+    "Campionato ASI Over35 2025/2026",
+  )
+  await expect(
+    page.locator("p", { hasText: "Campionato ASI Over35 2025/2026" }),
+  ).toHaveCount(0)
+})
+
 test("statistiche torneo pubbliche e presenze protette", async ({ page }) => {
   await page.goto("/statistiche")
 

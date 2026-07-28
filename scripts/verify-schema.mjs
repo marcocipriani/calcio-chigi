@@ -3,10 +3,13 @@ import { readFile } from "node:fs/promises"
 
 const migrationPath =
   "supabase/migrations/20260725010000_team_management.sql"
+const publicFormationSummaryMigrationPath =
+  "supabase/migrations/20260728010000_public_formation_summaries.sql"
 const schemaPath = "supabase/schema.sql"
 
-const [migration, schema] = await Promise.all([
+const [migration, publicFormationSummaryMigration, schema] = await Promise.all([
   readFile(migrationPath, "utf8"),
+  readFile(publicFormationSummaryMigrationPath, "utf8"),
   readFile(schemaPath, "utf8"),
 ])
 
@@ -63,7 +66,16 @@ assert.match(
 )
 assert.match(migration, /alter table public\.profiles enable row level security/i)
 assert.match(migration, /grant select on public\.public_active_roster to anon/i)
+assert.match(
+  publicFormationSummaryMigration,
+  /create or replace view public\.public_published_formation_summaries\s+with \(security_barrier = true\)/i,
+)
+assert.match(
+  schema,
+  /create or replace view public\.public_published_formation_summaries\s+with \(security_barrier = true\)/i,
+  "schema snapshot missing public published formation summaries",
+)
 
 console.log(
-  `Schema verification passed: ${expectedTables.length} tables, 4 safe views`,
+  `Schema verification passed: ${expectedTables.length} tables, 5 safe views`,
 )

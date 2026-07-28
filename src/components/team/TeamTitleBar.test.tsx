@@ -17,6 +17,8 @@ describe("TeamTitleBar", () => {
       <TeamTitleBar
         isManager={false}
         match={null}
+        matchError={null}
+        matchLoading={false}
         onOpenOfficial={() => undefined}
         onOpenPlayground={() => undefined}
       />,
@@ -34,6 +36,8 @@ describe("TeamTitleBar", () => {
       <TeamTitleBar
         isManager
         match={match}
+        matchError={null}
+        matchLoading={false}
         onOpenOfficial={() => undefined}
         onOpenPlayground={() => undefined}
       />,
@@ -48,6 +52,8 @@ describe("TeamTitleBar", () => {
       <TeamTitleBar
         isManager
         match={null}
+        matchError={null}
+        matchLoading={false}
         onOpenOfficial={() => undefined}
         onOpenPlayground={() => undefined}
       />,
@@ -62,6 +68,8 @@ describe("TeamTitleBar", () => {
       <TeamTitleBar
         isManager
         match={null}
+        matchError={null}
+        matchLoading={false}
         onOpenOfficial={() => undefined}
         onOpenPlayground={() => undefined}
       />,
@@ -81,5 +89,76 @@ describe("TeamTitleBar", () => {
     expect(officialAction).toHaveAccessibleDescription(
       "Nessuna prossima partita",
     )
+  })
+
+  it("keeps loading distinct from a genuine missing next match", () => {
+    render(
+      <TeamTitleBar
+        isManager
+        match={null}
+        matchError={null}
+        matchLoading
+        onOpenOfficial={() => undefined}
+        onOpenPlayground={() => undefined}
+      />,
+    )
+
+    const officialAction = screen.getByRole("button", {
+      name: "Pubblica formazione",
+    })
+    expect(officialAction).toBeDisabled()
+    expect(officialAction).toHaveAccessibleDescription(
+      "Caricamento prossima partita",
+    )
+    expect(officialAction).not.toHaveAccessibleDescription(
+      "Nessuna prossima partita",
+    )
+  })
+
+  it("exposes lookup failure without labelling it as no next match", () => {
+    render(
+      <TeamTitleBar
+        isManager
+        match={null}
+        matchError={new Error("official lookup failed")}
+        matchLoading={false}
+        onOpenOfficial={() => undefined}
+        onOpenPlayground={() => undefined}
+      />,
+    )
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Impossibile caricare la prossima partita",
+    )
+    const officialAction = screen.getByRole("button", {
+      name: "Pubblica formazione",
+    })
+    expect(officialAction).toHaveAccessibleDescription(
+      "Impossibile caricare la prossima partita",
+    )
+    expect(officialAction).not.toHaveAccessibleDescription(
+      "Nessuna prossima partita",
+    )
+  })
+
+  it("restores the season eyebrow and 44px mobile action targets", () => {
+    render(
+      <TeamTitleBar
+        isManager
+        match={match}
+        matchError={null}
+        matchLoading={false}
+        onOpenOfficial={() => undefined}
+        onOpenPlayground={() => undefined}
+      />,
+    )
+
+    expect(screen.getByText("Stagione in corso")).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: "Crea la tua formazione" }),
+    ).toHaveClass("size-11")
+    expect(
+      screen.getByRole("button", { name: "Pubblica formazione" }),
+    ).toHaveClass("size-11")
   })
 })

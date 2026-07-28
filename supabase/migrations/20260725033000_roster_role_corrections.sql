@@ -24,7 +24,14 @@ set
     'CENTROCAMPISTA'
   ),
   staff_function = null
-where profile_id = '9cdd5f23-5b99-4fb6-b7c9-54d7a978a8ff';
+where profile_id = '9cdd5f23-5b99-4fb6-b7c9-54d7a978a8ff'
+  and exists (
+    select 1
+    from public.profiles as profile
+    where profile.id = season_memberships.profile_id
+      and lower(profile.nome) = 'elio'
+      and lower(profile.cognome) in ('dorbolò', 'dorbolo')
+  );
 
 update public.profiles
 set
@@ -39,4 +46,11 @@ set
   category = 'STAFF',
   role = null,
   staff_function = 'Presidente'
-where profile_id = '65710aa2-96e3-49ad-973e-d4ddbe1b6f8d';
+where profile_id = '65710aa2-96e3-49ad-973e-d4ddbe1b6f8d'
+  and exists (
+    select 1
+    from public.profiles as profile
+    where profile.id = season_memberships.profile_id
+      and lower(profile.nome) = 'maria carla'
+      and lower(profile.cognome) = 'menichini'
+  );

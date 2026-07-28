@@ -81,7 +81,10 @@ describe("useNextMatchFormation", () => {
         publishedAt: "2026-07-28T18:42:00+02:00",
       }),
     )
-    expect(databaseMocks.query.select).toHaveBeenCalledWith("id,published_at")
+    expect(databaseMocks.from).toHaveBeenCalledWith(
+      "public_published_formation_summaries",
+    )
+    expect(databaseMocks.query.select).toHaveBeenCalledWith("published_at")
   })
 
   it("does not represent a failed official lookup as an unpublished formation", async () => {

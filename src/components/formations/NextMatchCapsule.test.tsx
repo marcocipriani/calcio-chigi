@@ -22,10 +22,10 @@ describe("NextMatchCapsule", () => {
   it("uses the outline draft state before publication", () => {
     render(<NextMatchCapsule match={match} />)
     expect(screen.getByText("Da pubblicare")).toBeVisible()
-    expect(screen.getByTestId("next-match-capsule")).toHaveAttribute(
-      "data-state",
-      "draft",
-    )
+    const capsule = screen.getByTestId("next-match-capsule")
+    expect(capsule).toHaveAttribute("data-state", "draft")
+    expect(capsule).toHaveClass("bg-white", "dark:bg-white")
+    expect(capsule).not.toHaveClass("bg-background")
     expect(screen.queryByRole("link")).not.toBeInTheDocument()
   })
 
@@ -43,5 +43,20 @@ describe("NextMatchCapsule", () => {
       "data-state",
       "published",
     )
+  })
+
+  it("formats Rome wall-clock parts without browser timezone normalization", () => {
+    render(
+      <NextMatchCapsule
+        match={{
+          ...match,
+          startsAt: "2026-03-08T01:30:00Z",
+          publishedAt: "2026-03-08T01:30:00Z",
+        }}
+      />,
+    )
+
+    expect(screen.getByText("dom 8 mar · 02:30")).toBeVisible()
+    expect(screen.getByText("Pubblicata il 8 mar · 02:30")).toBeVisible()
   })
 })

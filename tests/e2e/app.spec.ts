@@ -11,6 +11,8 @@ import {
 const E2E_MATCH_ID = "92000000-0000-0000-0000-000000000001"
 const OFFICIAL_FORMATION_TEST_TITLE =
   "capsula formazione passa da bozza a pubblicata"
+const ANONYMOUS_CAPSULE_TEST_TITLE =
+  "capsula anonima mostra bozza e pubblicazione tramite policy reali"
 
 async function authenticate(
   context: BrowserContext,
@@ -103,11 +105,31 @@ async function resetSeededOfficialFormation() {
   if (error) throw error
 }
 
+async function seedPublishedOfficialFormation() {
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const { error } = await serviceClient.from("official_formations").insert({
+    captain_profile_id: "91000000-0000-0000-0000-000000000001",
+    event_id: E2E_MATCH_ID,
+    formation_module: "4-4-2",
+    published_by: "91000000-0000-0000-0000-000000000001",
+    shirt_color: "BLU",
+    snapshot: { source: "anonymous-capsule-e2e" },
+    status: "PUBLISHED",
+  })
+  if (error) throw error
+}
+
 test.beforeEach(async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
   if (
     testInfo.project.name === "desktop" &&
-    testInfo.title === OFFICIAL_FORMATION_TEST_TITLE
+    [OFFICIAL_FORMATION_TEST_TITLE, ANONYMOUS_CAPSULE_TEST_TITLE].includes(
+      testInfo.title,
+    )
   ) {
     await resetSeededOfficialFormation()
   }
@@ -116,7 +138,9 @@ test.beforeEach(async ({ page }, testInfo) => {
 test.afterEach(async ({}, testInfo) => {
   if (
     testInfo.project.name !== "desktop" ||
-    testInfo.title !== OFFICIAL_FORMATION_TEST_TITLE
+    ![OFFICIAL_FORMATION_TEST_TITLE, ANONYMOUS_CAPSULE_TEST_TITLE].includes(
+      testInfo.title,
+    )
   ) {
     return
   }
@@ -405,6 +429,14 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
     }
   })
   await page.goto("/squadra")
+  for (const actionName of [
+    "Crea la tua formazione",
+  ]) {
+    const box = await page.getByRole("button", { name: actionName }).boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.width).toBeGreaterThanOrEqual(44)
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  }
   await page.getByRole("button", { name: "Crea la tua formazione" }).click()
   const builder = page.locator('[data-formation-builder-mode="PLAYGROUND"]')
   await expect(
@@ -467,6 +499,28 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   )
   expect(avatarRequestCount).toBeGreaterThan(1)
   expect(supabaseWrites).toEqual([])
+})
+
+test(ANONYMOUS_CAPSULE_TEST_TITLE, async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+
+  await page.goto("/squadra")
+  await expect(page.getByTestId("next-match-capsule")).toHaveAttribute(
+    "data-state",
+    "draft",
+  )
+
+  await seedPublishedOfficialFormation()
+  await page.reload()
+  await expect(page.getByTestId("next-match-capsule")).toHaveAttribute(
+    "data-state",
+    "published",
+  )
+  await expect(
+    page.getByRole("link", {
+      name: "Formazione ufficiale contro PSICOLOGOL",
+    }),
+  ).toHaveAttribute("href", `/evento/${E2E_MATCH_ID}`)
 })
 
 test(OFFICIAL_FORMATION_TEST_TITLE, async ({ context, page }, testInfo) => {

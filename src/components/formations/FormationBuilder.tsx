@@ -38,6 +38,7 @@ import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
 import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
 import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot } from "@/lib/formations"
 import { getAge, isU35 } from "@/lib/utils"
 
@@ -490,8 +491,7 @@ export function FormationBuilder({
                 isStarter: entry.is_starter,
             })),
         )
-        await navigator.clipboard.writeText(message)
-        toast.success("Messaggio WhatsApp copiato")
+        await copyOfficialFormationMessage(message)
     }
 
     const publishOfficialFormation = async () => {

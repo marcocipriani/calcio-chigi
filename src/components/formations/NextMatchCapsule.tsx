@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { it } from "date-fns/locale"
 import Link from "next/link"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,26 +13,26 @@ export type NextMatchSummary = {
   publishedAt: string | null
 }
 
-function formatInRome(value: string, pattern: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
+function formatInRome(value: string, includeWeekday: boolean) {
+  const parts = new Intl.DateTimeFormat("it-IT", {
     timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "numeric",
+    weekday: includeWeekday ? "short" : undefined,
     day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
     hourCycle: "h23",
   }).formatToParts(new Date(value))
   const part = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((item) => item.type === type)?.value)
-  const romeDate = new Date(
-    part("year"),
-    part("month") - 1,
+    parts.find((item) => item.type === type)?.value ?? ""
+  const date = [
+    includeWeekday ? part("weekday") : null,
     part("day"),
-    part("hour"),
-    part("minute"),
-  )
-  return format(romeDate, pattern, { locale: it })
+    part("month").replace(/\.$/, ""),
+  ]
+    .filter(Boolean)
+    .join(" ")
+  return `${date} · ${part("hour")}:${part("minute")}`
 }
 
 function CapsuleContent({ match }: { match: NextMatchSummary }) {
@@ -46,7 +44,7 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
         "flex min-h-14 min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2",
         published
           ? "border-red-700 bg-red-700 text-white"
-          : "border-red-600 bg-background text-red-700",
+          : "border-red-600 bg-white text-red-700 dark:bg-white dark:text-red-700",
       )}
       data-state={published ? "published" : "draft"}
       data-testid="next-match-capsule"
@@ -71,11 +69,11 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
             published ? "text-white/80" : "text-red-700/80",
           )}
         >
-          {formatInRome(match.startsAt, "EEE d MMM · HH:mm")}
+          {formatInRome(match.startsAt, true)}
         </p>
         <p className="mt-0.5 text-[11px] font-semibold leading-tight">
           {published
-            ? `Pubblicata il ${formatInRome(match.publishedAt!, "d MMM · HH:mm")}`
+            ? `Pubblicata il ${formatInRome(match.publishedAt!, false)}`
             : "Da pubblicare"}
         </p>
       </div>

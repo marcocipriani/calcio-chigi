@@ -7,7 +7,6 @@ import { fetchNextChigiMatch, fetchTeamLogoByName } from "@/lib/api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 type PublishedFormation = {
-  id: string
   published_at: string
 }
 
@@ -61,10 +60,9 @@ export function useNextMatchFormation(): {
       if (!active.current) return
 
       const { data, error: formationError } = await supabaseBrowser
-        .from("official_formations")
-        .select("id,published_at")
+        .from("public_published_formation_summaries")
+        .select("published_at")
         .eq("event_id", event.id)
-        .eq("status", "PUBLISHED")
         .maybeSingle()
       if (!active.current) return
       if (formationError) throw formationError

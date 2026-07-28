@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(40);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -125,9 +125,48 @@ where (now() at time zone 'Europe/Rome')::date
       between season.starts_on and season.ends_on
 limit 1;
 
+insert into public.official_formations (
+  event_id,
+  formation_module,
+  shirt_color,
+  captain_profile_id,
+  status,
+  published_by,
+  published_at
+)
+values (
+  '20000000-0000-0000-0000-000000000002',
+  '4-4-2',
+  'BLU',
+  '10000000-0000-0000-0000-000000000001',
+  'PUBLISHED',
+  '10000000-0000-0000-0000-000000000001',
+  '2026-07-28 18:42:00+02'
+);
+
 select ok(
   not has_table_privilege('anon', 'public.profiles', 'SELECT'),
   'anon cannot query the profiles base table'
+);
+select ok(
+  has_table_privilege(
+    'anon',
+    'public.public_published_formation_summaries',
+    'SELECT'
+  ),
+  'anon can query the deliberately limited published formation projection'
+);
+select ok(
+  not has_table_privilege('anon', 'public.official_formations', 'SELECT'),
+  'anon cannot query private official formation metadata directly'
+);
+select ok(
+  not has_table_privilege(
+    'anon',
+    'public.official_formation_players',
+    'SELECT'
+  ),
+  'anon cannot query official player rows'
 );
 
 set local role anon;
@@ -135,6 +174,14 @@ select set_config(
   'request.jwt.claim.sub',
   '90000000-0000-0000-0000-000000000001',
   true
+);
+select results_eq(
+  $$select event_id
+      from public.public_published_formation_summaries
+     where event_id = '20000000-0000-0000-0000-000000000002'
+       and published_at = '2026-07-28 18:42:00+02'::timestamptz$$,
+  array['20000000-0000-0000-0000-000000000002'::uuid],
+  'anon sees published event metadata without player rows'
 );
 select results_eq(
   $$select count(*)::bigint

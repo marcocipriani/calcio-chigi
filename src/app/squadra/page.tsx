@@ -24,7 +24,12 @@ const FormationBuilder = dynamic(
 
 export default function TeamPage() {
   const { isManager } = useAppSession()
-  const { match, refresh: refreshNextMatch } = useNextMatchFormation()
+  const {
+    error: matchError,
+    loading: matchLoading,
+    match,
+    refresh: refreshNextMatch,
+  } = useNextMatchFormation()
   const [builderMode, setBuilderMode] =
     useState<FormationBuilderMode | null>(null)
 
@@ -33,6 +38,8 @@ export default function TeamPage() {
       <TeamTitleBar
         isManager={isManager}
         match={match}
+        matchError={matchError}
+        matchLoading={matchLoading}
         onOpenOfficial={() => {
           if (isManager) setBuilderMode("OFFICIAL")
         }}

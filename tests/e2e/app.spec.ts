@@ -90,13 +90,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1)
 }
 
-test.beforeEach(async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" })
-})
-
-test.afterEach(async ({}, testInfo) => {
-  if (testInfo.title !== OFFICIAL_FORMATION_TEST_TITLE) return
-
+async function resetSeededOfficialFormation() {
   const serviceClient = createClient(
     process.env.E2E_SUPABASE_URL!,
     process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
@@ -107,6 +101,26 @@ test.afterEach(async ({}, testInfo) => {
     .delete()
     .eq("event_id", E2E_MATCH_ID)
   if (error) throw error
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  if (
+    testInfo.project.name === "desktop" &&
+    testInfo.title === OFFICIAL_FORMATION_TEST_TITLE
+  ) {
+    await resetSeededOfficialFormation()
+  }
+})
+
+test.afterEach(async ({}, testInfo) => {
+  if (
+    testInfo.project.name !== "desktop" ||
+    testInfo.title !== OFFICIAL_FORMATION_TEST_TITLE
+  ) {
+    return
+  }
+  await resetSeededOfficialFormation()
 })
 
 test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
@@ -257,8 +271,12 @@ test("overflow orizzontale assente su squadra e torneo", async ({
 test("selettore torneo", async ({ page }) => {
   await page.goto("/torneo")
 
+  await expect(page.getByRole("combobox")).toHaveCount(2)
   await expect(page.getByRole("combobox", { name: "Torneo" })).toHaveText(
     "Campionato ASI Over35 2025/2026",
+  )
+  await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
+    "Fase 2: Professionisti",
   )
   await expect(
     page.locator("p", { hasText: "Campionato ASI Over35 2025/2026" }),
@@ -540,10 +558,22 @@ test(OFFICIAL_FORMATION_TEST_TITLE, async ({ context, page }, testInfo) => {
     process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } },
   )
+  const {
+    data: publishedFormation,
+    error: publishedFormationError,
+  } = await serviceClient
+    .from("official_formations")
+    .select("id")
+    .eq("event_id", E2E_MATCH_ID)
+    .single()
+  expect(publishedFormationError).toBeNull()
+  expect(publishedFormation).not.toBeNull()
+
   const { data: publishedPlayers, error: publishedPlayersError } =
     await serviceClient
       .from("official_formation_players")
       .select("position_key,is_starter")
+      .eq("formation_id", publishedFormation!.id)
       .in("position_key", ["POR", "P1"])
   expect(publishedPlayersError).toBeNull()
   expect(

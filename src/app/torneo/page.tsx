@@ -202,7 +202,7 @@ export default function TorneoPage() {
             
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Select value={activePhase} onValueChange={(v) => { setActivePhase(v as EventFase); setSelectedGiornataOverride(null); }}>
-                    <SelectTrigger className="w-[200px] h-10 font-bold bg-card border-primary/20">
+                    <SelectTrigger aria-label="Fase" className="w-[200px] h-10 font-bold bg-card border-primary/20">
                         <SelectValue placeholder="Seleziona Fase" />
                     </SelectTrigger>
                     <SelectContent>

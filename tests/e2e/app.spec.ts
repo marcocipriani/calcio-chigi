@@ -58,11 +58,22 @@ async function expectBottomNavClearance(page: Page) {
   expect(metrics[0]).toBeGreaterThanOrEqual(metrics[1])
 }
 
+async function expectSharedPageViewport(page: Page) {
+  const container = page.locator("[data-page-container]").first()
+  await expect(container).toBeVisible()
+  const box = await container.boundingBox()
+  const viewport = page.viewportSize()
+  expect(box).not.toBeNull()
+  expect(viewport).not.toBeNull()
+  expect(box!.x).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
 })
 
-test("tutte le pagine pubbliche lasciano spazio alla navbar mobile", async ({
+test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile")
@@ -80,10 +91,11 @@ test("tutte le pagine pubbliche lasciano spazio alla navbar mobile", async ({
   for (const route of routes) {
     await page.goto(route)
     await expectBottomNavClearance(page)
+    await expectSharedPageViewport(page)
   }
 })
 
-test("il profilo riservato lascia spazio alla navbar mobile", async ({
+test("viewport condiviso per il profilo riservato mobile", async ({
   context,
   page,
 }, testInfo) => {
@@ -94,9 +106,10 @@ test("il profilo riservato lascia spazio alla navbar mobile", async ({
   await page.getByRole("link", { name: "Vedi quote" }).click()
   await expect(page.getByRole("heading", { name: "Profilo" })).toBeVisible()
   await expectBottomNavClearance(page)
+  await expectSharedPageViewport(page)
 })
 
-test("la gestione riservata lascia spazio alla navbar mobile", async ({
+test("viewport condiviso per la gestione riservata mobile", async ({
   context,
   page,
 }, testInfo) => {
@@ -105,6 +118,28 @@ test("la gestione riservata lascia spazio alla navbar mobile", async ({
   await page.goto("/gestione")
   await expect(page.getByRole("heading", { name: "Gestione squadra" })).toBeVisible()
   await expectBottomNavClearance(page)
+  await expectSharedPageViewport(page)
+})
+
+test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  const routes = [
+    "/",
+    "/squadra",
+    "/torneo",
+    "/classifica",
+    "/statistiche",
+    "/giocatore/91000000-0000-0000-0000-000000000002",
+    "/evento/92000000-0000-0000-0000-000000000001",
+    "/login",
+  ]
+
+  for (const route of routes) {
+    await page.goto(route)
+    await expectSharedPageViewport(page)
+  }
 })
 
 test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {

@@ -19,6 +19,7 @@ import { calculateStandings } from "@/lib/utils";
 import { Team, Event, StandingRow, EventFase } from "@/lib/types";
 import { fetchTeams, fetchMatchesByPhase } from '@/lib/api'
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageContainer } from "@/components/layout/PageContainer";
 
 interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
 
@@ -108,7 +109,7 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
   };
 
   if (loading) return (
-    <div className="container max-w-5xl mx-auto p-1 pb-24">
+    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
         <div className="rounded-xl border bg-card shadow-sm overflow-hidden p-4 space-y-4">
             <div className="flex items-center justify-between">
                 <Skeleton className="h-6 w-32" />
@@ -120,11 +121,11 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
                 ))}
             </div>
         </div>
-    </div>
+    </PageContainer>
   );
 
   return (
-    <div className="container max-w-5xl mx-auto p-1 pb-24">
+    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden animate-in fade-in duration-500">
         <TooltipProvider>
         <div className="overflow-x-auto">
@@ -228,6 +229,6 @@ export default function ClassificaPage({ fase }: { fase?: string }) {
         </div>
         </TooltipProvider>
       </div>
-    </div>
+    </PageContainer>
   );
 }

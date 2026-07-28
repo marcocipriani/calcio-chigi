@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageContainer } from "@/components/layout/PageContainer"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { romeDateKey } from "@/lib/season"
 
@@ -139,7 +140,7 @@ export default function StatisticsPage() {
   }, [players, stats])
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-3 py-4 pb-24 sm:px-5">
+    <PageContainer contentClassName="mx-auto max-w-6xl space-y-6 pb-24">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
           Numeri della stagione
@@ -284,6 +285,6 @@ export default function StatisticsPage() {
           </div>
         )}
       </section>
-    </div>
+    </PageContainer>
   )
 }

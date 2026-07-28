@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageContainer } from "@/components/layout/PageContainer"
 import { Textarea } from "@/components/ui/textarea"
 import { BOMBER_TAGS } from "@/lib/constants"
 import { fetchOwnProfile } from "@/lib/api"
@@ -460,18 +461,21 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="container mx-auto max-w-5xl space-y-4 px-4 py-6 pb-24">
-        <Skeleton className="h-44 rounded-2xl" />
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-[540px] rounded-2xl lg:col-span-2" />
-          <Skeleton className="h-[540px] rounded-2xl" />
-        </div>
-      </main>
+      <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
+        <main className="space-y-4">
+          <Skeleton className="h-44 rounded-2xl" />
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Skeleton className="h-[540px] rounded-2xl lg:col-span-2" />
+            <Skeleton className="h-[540px] rounded-2xl" />
+          </div>
+        </main>
+      </PageContainer>
     )
   }
 
   return (
-    <main className="container mx-auto max-w-5xl space-y-4 px-4 py-5 pb-24 lg:px-6">
+    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
+      <main className="space-y-4">
       <header className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
@@ -967,6 +971,7 @@ export default function ProfilePage() {
       </div>
 
       <AppCredits uid={profile?.id} />
-    </main>
+      </main>
+    </PageContainer>
   )
 }

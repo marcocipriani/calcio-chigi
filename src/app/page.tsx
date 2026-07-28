@@ -27,6 +27,7 @@ import {
 import { it } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { Event, Team } from "@/lib/types";
 import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
 
@@ -487,7 +488,8 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto max-w-md space-y-4 px-4 py-4 pb-20 lg:max-w-7xl lg:px-6 lg:py-6">
+    <PageContainer contentClassName="mx-auto max-w-md pb-20 lg:max-w-7xl">
+      <main className="space-y-4">
       
       <div className="flex flex-col gap-2">
           <div className="flex justify-between items-end">
@@ -697,6 +699,7 @@ export default function Home() {
         onSave={handleSaveEvent}
       />
 
-    </main>
+      </main>
+    </PageContainer>
   );
 }

@@ -10,6 +10,7 @@ import { PublicTeam } from "@/components/team/PublicTeam"
 import { OfficialFormationCard } from "@/components/formations/OfficialFormationCard"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageContainer } from "@/components/layout/PageContainer"
 
 const FormationBuilder = dynamic(
   () =>
@@ -27,7 +28,7 @@ export default function TeamPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-3 py-4 pb-24 sm:px-5">
+    <PageContainer contentClassName="mx-auto max-w-7xl space-y-5 pb-24">
       <PublicTeam />
       {isAssociated && <OfficialFormationCard />}
 
@@ -59,6 +60,6 @@ export default function TeamPage() {
       </section>
 
       {isAssociated && builderOpen && <FormationBuilder />}
-    </div>
+    </PageContainer>
   )
 }

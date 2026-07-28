@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageContainer } from "@/components/layout/PageContainer"
 import { romeDateKey } from "@/lib/season"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
@@ -150,15 +151,19 @@ export default function PlayerPage({
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-3 p-4">
+      <PageContainer contentClassName="mx-auto max-w-2xl space-y-3">
         <Skeleton className="h-9 w-28" />
         <Skeleton className="h-52 w-full rounded-xl" />
-      </div>
+      </PageContainer>
     )
   }
 
   if (!player) {
-    return <p className="p-10 text-center">Giocatore non trovato.</p>
+    return (
+      <PageContainer contentClassName="mx-auto max-w-2xl">
+        <p className="py-10 text-center">Giocatore non trovato.</p>
+      </PageContainer>
+    )
   }
 
   const publicMetrics = [
@@ -168,7 +173,8 @@ export default function PlayerPage({
   ] as const
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-3 py-4 pb-24 sm:px-5">
+    <PageContainer contentClassName="mx-auto max-w-2xl pb-24">
+      <main className="space-y-4">
       <Button asChild size="sm" variant="ghost">
         <Link href="/statistiche">
           <ArrowLeft aria-hidden="true" />
@@ -318,6 +324,7 @@ export default function PlayerPage({
           </div>
         </section>
       )}
-    </main>
+      </main>
+    </PageContainer>
   )
 }

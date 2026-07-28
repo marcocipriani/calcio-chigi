@@ -10,6 +10,7 @@ import { Loader2, Mail } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
+import { PageContainer } from "@/components/layout/PageContainer"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -81,7 +82,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center h-screen w-screen bg-slate-100 dark:bg-slate-950 p-4 overflow-hidden">
+    <PageContainer
+      className="min-h-[calc(100dvh-4rem)] bg-slate-100 dark:bg-slate-950"
+      contentClassName="flex min-h-[calc(100dvh-6rem)] items-center justify-center"
+    >
       <Card className="w-full max-w-sm shadow-xl border-t-4 border-t-primary animate-in fade-in zoom-in-95 duration-300">
         <CardHeader className="flex flex-col items-center gap-4 pb-2">
 
@@ -179,6 +183,6 @@ export default function LoginPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }

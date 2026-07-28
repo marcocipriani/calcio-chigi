@@ -14,6 +14,7 @@ import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PageContainer } from "@/components/layout/PageContainer"
 import ClassificaPage from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
@@ -170,7 +171,7 @@ export default function TorneoPage() {
   }
 
   if (loading) return (
-    <div className="container max-w-4xl mx-auto p-4 pb-24 space-y-4">
+    <PageContainer contentClassName="mx-auto max-w-4xl space-y-4 pb-24">
         <div className="flex justify-between items-start mb-2">
             <div className="space-y-2">
                 <Skeleton className="h-8 w-28" />
@@ -185,11 +186,11 @@ export default function TorneoPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}
         </div>
-    </div>
+    </PageContainer>
   )
 
   return (
-    <div className="container max-w-4xl mx-auto p-4 pb-24 space-y-4">
+    <PageContainer contentClassName="mx-auto max-w-4xl space-y-4 pb-24">
         
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
             <div>
@@ -460,6 +461,6 @@ export default function TorneoPage() {
                 </div>
             </DialogContent>
         </Dialog>
-    </div>
+    </PageContainer>
   )
 }

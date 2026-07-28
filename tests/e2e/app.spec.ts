@@ -8,6 +8,8 @@ import {
   type Page,
 } from "@playwright/test"
 
+const E2E_MATCH_ID = "92000000-0000-0000-0000-000000000001"
+
 async function authenticate(
   context: BrowserContext,
   email: string,
@@ -77,8 +79,31 @@ async function expectSharedPageViewport(page: Page) {
   expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
 }
 
+async function expectNoHorizontalOverflow(page: Page) {
+  const metrics = await page.evaluate(() => ({
+    contentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+  }))
+  expect(metrics.contentWidth).toBeLessThanOrEqual(metrics.viewportWidth)
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
+})
+
+test.afterEach(async ({}, testInfo) => {
+  if (testInfo.title !== "modalità ufficiale manager") return
+
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const { error } = await serviceClient
+    .from("official_formations")
+    .delete()
+    .eq("event_id", E2E_MATCH_ID)
+  if (error) throw error
 })
 
 test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
@@ -192,21 +217,13 @@ test("griglia rosa responsive", async ({ page }, testInfo) => {
         getComputedStyle(element).gridTemplateColumns.split(" ").length,
     )
 
-  const expectNoHorizontalOverflow = async () => {
-    const metrics = await page.evaluate(() => ({
-      contentWidth: document.documentElement.scrollWidth,
-      viewportWidth: window.innerWidth,
-    }))
-    expect(metrics.contentWidth).toBeLessThanOrEqual(metrics.viewportWidth)
-  }
-
   await expect.poll(columnCount).toBe(2)
-  await expectNoHorizontalOverflow()
+  await expectNoHorizontalOverflow(page)
   await page.setViewportSize({ width: 350, height: 800 })
   await expect.poll(columnCount).toBe(2)
   await page.setViewportSize({ width: 360, height: 800 })
   await expect.poll(columnCount).toBe(3)
-  await expectNoHorizontalOverflow()
+  await expectNoHorizontalOverflow(page)
   await page.setViewportSize(devices["iPhone 13"].viewport)
   await expect.poll(columnCount).toBe(3)
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -294,6 +311,37 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   await context.grantPermissions(["clipboard-read"], {
     origin: "http://127.0.0.1:3100",
   })
+  let avatarRequestCount = 0
+  await page.route("https://avatar.invalid/**", async (route) => {
+    avatarRequestCount += 1
+    if (new URL(route.request().url()).search) {
+      await route.abort("failed")
+      return
+    }
+    await route.fulfill({
+      body: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3MxZ5wAAAABJRU5ErkJggg==",
+        "base64",
+      ),
+      headers: { "content-type": "image/png" },
+      status: 200,
+    })
+  })
+  await page.route("**/rest/v1/public_active_roster**", async (route) => {
+    const response = await route.fetch()
+    const roster = (await response.json()) as Array<Record<string, unknown>>
+    await route.fulfill({
+      response,
+      json: roster.map((player) =>
+        player.nome === "Piero"
+          ? {
+              ...player,
+              avatar_url: "https://avatar.invalid/piero.png",
+            }
+          : player,
+      ),
+    })
+  })
   const supabaseWrites: string[] = []
   page.on("request", (request) => {
     if (
@@ -334,6 +382,17 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   await expect(builder.getByText("Marco", { exact: true }).first()).toBeVisible()
   await expect(builder.getByText("Nino", { exact: true })).toHaveCount(0)
   await expect(builder.getByText("Sara", { exact: true })).toHaveCount(0)
+  await expect(
+    builder.getByRole("img", { name: "Piero Player" }).first(),
+  ).toBeVisible()
+  for (const width of [320, 360]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expectNoHorizontalOverflow(page)
+    await expect(
+      page.getByRole("button", { name: "Esporta formazione" }),
+    ).toBeVisible()
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
 
   await page
     .getByRole("button", { name: "Seleziona giocatore per POR" })
@@ -353,12 +412,22 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   await expect.poll(async () => (await downloadPromise).suggestedFilename()).toMatch(
     /^circolo-chigi-formazione-.+\.png$/,
   )
+  expect(avatarRequestCount).toBeGreaterThan(1)
   expect(supabaseWrites).toEqual([])
 })
 
 test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop")
   await authenticate(context, "manager@chigi.test", "Manager123!")
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: "http://127.0.0.1:3100",
+  })
+  let publishRequestCount = 0
+  page.on("request", (request) => {
+    if (request.url().includes("/rest/v1/rpc/publish_official_formation")) {
+      publishRequestCount += 1
+    }
+  })
   await page.goto("/squadra")
 
   await expect(page.getByTestId("next-match-capsule")).toHaveAttribute(
@@ -374,16 +443,31 @@ test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
   ).toBeVisible()
   await page.getByRole("button", { name: "Esporta formazione" }).click()
   await expect(page.getByText("Scarica distinta")).toBeVisible()
+  for (const width of [320, 360]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expectNoHorizontalOverflow(page)
+    await expect(
+      page.getByRole("button", { name: "Pubblica formazione ufficiale" }),
+    ).toBeVisible()
+  }
   await page.setViewportSize({ width: 390, height: 844 })
-  const mobileWidth = await page.evaluate(() => ({
-    content: document.documentElement.scrollWidth,
-    viewport: window.innerWidth,
-  }))
-  expect(mobileWidth.content).toBeLessThanOrEqual(mobileWidth.viewport)
   await page
-    .getByRole("button", { name: "Seleziona giocatore per ATT1" })
+    .getByRole("button", { name: "Seleziona giocatore per POR" })
+    .click()
+  await page.getByRole("dialog").getByText("Marco", { exact: true }).click()
+  await page
+    .getByRole("button", { name: "Seleziona giocatore per P1" })
     .click()
   await page.getByRole("dialog").getByText("Piero", { exact: true }).click()
+  await page
+    .getByRole("button", { name: "Pubblica formazione ufficiale" })
+    .click()
+  await expect(
+    page
+      .getByLabel("Notifications alt+T")
+      .getByText("Seleziona almeno un capitano o un vice capitano"),
+  ).toBeVisible()
+  expect(publishRequestCount).toBe(0)
   await page
     .getByRole("button", { name: "Dettagli di Piero Player" })
     .click()
@@ -392,6 +476,10 @@ test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
     .getByRole("button", { name: "Capitano", exact: true })
     .click()
   await page.keyboard.press("Escape")
+  await page.getByRole("button", { name: "Copia messaggio WhatsApp" }).click()
+  const officialMessage = await page.evaluate(() => navigator.clipboard.readText())
+  expect(officialMessage).toContain("🟢 TITOLARI:\nMarco Forse [PORTIERE]")
+  expect(officialMessage).toContain("🪑 PANCHINA:\nPiero Player")
   await page
     .getByRole("button", { name: "Pubblica formazione ufficiale" })
     .click()
@@ -402,6 +490,27 @@ test("modalità ufficiale manager", async ({ context, page }, testInfo) => {
     "data-state",
     "published",
   )
+  expect(publishRequestCount).toBe(1)
+
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const { data: publishedPlayers, error: publishedPlayersError } =
+    await serviceClient
+      .from("official_formation_players")
+      .select("position_key,is_starter")
+      .in("position_key", ["POR", "P1"])
+  expect(publishedPlayersError).toBeNull()
+  expect(
+    [...(publishedPlayers ?? [])].sort((a, b) =>
+      a.position_key.localeCompare(b.position_key),
+    ),
+  ).toEqual([
+    { is_starter: false, position_key: "P1" },
+    { is_starter: true, position_key: "POR" },
+  ])
 })
 
 test("builder formazione privato e leggero", async ({

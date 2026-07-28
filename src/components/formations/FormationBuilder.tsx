@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect, useId, useRef } from "react"
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 import { toPng } from 'html-to-image'
 import ExcelJS from 'exceljs'
@@ -38,7 +38,7 @@ import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
 import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
-import { buildOfficialFormationMessage, buildPersonalFormationMessage } from "@/lib/formations"
+import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot } from "@/lib/formations"
 import { getAge, isU35 } from "@/lib/utils"
 
 type Player = FullProfile & { training_only?: boolean }
@@ -46,6 +46,8 @@ type Player = FullProfile & { training_only?: boolean }
 type FormationSlotDef = { id: string; top?: string; left?: string };
 
 const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
+const FORMATION_IMAGE_PLACEHOLDER =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
 function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole, showOfficialControls }: {
     player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, showOfficialControls: boolean
@@ -242,6 +244,7 @@ export function FormationBuilder({
 
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
     const fieldRef = useRef<HTMLDivElement>(null)
+    const officialRoleRequirementId = useId()
 
     const loadFormationContext = useCallback(async function loadFormationContext() {
         setLoading(true)
@@ -306,7 +309,7 @@ export function FormationBuilder({
             if (isHome) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
             else { worksheet.getCell('B6').value = nextMatch?.avversario || ""; worksheet.getCell('H6').value = "C. PAL. CHIGI"; }
 
-            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: slotId !== 'POR' && slotId.startsWith('P'), slotId }));
+            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: isFormationBenchSlot(slotId), slotId }));
             const sortPlayers = (list: (Player & { isBench: boolean; slotId: string })[]) => list.sort((a, b) => {
                 if (a.ruolo === 'PORTIERE' && b.ruolo !== 'PORTIERE') return -1;
                 if (b.ruolo === 'PORTIERE' && a.ruolo !== 'PORTIERE') return 1;
@@ -356,7 +359,7 @@ export function FormationBuilder({
         else { if (captainId === playerId) setCaptainId(null); if (viceCaptainId === playerId) setViceCaptainId(null); }
     }
 
-    const u35FieldCount = Object.keys(lineup).filter(slotId => !slotId.startsWith('P') && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
+    const u35FieldCount = Object.keys(lineup).filter(slotId => !isFormationBenchSlot(slotId) && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
     const u35TotalCount = Object.values(lineup).filter((p) => p.ruolo !== 'PORTIERE').reduce((acc, p) => acc + (isU35(p.data_nascita ?? '') ? 1 : 0), 0);
     const isFieldU35LimitExceeded = u35FieldCount > 2;
     const isTotalU35LimitExceeded = u35TotalCount > 4;
@@ -367,7 +370,7 @@ export function FormationBuilder({
         const newFormSlots = FORMATIONS[newModule];
         const newLineup: Record<string, Player> = {};
         if (oldLineup['POR']) { newLineup['POR'] = oldLineup['POR']; delete oldLineup['POR']; }
-        Object.keys(oldLineup).forEach(key => { if (key.startsWith('P')) { newLineup[key] = oldLineup[key]; delete oldLineup[key]; } });
+        Object.keys(oldLineup).forEach(key => { if (isFormationBenchSlot(key)) { newLineup[key] = oldLineup[key]; delete oldLineup[key]; } });
         const remainingPlayers = Object.values(oldLineup);
         const remainingSlots = (newFormSlots as FormationSlotDef[]).filter((s) => s.id !== 'POR');
         remainingPlayers.forEach((player, index) => { if (index < remainingSlots.length) newLineup[remainingSlots[index].id] = player; });
@@ -422,7 +425,11 @@ export function FormationBuilder({
         if (fieldRef.current) {
             try {
                 const timestamp = format(new Date(), 'yyyy-MM-dd-HH-mm');
-                const dataUrl = await toPng(fieldRef.current, { cacheBust: true, pixelRatio: 2 });
+                const dataUrl = await toPng(fieldRef.current, {
+                    cacheBust: true,
+                    imagePlaceholder: FORMATION_IMAGE_PLACEHOLDER,
+                    pixelRatio: 2,
+                });
                 const link = document.createElement('a');
                 link.download = `circolo-chigi-formazione-${timestamp}.png`;
                 link.href = dataUrl;
@@ -463,7 +470,7 @@ export function FormationBuilder({
                 jersey_number: player.numero_maglia,
                 birth_date: player.data_nascita,
             },
-            is_starter: !positionKey.startsWith('P'),
+            is_starter: !isFormationBenchSlot(positionKey),
             position_key: positionKey,
             sort_order: index,
         }))
@@ -494,6 +501,10 @@ export function FormationBuilder({
         }
         if (!nextMatch || !profile || Object.keys(lineup).length === 0) {
             toast.error("Servono una partita e almeno un convocato.")
+            return
+        }
+        if (!captainId && !viceCaptainId) {
+            toast.error("Seleziona almeno un capitano o un vice capitano")
             return
         }
         const { error } = await supabaseBrowser.rpc('publish_official_formation', {
@@ -627,6 +638,7 @@ export function FormationBuilder({
                                             <Copy aria-hidden="true" className="h-4 w-4" />
                                         </Button>
                                         <Button
+                                            aria-describedby={!captainId && !viceCaptainId ? officialRoleRequirementId : undefined}
                                             aria-label="Pubblica formazione ufficiale"
                                             className="h-9 w-9 bg-violet-600 hover:bg-violet-700"
                                             onClick={publishOfficialFormation}
@@ -640,6 +652,12 @@ export function FormationBuilder({
                             </div>
                         </div>
                     </div>
+
+                    {showOfficialControls && !captainId && !viceCaptainId && (
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-400" id={officialRoleRequirementId}>
+                            Seleziona almeno un capitano o un vice capitano
+                        </p>
+                    )}
 
                     <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${isU35Warning ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
                         <div className="flex items-center gap-2">

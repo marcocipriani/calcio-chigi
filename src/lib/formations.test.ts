@@ -3,8 +3,18 @@ import { describe, expect, it } from "vitest"
 import {
   buildOfficialFormationMessage,
   buildPersonalFormationMessage,
+  isFormationBenchSlot,
   isUnderPlayer,
 } from "@/lib/formations"
+
+describe("isFormationBenchSlot", () => {
+  it("keeps POR among starters and P1 on the bench", () => {
+    expect(isFormationBenchSlot("POR")).toBe(false)
+    expect(isFormationBenchSlot("P1")).toBe(true)
+    expect(isFormationBenchSlot("P9")).toBe(true)
+    expect(isFormationBenchSlot("P10")).toBe(false)
+  })
+})
 
 describe("isUnderPlayer", () => {
   it("uses the match date instead of the current date", () => {

@@ -25,6 +25,10 @@ export type PersonalFormationEntry = {
   positionKey: string
 }
 
+export function isFormationBenchSlot(positionKey: string): boolean {
+  return /^P[1-9]$/.test(positionKey)
+}
+
 export function isUnderPlayer(
   birthDate: string | null | undefined,
   matchDate: Date,
@@ -109,7 +113,7 @@ export function buildPersonalFormationMessage(
   const sections = groups.flatMap(({ role, title }) => {
     const players = entries.filter(({ positionKey }) =>
       role === "BENCH"
-        ? positionKey.startsWith("P") && !roleBySlot.has(positionKey)
+        ? isFormationBenchSlot(positionKey)
         : roleBySlot.get(positionKey) === role,
     )
     return players.length

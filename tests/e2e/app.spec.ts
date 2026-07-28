@@ -167,6 +167,9 @@ test("rosa pubblica mobile separa lo staff ed esclude i no", async ({
   test.skip(testInfo.project.name !== "mobile")
   await page.goto("/squadra")
 
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Squadra" }),
+  ).toBeVisible()
   await expect(page.getByRole("heading", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Forse" })).toBeVisible()
   await expect(page.getByText("Sara Massaggiatrice")).toBeVisible()

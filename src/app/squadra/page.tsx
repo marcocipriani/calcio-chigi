@@ -29,6 +29,9 @@ export default function TeamPage() {
 
   return (
     <PageContainer contentClassName="mx-auto max-w-7xl space-y-5 pb-24">
+      <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+        Squadra
+      </h1>
       <PublicTeam />
       {isAssociated && <OfficialFormationCard />}
 

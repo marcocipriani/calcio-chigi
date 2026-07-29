@@ -36,6 +36,7 @@ export type EventFase =
 export interface Event {
     id: string;
     created_at: string;
+    season_id: string;
     tipo: 'ALLENAMENTO' | 'PARTITA';
     data_ora: string | null;
     data_fine_ora?: string | null;

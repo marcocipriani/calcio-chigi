@@ -1,5 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Event, Team, EventFase, FullProfile } from './types'
+import type {
+    PhaseFilter,
+    PlayerSeasonStat,
+    SafePlayerProfile,
+    SeasonPlayerDirectoryEntry,
+} from './season-statistics'
 
 // ─── Return types ─────────────────────────────────────────────────────────────
 
@@ -101,6 +107,26 @@ export async function fetchAllMatches(supabase: SupabaseClient): Promise<Event[]
     return data ?? []
 }
 
+const SEASON_EVENT_SELECT =
+    'id, created_at, season_id, tipo, data_ora, data_fine_ora, luogo, tipo_campo, avversario, gol_casa, gol_ospite, gol_nostri, gol_avversario, giocata, cancellato, note, giornata, fase, squadra_casa, squadra_ospite'
+
+/**
+ * Fetches every event attributed to one season, ordered chronologically.
+ */
+export async function fetchSeasonEvents(
+    supabase: SupabaseClient,
+    seasonId: string,
+): Promise<Event[]> {
+    const { data, error } = await supabase
+        .from('events')
+        .select(SEASON_EVENT_SELECT)
+        .eq('season_id', seasonId)
+        .order('data_ora', { ascending: true })
+
+    if (error) throw error
+    return (data ?? []) as Event[]
+}
+
 /**
  * Fetches matches for a specific phase (for standings/classifica).
  * FASE_1 includes rows where fase IS NULL (legacy data).
@@ -176,6 +202,68 @@ export async function fetchAllPlayers(supabase: SupabaseClient): Promise<FullPro
         .select('*')
         .order('cognome', { ascending: true })
     return data ?? []
+}
+
+/**
+ * Fetches the public player directory for one selected season.
+ */
+export async function fetchSeasonPlayerDirectory(
+    supabase: SupabaseClient,
+    seasonId: string,
+): Promise<SeasonPlayerDirectoryEntry[]> {
+    const { data, error } = await supabase
+        .from('public_season_player_directory')
+        .select('season_id, profile_id, nome, cognome, avatar_url, role, jersey_number')
+        .eq('season_id', seasonId)
+        .order('cognome', { ascending: true })
+        .order('nome', { ascending: true })
+
+    if (error) throw error
+    return (data ?? []) as SeasonPlayerDirectoryEntry[]
+}
+
+/**
+ * Fetches public player statistics by phase for one selected season.
+ */
+export async function fetchPlayerStatisticsByPhase(
+    supabase: SupabaseClient,
+    seasonId: string,
+    phase: PhaseFilter = 'ALL',
+): Promise<PlayerSeasonStat[]> {
+    let query = supabase
+        .from('public_player_statistics_by_phase')
+        .select('season_id, phase_key, profile_id, goals, assists, mvp, yellow_cards, red_cards')
+        .eq('season_id', seasonId)
+
+    if (phase !== 'ALL') {
+        query = query.eq('phase_key', phase)
+    }
+
+    const { data, error } = await query
+        .order('phase_key', { ascending: true })
+        .order('profile_id', { ascending: true })
+
+    if (error) throw error
+    return (data ?? []) as PlayerSeasonStat[]
+}
+
+/**
+ * Fetches the approved-account-safe player profile and seasonal totals.
+ */
+export async function fetchSafePlayerProfile(
+    supabase: SupabaseClient,
+    profileId: string,
+    seasonId: string,
+): Promise<SafePlayerProfile | null> {
+    const { data, error } = await supabase
+        .rpc('get_player_profile', {
+            p_profile_id: profileId,
+            p_season_id: seasonId,
+        })
+        .maybeSingle()
+
+    if (error) throw error
+    return data as SafePlayerProfile | null
 }
 
 /**

@@ -22,6 +22,13 @@ type RosterRow = {
 
 type CheckinStatus = "PRESENT" | "ABSENT"
 
+type MatchStatDraft = {
+  goals: number
+  assists: number
+  yellow_cards: number
+  red_cards: number
+}
+
 type EventRosterRow = {
   profile_id: string
   nome: string
@@ -30,6 +37,11 @@ type EventRosterRow = {
   role: string | null
   category: "PLAYER" | "STAFF"
   training_only: boolean
+}
+
+function nonNegativeInteger(value: unknown) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0
 }
 
 export function CheckinStatsPanel({
@@ -42,9 +54,7 @@ export function CheckinStatsPanel({
   const { isManager, profile } = useAppSession()
   const [roster, setRoster] = useState<RosterRow[]>([])
   const [checkins, setCheckins] = useState<Record<string, CheckinStatus>>({})
-  const [stats, setStats] = useState<
-    Record<string, { goals: number; assists: number }>
-  >({})
+  const [stats, setStats] = useState<Record<string, MatchStatDraft>>({})
   const [playerOfMatch, setPlayerOfMatch] = useState("")
   const [saving, setSaving] = useState(false)
 
@@ -62,7 +72,9 @@ export function CheckinStatsPanel({
       isMatch
         ? supabaseBrowser
             .from("match_player_stats")
-            .select("profile_id, goals, assists")
+            .select(
+              "profile_id, goals, assists, yellow_cards, red_cards",
+            )
             .eq("event_id", eventId)
         : Promise.resolve({ data: [] }),
       isMatch
@@ -100,7 +112,12 @@ export function CheckinStatsPanel({
         Object.fromEntries(
           (statsResult.data ?? []).map((row) => [
             row.profile_id,
-            { goals: row.goals, assists: row.assists },
+            {
+              goals: row.goals,
+              assists: row.assists,
+              yellow_cards: row.yellow_cards,
+              red_cards: row.red_cards,
+            },
           ]),
         ),
       )
@@ -117,6 +134,28 @@ export function CheckinStatsPanel({
   )
 
   if (!isManager) return null
+
+  function updateStat(
+    profileId: string,
+    field: keyof MatchStatDraft,
+    value: string,
+  ) {
+    setStats((current) => {
+      const previous = current[profileId] ?? {
+        goals: 0,
+        assists: 0,
+        yellow_cards: 0,
+        red_cards: 0,
+      }
+      return {
+        ...current,
+        [profileId]: {
+          ...previous,
+          [field]: nonNegativeInteger(value),
+        },
+      }
+    })
+  }
 
   async function setCheckin(profileId: string, status: CheckinStatus) {
     const previous = checkins[profileId]
@@ -143,8 +182,10 @@ export function CheckinStatsPanel({
     const statsRows = present.map((player) => ({
       event_id: eventId,
       profile_id: player.id,
-      goals: stats[player.id]?.goals ?? 0,
-      assists: stats[player.id]?.assists ?? 0,
+      goals: nonNegativeInteger(stats[player.id]?.goals),
+      assists: nonNegativeInteger(stats[player.id]?.assists),
+      yellow_cards: nonNegativeInteger(stats[player.id]?.yellow_cards),
+      red_cards: nonNegativeInteger(stats[player.id]?.red_cards),
       updated_by: profile.id,
     }))
     const { error: statsError } = statsRows.length
@@ -211,7 +252,7 @@ export function CheckinStatsPanel({
           const isPresent = status === "PRESENT"
           return (
             <div
-              className="grid min-h-12 grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 sm:grid-cols-[minmax(180px,1fr)_auto_140px]"
+              className="grid min-h-12 grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 sm:grid-cols-[minmax(180px,1fr)_auto_280px]"
               key={player.id}
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -263,43 +304,69 @@ export function CheckinStatsPanel({
                 </Button>
               </div>
               {isMatch && isPresent && (
-                <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
+                <div className="col-span-2 grid grid-cols-4 gap-1 sm:col-span-1">
                   <label className="flex items-center gap-1 text-[10px]">
-                    G
+                    Goal
                     <Input
                       aria-label={`Goal di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
                       min="0"
                       onChange={(event) =>
-                        setStats((current) => ({
-                          ...current,
-                          [player.id]: {
-                            goals: Number(event.target.value),
-                            assists: current[player.id]?.assists ?? 0,
-                          },
-                        }))
+                        updateStat(player.id, "goals", event.target.value)
                       }
+                      step="1"
                       type="number"
                       value={stats[player.id]?.goals ?? 0}
                     />
                   </label>
                   <label className="flex items-center gap-1 text-[10px]">
-                    A
+                    Assist
                     <Input
                       aria-label={`Assist di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
                       min="0"
                       onChange={(event) =>
-                        setStats((current) => ({
-                          ...current,
-                          [player.id]: {
-                            goals: current[player.id]?.goals ?? 0,
-                            assists: Number(event.target.value),
-                          },
-                        }))
+                        updateStat(player.id, "assists", event.target.value)
                       }
+                      step="1"
                       type="number"
                       value={stats[player.id]?.assists ?? 0}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-[10px]">
+                    Amm.
+                    <Input
+                      aria-label={`Ammonizioni di ${player.nome} ${player.cognome}`}
+                      className="h-8 w-12 px-1 text-center"
+                      min="0"
+                      onChange={(event) =>
+                        updateStat(
+                          player.id,
+                          "yellow_cards",
+                          event.target.value,
+                        )
+                      }
+                      step="1"
+                      type="number"
+                      value={stats[player.id]?.yellow_cards ?? 0}
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-[10px]">
+                    Esp.
+                    <Input
+                      aria-label={`Espulsioni di ${player.nome} ${player.cognome}`}
+                      className="h-8 w-12 px-1 text-center"
+                      min="0"
+                      onChange={(event) =>
+                        updateStat(
+                          player.id,
+                          "red_cards",
+                          event.target.value,
+                        )
+                      }
+                      step="1"
+                      type="number"
+                      value={stats[player.id]?.red_cards ?? 0}
                     />
                   </label>
                 </div>
@@ -311,7 +378,7 @@ export function CheckinStatsPanel({
       {isMatch && (
         <div className="flex items-center gap-2 border-t border-violet-200 p-3 dark:border-violet-900">
           <label className="text-xs font-semibold" htmlFor="player-of-match">
-            Player of the match
+            MVP
           </label>
           <select
             className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"

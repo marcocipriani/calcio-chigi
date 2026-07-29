@@ -74,6 +74,9 @@ export function presenceState(
   }
 
   const elapsed = now.getTime() - lastSeen.getTime()
+  if (elapsed < 0) {
+    return { state: "NEVER", label: "Mai attivo", color: "bg-slate-400" }
+  }
   if (elapsed < 3 * 60_000) {
     return { state: "ONLINE", label: "Online", color: "bg-emerald-500" }
   }
@@ -101,7 +104,7 @@ export function ManagerPresence() {
       )
       .eq("is_manager", true)
       .order("cognome")
-    setManagers(normalizeManagerRows(data))
+    return normalizeManagerRows(data)
   }, [])
 
   useEffect(() => {
@@ -111,7 +114,9 @@ export function ManagerPresence() {
       await supabaseBrowser.rpc("touch_manager_activity", {
         p_route: pathname,
       })
-      if (active) await load()
+      if (!active) return
+      const managers = await load()
+      if (active) setManagers(managers)
     }
 
     void touch()

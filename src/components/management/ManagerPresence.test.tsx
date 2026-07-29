@@ -1,15 +1,16 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const database = vi.hoisted(() => ({
   rows: [] as unknown[],
+  response: null as Promise<{ data: unknown[] }> | null,
 }))
 
 const supabase = vi.hoisted(() => ({
   from: vi.fn(() => ({
     select: vi.fn(() => ({
       eq: vi.fn(() => ({
-        order: vi.fn(async () => ({ data: database.rows })),
+        order: vi.fn(() => database.response ?? Promise.resolve({ data: database.rows })),
       })),
     })),
   })),
@@ -46,10 +47,19 @@ function millisecondsAgo(milliseconds: number) {
   return new Date(now.getTime() - milliseconds).toISOString()
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((finish) => {
+    resolve = finish
+  })
+  return { promise, resolve }
+}
+
 describe("ManagerPresence", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] })
     vi.setSystemTime(now)
+    database.response = null
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -64,6 +74,7 @@ describe("ManagerPresence", () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it.each([
@@ -87,6 +98,19 @@ describe("ManagerPresence", () => {
     },
   )
 
+  it("treats a future activity timestamp as never active", () => {
+    const presence = presenceState(
+      new Date(now.getTime() + 60_000).toISOString(),
+      now,
+    )
+
+    expect(presence).toMatchObject({
+      state: "NEVER",
+      label: "Mai attivo",
+      color: "bg-slate-400",
+    })
+  })
+
   it("exposes the manager activity through an accessible Radix tooltip", async () => {
     database.rows = [manager(minutesAgo(3))]
 
@@ -102,5 +126,20 @@ describe("ManagerPresence", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Marco Rossi · Attivo 3 minuti fa",
     )
+  })
+
+  it("does not update after an unmounted deferred activity query resolves", async () => {
+    const response = deferred<{ data: unknown[] }>()
+    database.response = response.promise
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const { unmount } = render(<ManagerPresence />)
+    await waitFor(() => expect(supabase.from).toHaveBeenCalledOnce())
+
+    unmount()
+    response.resolve({ data: [manager(minutesAgo(3))] })
+    await response.promise
+
+    expect(consoleError).not.toHaveBeenCalled()
   })
 })

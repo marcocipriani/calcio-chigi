@@ -298,8 +298,7 @@ export async function runImport({
   const responses = await fetchAllResponses(fetchImpl)
   const parsed = prepareResponses(responses)
 
-  const url = options.url || env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = options.serviceKey || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY
+  const { url, serviceKey } = resolveImportConfig(options, env)
   if (!url || !serviceKey) throw new Error("Servono URL Supabase e service role key")
 
   const supabase = createClientImpl(url, serviceKey, {
@@ -381,15 +380,23 @@ export function parseArgs(args) {
   return options
 }
 
-function loadDotEnv(path) {
+export function resolveImportConfig(options, env) {
+  return {
+    url: options.url || env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL,
+    serviceKey: options.serviceKey || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY,
+  }
+}
+
+export function loadDotEnv(path, env = process.env) {
   if (!existsSync(path)) return
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)\s*$/)
-    if (!match || process.env[match[1]]) continue
+    if (!match || env[match[1]]) continue
     let value = match[2].trim()
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1)
-    process.env[match[1]] = value
+    env[match[1]] = value
   }
+  return env
 }
 
 function printPlan(plan, { apply, log }) {

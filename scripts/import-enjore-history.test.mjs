@@ -1,11 +1,17 @@
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, test } from "node:test"
 
 import {
   buildImportRows,
+  loadDotEnv,
   matchProfile,
+  parseArgs,
   parseEnjoreTable,
+  resolveImportConfig,
   runImport,
 } from "./import-enjore-history.mjs"
 
@@ -160,6 +166,17 @@ describe("runImport", () => {
     assert.equal(harness.rpcCalls.length, 0)
   })
 
+  test("rejects missing credentials before creating a database client", async () => {
+    const harness = createImportHarness()
+    const options = harness.options()
+    options.env = {}
+
+    await assert.rejects(() => runImport(options), /Servono URL Supabase e service role key/)
+
+    assert.equal(harness.events.includes("client"), false)
+    assert.equal(harness.rpcCalls.length, 0)
+  })
+
   test("applies one RPC with the exact database row shape", async () => {
     const harness = createImportHarness()
 
@@ -183,6 +200,50 @@ describe("runImport", () => {
     }])
     assert.match(harness.logs[0], /^Apply:/)
     assert.equal(harness.logs.some((line) => line.startsWith("Dry-run:")), false)
+  })
+})
+
+describe("CLI configuration", () => {
+  test("parses dry-run defaults and deterministic apply overrides", () => {
+    assert.deepEqual(parseArgs([]), { apply: false })
+    assert.deepEqual(
+      parseArgs(["--apply", "--url=https://cli.supabase.test", "--service-key=cli-key"]),
+      { apply: true, url: "https://cli.supabase.test", serviceKey: "cli-key" },
+    )
+    assert.deepEqual(parseArgs(["--apply", "--dry-run"]), { apply: false })
+    assert.throws(() => parseArgs(["--unknown"]), /Uso:/)
+  })
+
+  test("loads .env.local without replacing existing values and lets CLI win", () => {
+    const directory = mkdtempSync(join(tmpdir(), "enjore-history-test-"))
+    const path = join(directory, ".env.local")
+    const env = { SUPABASE_SERVICE_ROLE_KEY: "already-set" }
+    try {
+      writeFileSync(path, "SUPABASE_URL=https://env.supabase.test\nSUPABASE_SERVICE_ROLE_KEY=from-file\n")
+      loadDotEnv(path, env)
+
+      assert.deepEqual(resolveImportConfig(parseArgs([]), env), {
+        url: "https://env.supabase.test",
+        serviceKey: "already-set",
+      })
+      assert.deepEqual(
+        resolveImportConfig(parseArgs(["--url=https://cli.supabase.test", "--service-key=cli-key"]), env),
+        { url: "https://cli.supabase.test", serviceKey: "cli-key" },
+      )
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  test("does not start the CLI or fetch when the module is imported", () => {
+    const result = spawnSync(process.execPath, [
+      "--input-type=module",
+      "--eval",
+      "globalThis.fetch = () => { throw new Error('fetch must not run on import') }; await import('./scripts/import-enjore-history.mjs'); console.log('imported')",
+    ], { cwd: process.cwd(), encoding: "utf8" })
+
+    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.stdout.trim(), "imported")
   })
 })
 

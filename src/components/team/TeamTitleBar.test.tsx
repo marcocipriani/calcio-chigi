@@ -156,9 +156,9 @@ describe("TeamTitleBar", () => {
     expect(screen.getByText("Stagione in corso")).toBeVisible()
     expect(
       screen.getByRole("button", { name: "Crea la tua formazione" }),
-    ).toHaveClass("size-11")
+    ).toHaveClass("size-11", "rounded-full", "sm:rounded-md")
     expect(
       screen.getByRole("button", { name: "Pubblica formazione" }),
-    ).toHaveClass("size-11")
+    ).toHaveClass("size-11", "rounded-full", "sm:rounded-md")
   })
 })

@@ -7,6 +7,7 @@ import {
   NextMatchCapsule,
   type NextMatchSummary,
 } from "@/components/formations/NextMatchCapsule"
+import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -37,23 +38,13 @@ export function TeamTitleBar({
       ? "Impossibile caricare la prossima partita"
       : "Nessuna prossima partita"
 
-  return (
-    <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
-      <div className="min-w-0">
-        <p className="truncate text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-          Stagione in corso
-        </p>
-        <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">
-          Squadra
-        </h1>
-      </div>
-
-      <div className="order-2 flex min-w-0 items-center gap-1.5 sm:order-3 sm:col-start-3">
+  const actions = (
+    <>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               aria-label="Crea la tua formazione"
-              className="size-11 px-0 sm:h-8 sm:w-auto sm:px-3"
+              className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
               onClick={onOpenPlayground}
               size="sm"
               variant="outline"
@@ -90,7 +81,7 @@ export function TeamTitleBar({
                     matchUnavailable ? unavailableDescriptionId : undefined
                   }
                   aria-label="Pubblica formazione"
-                  className="size-11 bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:px-3"
+                  className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                   disabled={matchUnavailable}
                   onClick={onOpenOfficial}
                   size="sm"
@@ -116,26 +107,30 @@ export function TeamTitleBar({
             )}
           </Tooltip>
         )}
-      </div>
+    </>
+  )
 
-      {match && (
-        <div className="order-3 col-span-2 min-w-0 sm:order-2 sm:col-span-1 sm:col-start-2 sm:justify-self-end">
-          <NextMatchCapsule match={match} />
-        </div>
-      )}
-      {matchLoading && match === null && (
-        <p className="sr-only" role="status">
-          Caricamento prossima partita
-        </p>
-      )}
-      {!matchLoading && matchError && match === null && (
-        <p
-          className="order-3 col-span-2 text-xs font-medium text-amber-700 sm:order-2 sm:col-span-1 sm:col-start-2 sm:justify-self-end dark:text-amber-400"
-          role="alert"
-        >
-          Impossibile caricare la prossima partita
-        </p>
-      )}
-    </header>
+  const context = match ? (
+    <NextMatchCapsule match={match} />
+  ) : matchLoading ? (
+    <p className="sr-only" role="status">
+      Caricamento prossima partita
+    </p>
+  ) : matchError ? (
+    <p
+      className="text-xs font-medium text-amber-700 dark:text-amber-400"
+      role="alert"
+    >
+      Impossibile caricare la prossima partita
+    </p>
+  ) : null
+
+  return (
+    <PageTitleBar
+      actions={actions}
+      context={context}
+      subtitle="Stagione in corso"
+      title="Squadra"
+    />
   )
 }

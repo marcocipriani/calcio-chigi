@@ -29,7 +29,11 @@ type PublicStats = {
   player_of_match: number
 }
 
-export function PublicTeam() {
+export function PublicTeam({
+  canViewProfiles = false,
+}: {
+  canViewProfiles?: boolean
+}) {
   const [members, setMembers] = useState<PublicMember[]>([])
   const [stats, setStats] = useState<PublicStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +82,7 @@ export function PublicTeam() {
               const playerStats = statsByProfile.get(player.id)
               return (
                 <PlayerRosterCard
+                  canViewProfile={canViewProfiles}
                   key={player.id}
                   player={player}
                   stats={playerStats}

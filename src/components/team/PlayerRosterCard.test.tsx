@@ -14,6 +14,25 @@ const player = {
 }
 
 describe("PlayerRosterCard", () => {
+  it("does not expose a profile link without an approved association", () => {
+    render(<PlayerRosterCard canViewProfile={false} player={player} />)
+
+    expect(
+      screen.queryByRole("link", { name: /profilo di/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("exposes exactly one circular profile link to approved teammates", () => {
+    render(<PlayerRosterCard canViewProfile player={player} />)
+
+    const links = screen.getAllByRole("link", {
+      name: "Profilo di Elio Dorbolò",
+    })
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute("href", "/giocatore/player-1")
+    expect(links[0]).toHaveClass("rounded-full")
+  })
+
   it("orders name, surname, shirt number, role, and centered stats", () => {
     render(
       <PlayerRosterCard

@@ -1,9 +1,11 @@
-import { Shirt, Sparkles } from "lucide-react"
+import Link from "next/link"
+import { Info, Shirt, Sparkles } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 
 type PlayerRosterCardProps = {
+  canViewProfile?: boolean
   player: {
     id: string
     nome: string
@@ -20,13 +22,26 @@ type PlayerRosterCardProps = {
   }
 }
 
-export function PlayerRosterCard({ player, stats }: PlayerRosterCardProps) {
+export function PlayerRosterCard({
+  canViewProfile = false,
+  player,
+  stats,
+}: PlayerRosterCardProps) {
   return (
     <article
       aria-label={`${player.nome} ${player.cognome}`}
       className="relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs"
       data-player-card
     >
+      {canViewProfile && (
+        <Link
+          aria-label={`Profilo di ${player.nome} ${player.cognome}`}
+          className="absolute left-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          href={`/giocatore/${player.id}`}
+        >
+          <Info aria-hidden="true" className="size-3.5" />
+        </Link>
+      )}
       <Avatar className="mx-auto size-10 ring-1 ring-border">
         <AvatarImage
           alt={`${player.nome} ${player.cognome}`}

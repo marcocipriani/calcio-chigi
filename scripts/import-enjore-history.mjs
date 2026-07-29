@@ -32,9 +32,18 @@ export function parseEnjoreTable(html, classification) {
   if (participants.length === 0 || rightTableStart === -1) {
     throw new Error("Unexpected Enjore response shape: standing rows missing")
   }
+  const rightTable = html.slice(rightTableStart)
+  if (classification === "discipline") {
+    const firstValueRow = rightTable.search(/<div class=["']tables-body tables-row[^"']*["'][^>]*>/i)
+    const headers = [...rightTable.slice(0, firstValueRow).matchAll(/<div class=["'][^"']*\bcol-data\b[^"']*["'][^>]*title=["']([^"']+)["'][^>]*>/gi)]
+      .map(([, title]) => cleanText(title))
+    const expectedHeaders = ["Ammonizioni", "Espulsioni"]
+    if (headers.length !== expectedHeaders.length || headers.some((header, index) => header !== expectedHeaders[index])) {
+      throw new Error("Unexpected Enjore discipline headers")
+    }
+  }
 
-  const valueRows = html
-    .slice(rightTableStart)
+  const valueRows = rightTable
     .split(/<div class=["']tables-body tables-row[^"']*["'][^>]*>/i)
     .slice(1)
     .map((row) => [...row.matchAll(/<div class=["'][^"']*\bcol-data\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)]
@@ -75,12 +84,11 @@ export function matchProfile(enjoreName, memberships, overrides) {
 }
 
 export function buildImportRows({ responses, memberships, overrides = {} }) {
-  return buildImportPlan({ responses, memberships, overrides }).rows
+  const parsed = prepareResponses(responses)
+  return buildImportPlan({ parsed, memberships, overrides }).rows
 }
 
-function buildImportPlan({ responses, memberships, overrides }) {
-  const parsed = validateAndParseResponses(responses)
-  reconcileAllPhases(parsed)
+function buildImportPlan({ parsed, memberships, overrides }) {
   const records = []
 
   for (const [phaseId, phaseKey] of Object.entries(PHASES)) {
@@ -128,7 +136,7 @@ function buildImportPlan({ responses, memberships, overrides }) {
   return {
     records,
     rows: records.map((record) => ({
-      phaseKey: record.phaseKey,
+      phase_key: record.phaseKey,
       profile_id: record.profile_id,
       goals: record.goals,
       mvp: record.mvp,
@@ -136,6 +144,12 @@ function buildImportPlan({ responses, memberships, overrides }) {
       red_cards: record.red_cards,
     })),
   }
+}
+
+function prepareResponses(responses) {
+  const parsed = validateAndParseResponses(responses)
+  reconcileAllPhases(parsed)
+  return parsed
 }
 
 function validateAndParseResponses(responses) {
@@ -169,26 +183,29 @@ function reconcileAllPhases(parsed) {
     for (const phaseId of Object.keys(PHASES)) {
       for (const standing of parsed.get(responseKey(phaseId, classification)).rows) {
         const key = normalizeName(standing.name)
-        phaseTotals.set(key, (phaseTotals.get(key) ?? 0) + standingValue(standing, classification))
+        const totals = phaseTotals.get(key) ?? {}
+        for (const metric of standingMetrics(classification)) {
+          totals[metric] = (totals[metric] ?? 0) + standing[metric]
+        }
+        phaseTotals.set(key, totals)
       }
     }
-    const allTotals = new Map(parsed.get(responseKey("all", classification)).rows.map((standing) => [
-      normalizeName(standing.name),
-      standingValue(standing, classification),
-    ]))
+    const allTotals = new Map(parsed.get(responseKey("all", classification)).rows.map((standing) => [normalizeName(standing.name), standing]))
     const playerKeys = new Set([...phaseTotals.keys(), ...allTotals.keys()])
     for (const key of playerKeys) {
-      if ((phaseTotals.get(key) ?? 0) !== (allTotals.get(key) ?? 0)) {
-        throw new Error(`Enjore all-phases reconciliation failed for ${classification}: ${key}`)
+      for (const metric of standingMetrics(classification)) {
+        if ((phaseTotals.get(key)?.[metric] ?? 0) !== (allTotals.get(key)?.[metric] ?? 0)) {
+          throw new Error(`Enjore all-phases reconciliation failed for ${classification} ${metric}: ${key}`)
+        }
       }
     }
   }
 }
 
-function standingValue(standing, classification) {
-  if (classification === "score") return standing.goals
-  if (classification === "top-player") return standing.mvp
-  return standing.yellowCards + standing.redCards
+function standingMetrics(classification) {
+  if (classification === "score") return ["goals"]
+  if (classification === "top-player") return ["mvp"]
+  return ["yellowCards", "redCards"]
 }
 
 function isHistoricalPlayerMembership(membership) {
@@ -270,17 +287,22 @@ function phaseOrder(phaseKey) {
   return Object.values(PHASES).indexOf(phaseKey)
 }
 
-async function main() {
-  loadDotEnv(".env.local")
-  const options = parseArgs(process.argv.slice(2))
-  const responses = await fetchAllResponses()
-  validateAndParseResponses(responses)
+export async function runImport({
+  args = [],
+  env = process.env,
+  fetchImpl = fetch,
+  createClientImpl = createClient,
+  log = console.log,
+} = {}) {
+  const options = parseArgs(args)
+  const responses = await fetchAllResponses(fetchImpl)
+  const parsed = prepareResponses(responses)
 
-  const url = options.url || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = options.serviceKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+  const url = options.url || env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = options.serviceKey || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_KEY
   if (!url || !serviceKey) throw new Error("Servono URL Supabase e service role key")
 
-  const supabase = createClient(url, serviceKey, {
+  const supabase = createClientImpl(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data: memberships, error: membershipsError } = await supabase
@@ -291,12 +313,12 @@ async function main() {
   if (membershipsError) throw membershipsError
 
   const plan = buildImportPlan({
-    responses,
+    parsed,
     memberships: memberships ?? [],
     overrides: EXPLICIT_OVERRIDES,
   })
-  printPlan(plan)
-  if (!options.apply) return
+  printPlan(plan, { apply: options.apply, log })
+  if (!options.apply) return { applied: false, rows: plan.rows }
 
   const { error } = await supabase.rpc("import_historical_player_stats", {
     p_season_slug: SEASON_SLUG,
@@ -304,27 +326,28 @@ async function main() {
     p_rows: plan.rows,
   })
   if (error) throw error
-  console.log(`Import applicato: ${plan.rows.length} righe.`)
+  log(`Import applicato: ${plan.rows.length} righe.`)
+  return { applied: true, rows: plan.rows }
 }
 
-async function fetchAllResponses() {
+async function fetchAllResponses(fetchImpl) {
   const requests = []
   for (const phaseId of [...Object.keys(PHASES), "all"]) {
     for (const classification of CLASSIFICATIONS) {
-      requests.push(fetchEnjoreResponse(phaseId, classification))
+      requests.push(fetchEnjoreResponse(phaseId, classification, fetchImpl))
     }
   }
   return Promise.all(requests)
 }
 
-async function fetchEnjoreResponse(phaseId, classification) {
+async function fetchEnjoreResponse(phaseId, classification, fetchImpl) {
   const body = new URLSearchParams({
     op: "19",
     tid: "113994",
     round: String(phaseId),
     type: classification,
   })
-  const response = await fetch(ENJORE_ENDPOINT, {
+  const response = await fetchImpl(ENJORE_ENDPOINT, {
     method: "POST",
     headers: {
       "accept-language": "it-IT,it;q=0.9,en;q=0.8",
@@ -346,7 +369,7 @@ async function fetchEnjoreResponse(phaseId, classification) {
   return { phaseId, classification, html: payload.html }
 }
 
-function parseArgs(args) {
+export function parseArgs(args) {
   const options = { apply: false }
   for (const arg of args) {
     if (arg === "--apply") options.apply = true
@@ -369,27 +392,28 @@ function loadDotEnv(path) {
   }
 }
 
-function printPlan(plan) {
-  console.log(`Dry-run: ${plan.rows.length} righe storiche validate; nessuna scrittura database.`)
+function printPlan(plan, { apply, log }) {
+  log(`${apply ? "Apply" : "Dry-run"}: ${plan.rows.length} righe storiche validate${apply ? "." : "; nessuna scrittura database."}`)
   for (const record of plan.records) {
-    console.log(`${record.phaseKey} ${record.sourceName} -> ${record.localName} (${record.profile_id}): G=${record.goals} MVP=${record.mvp} A=${record.yellow_cards} ESP=${record.red_cards}`)
+    log(`${record.phaseKey} ${record.sourceName} -> ${record.localName} (${record.profile_id}): G=${record.goals} MVP=${record.mvp} A=${record.yellow_cards} ESP=${record.red_cards}`)
   }
   for (const phaseKey of Object.values(PHASES)) {
     const total = plan.rows
-      .filter((row) => row.phaseKey === phaseKey)
+      .filter((row) => row.phase_key === phaseKey)
       .reduce((sum, row) => ({
         goals: sum.goals + row.goals,
         mvp: sum.mvp + row.mvp,
         yellowCards: sum.yellowCards + row.yellow_cards,
         redCards: sum.redCards + row.red_cards,
       }), { goals: 0, mvp: 0, yellowCards: 0, redCards: 0 })
-    console.log(`${phaseKey}: G=${total.goals} MVP=${total.mvp} A=${total.yellowCards} ESP=${total.redCards}`)
+    log(`${phaseKey}: G=${total.goals} MVP=${total.mvp} A=${total.yellowCards} ESP=${total.redCards}`)
   }
 }
 
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isCli) {
-  main().catch((error) => {
+  loadDotEnv(".env.local")
+  runImport({ args: process.argv.slice(2) }).catch((error) => {
     console.error(error instanceof Error ? error.message : error)
     process.exitCode = 1
   })

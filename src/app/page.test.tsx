@@ -1,9 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import Home from "@/app/page"
 
 const { removeChannel } = vi.hoisted(() => ({ removeChannel: vi.fn() }))
+
+class TestResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.stubGlobal("ResizeObserver", TestResizeObserver)
 
 vi.mock("@/lib/api", () => ({
   fetchCalendarEvents: vi.fn().mockResolvedValue([]),
@@ -43,5 +51,22 @@ describe("Calendar page", () => {
     expect(
       addActions.find((action) => action.classList.contains("sm:hidden")),
     ).toHaveClass("sm:hidden", "fixed", "size-14")
+  })
+
+  it("explains the icon-only mobile add action on hover", async () => {
+    render(<Home />)
+
+    const mobileAddAction = await waitFor(() => {
+      const action = screen
+        .getAllByRole("button", { name: "Aggiungi evento" })
+        .find((button) => button.classList.contains("sm:hidden"))
+      expect(action).toBeDefined()
+      return action!
+    })
+    fireEvent.pointerMove(mobileAddAction)
+
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Aggiungi evento",
+    )
   })
 })

@@ -694,13 +694,18 @@ export default function Home() {
       )}
 
       {isManager && (
-          <Button 
-            aria-label="Aggiungi evento"
-            className="fixed bottom-24 right-4 z-50 size-14 rounded-full bg-purple-600 shadow-2xl transition-transform hover:scale-110 hover:bg-purple-700 active:scale-95 sm:hidden"
-            onClick={handleCreateNew}
-          >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Aggiungi evento"
+                className="fixed bottom-24 right-4 z-50 size-14 rounded-full bg-purple-600 shadow-2xl transition-transform hover:scale-110 hover:bg-purple-700 active:scale-95 sm:hidden"
+                onClick={handleCreateNew}
+              >
               <Plus className="h-8 w-8 text-white" />
-          </Button>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="sm:hidden">Aggiungi evento</TooltipContent>
+          </Tooltip>
       )}
 
       <EventDialog 

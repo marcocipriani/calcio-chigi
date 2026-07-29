@@ -1,6 +1,6 @@
 begin;
 
-select plan(54);
+select plan(57);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -126,8 +126,15 @@ where (now() at time zone 'Europe/Rome')::date
 limit 1;
 
 update public.events
-set fase = null
-where id = '20000000-0000-0000-0000-000000000001';
+set fase = case id
+  when '20000000-0000-0000-0000-000000000001' then null
+  when '20000000-0000-0000-0000-000000000002'
+    then 'FASE_2_CALCIATORI'
+end
+where id in (
+  '20000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000002'
+);
 
 insert into public.official_formations (
   event_id,
@@ -803,6 +810,46 @@ select results_eq(
      where season.slug = '2025-2026'$$,
   $$values (1::bigint, 'https://history.test/new'::text)$$,
   'history import replaces the complete season dataset'
+);
+reset role;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000002',
+  true
+);
+select results_eq(
+  $$select assists
+      from public.get_player_profile(
+        '10000000-0000-0000-0000-000000000002',
+        (select id from public.seasons where slug = '2025-2026')
+      )$$,
+  $$values (null::integer)$$,
+  'season assists remain unavailable when any included phase is historical'
+);
+reset role;
+
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+select throws_ok(
+  $$select public.import_historical_player_stats(
+    '2025-2026',
+    'https://history.test/null',
+    null
+  )$$,
+  'P0001',
+  'Historical rows must be a non-empty JSON array',
+  'null historical rows are rejected before replacement'
+);
+select results_eq(
+  $$select count(*)::bigint, min(source_url)
+      from public.historical_player_stats history
+      join public.seasons season on season.id = history.season_id
+     where season.slug = '2025-2026'$$,
+  $$values (1::bigint, 'https://history.test/new'::text)$$,
+  'rejected null import preserves the existing season dataset'
 );
 reset role;
 select set_config('request.jwt.claim.role', 'authenticated', true);

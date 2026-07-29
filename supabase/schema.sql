@@ -4812,7 +4812,7 @@ begin
     coalesce(sum(statistics.goals), 0)::integer,
     case
       when count(statistics.profile_id) = 0 then 0
-      when count(statistics.assists) = 0 then null
+      when count(statistics.assists) < count(statistics.profile_id) then null
       else sum(statistics.assists)::integer
     end,
     coalesce(sum(statistics.mvp), 0)::integer,
@@ -4857,7 +4857,8 @@ begin
     raise exception 'Service role required' using errcode = '42501';
   end if;
 
-  if jsonb_typeof(p_rows) <> 'array'
+  if p_rows is null
+     or jsonb_typeof(p_rows) <> 'array'
      or jsonb_array_length(p_rows) = 0 then
     raise exception 'Historical rows must be a non-empty JSON array';
   end if;

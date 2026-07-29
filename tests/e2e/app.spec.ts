@@ -12,6 +12,7 @@ import {
 const E2E_MATCH_ID = "92000000-0000-0000-0000-000000000001"
 const E2E_MANAGER_ID = "91000000-0000-0000-0000-000000000001"
 const E2E_PLAYER_ID = "91000000-0000-0000-0000-000000000002"
+const E2E_MAYBE_ID = "91000000-0000-0000-0000-000000000003"
 const OFFICIAL_FORMATION_TEST_TITLE =
   "capsula formazione passa da bozza a pubblicata"
 const ANONYMOUS_CAPSULE_TEST_TITLE =
@@ -121,21 +122,86 @@ async function expectCircularIconOnlyAction(action: Locator) {
   expect(box!.width).toBeGreaterThanOrEqual(44)
   expect(box!.height).toBeGreaterThanOrEqual(44)
   expect(Math.abs(box!.width - box!.height)).toBeLessThanOrEqual(1)
+  await expect(action.locator("svg").first()).toBeVisible()
   await expect
     .poll(() =>
-      action.evaluate((element) =>
-        Array.from(element.querySelectorAll("span")).every((label) => {
-          const style = getComputedStyle(label)
-          const rect = label.getBoundingClientRect()
-          return (
-            style.display === "none" ||
-            style.visibility === "hidden" ||
-            (rect.width <= 1 && rect.height <= 1)
-          )
-        }),
-      ),
+      action.evaluate((element) => {
+        const walker = document.createTreeWalker(
+          element,
+          NodeFilter.SHOW_TEXT,
+        )
+        let node = walker.nextNode()
+        while (node) {
+          if (node.textContent?.trim()) {
+            const parent = node.parentElement
+            if (parent) {
+              const range = document.createRange()
+              range.selectNodeContents(node)
+              const textRect = range.getBoundingClientRect()
+              let left = textRect.left
+              let right = textRect.right
+              let top = textRect.top
+              let bottom = textRect.bottom
+              let ancestor: HTMLElement | null = parent
+              let rendered = true
+
+              while (ancestor && rendered) {
+                const style = getComputedStyle(ancestor)
+                const rect = ancestor.getBoundingClientRect()
+                if (
+                  style.display === "none" ||
+                  style.visibility === "hidden"
+                ) {
+                  rendered = false
+                  break
+                }
+                left = Math.max(left, rect.left)
+                right = Math.min(right, rect.right)
+                top = Math.max(top, rect.top)
+                bottom = Math.min(bottom, rect.bottom)
+                if (ancestor === element) break
+                ancestor = ancestor.parentElement
+              }
+
+              if (rendered && right - left > 1 && bottom - top > 1) {
+                return false
+              }
+            }
+          }
+          node = walker.nextNode()
+        }
+        return true
+      }),
     )
     .toBe(true)
+}
+
+async function expectCompleteSeasonPlayerLinks(
+  page: Page,
+  seasonSlug: string,
+  occurrencesPerPlayer: number,
+) {
+  const playerIds = [E2E_MANAGER_ID, E2E_PLAYER_ID, E2E_MAYBE_ID]
+  const expectedHrefs = playerIds
+    .flatMap((profileId) =>
+      Array.from(
+        { length: occurrencesPerPlayer },
+        () => `/giocatore/${profileId}?season=${seasonSlug}`,
+      ),
+    )
+    .sort()
+  const links = page.locator('a[href^="/giocatore/"]')
+
+  await expect
+    .poll(() =>
+      links.evaluateAll((elements) =>
+        elements
+          .map((element) => element.getAttribute("href"))
+          .filter((href): href is string => href !== null)
+          .sort(),
+      ),
+    )
+    .toEqual(expectedHrefs)
 }
 
 async function dismissPaymentReminder(page: Page) {
@@ -241,7 +307,7 @@ test("viewport condiviso per la gestione riservata mobile", async ({
   test.skip(testInfo.project.name !== "mobile")
   await authenticate(context, "manager@chigi.test", "Manager123!")
   await page.goto("/gestione")
-  await expect(page.getByRole("heading", { name: "Gestione squadra" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Gestione" })).toBeVisible()
   await expectBottomNavClearance(page)
   await expectSharedPageViewport(page)
 })
@@ -387,9 +453,19 @@ test("torneo stagionale resetta fase e mantiene il contratto comunicati", async 
   await expect(
     page.getByRole("option", { name: "Fase 2 Professionisti" }),
   ).toBeVisible()
-  await page.getByRole("option", { name: "Fase 2 Professionisti" }).click()
+  await page.getByRole("option", { name: "Fase 1" }).click()
   await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
-    "Fase 2 Professionisti",
+    "Fase 1",
+  )
+  await page.getByRole("tab", { name: "Calendario" }).click()
+  await expect(page.getByRole("button", { name: "Giornata 1" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await page.getByRole("button", { name: "Giornata 2" }).click()
+  await expect(page.getByRole("button", { name: "Giornata 2" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   )
 
   await page.getByRole("combobox", { name: "Torneo" }).click()
@@ -402,6 +478,30 @@ test("torneo stagionale resetta fase e mantiene il contratto comunicati", async 
   await page.getByRole("combobox", { name: "Fase" }).click()
   await expect(page.getByRole("option")).toHaveCount(1)
   await page.keyboard.press("Escape")
+  await page.getByRole("tab", { name: "Calendario" }).click()
+  await expect(
+    page.getByText("Nessuna giornata disponibile per questa fase."),
+  ).toBeVisible()
+
+  await page.getByRole("combobox", { name: "Torneo" }).click()
+  await page
+    .getByRole("option", { name: "Campionato ASI Over35 2025/26" })
+    .click()
+  await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
+    "Tutte le fasi",
+  )
+  await page.getByRole("combobox", { name: "Fase" }).click()
+  await expect(page.getByRole("option", { name: "Fase 1" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await page.getByRole("tab", { name: "Calendario" }).click()
+  await expect(page.getByRole("button", { name: "Giornata 1" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(page.getByRole("button", { name: "Giornata 2" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  )
 
   const communications = page.getByRole("button", { name: "Comunicati" })
   if (testInfo.project.name === "mobile") {
@@ -460,22 +560,12 @@ test("statistiche associate propagano la stagione nei dettagli", async ({
   await page.goto("/statistiche")
   await dismissPaymentReminder(page)
 
-  const currentPlayerLinks = page.locator(
-    `a[href="/giocatore/${E2E_PLAYER_ID}?season=2026-2027"]`,
-  )
-  await expect(currentPlayerLinks.first()).toBeVisible()
-  await expect.poll(() => currentPlayerLinks.count()).toBeGreaterThanOrEqual(6)
+  await expectCompleteSeasonPlayerLinks(page, "2026-2027", 6)
 
   await page.getByRole("combobox", { name: "Stagione" }).selectOption(
     "2025-2026",
   )
-  const historicalPlayerLinks = page.locator(
-    `a[href="/giocatore/${E2E_PLAYER_ID}?season=2025-2026"]`,
-  )
-  await expect(historicalPlayerLinks.first()).toBeVisible()
-  await expect
-    .poll(() => historicalPlayerLinks.count())
-    .toBeGreaterThanOrEqual(5)
+  await expectCompleteSeasonPlayerLinks(page, "2025-2026", 5)
   await expect(page.getByText("Dati non disponibili")).toBeVisible()
 })
 
@@ -515,10 +605,31 @@ test("utente non associato resta fuori dai dettagli giocatore", async ({
   await page.goto("/squadra")
   await expect(page.locator('a[href^="/giocatore/"]')).toHaveCount(0)
 
+  const sensitiveRequests: string[] = []
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname
+    const privatePath = [
+      "/rpc/get_player_profile",
+      "/season_memberships",
+      "/profile_private_details",
+      "/payments",
+      "/medical_certificates",
+    ].some((fragment) => pathname.includes(fragment))
+    const playerRoutePath = new URL(request.frame().url()).pathname
+    const playerRouteEventPath =
+      playerRoutePath === `/giocatore/${E2E_PLAYER_ID}` &&
+      ["/events", "/event_checkins"].some((fragment) =>
+        pathname.includes(fragment),
+      )
+    if (privatePath || playerRouteEventPath) {
+      sensitiveRequests.push(pathname)
+    }
+  })
   await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
   await expect(page).toHaveURL(/\/squadra$/)
   await expect(page.getByText("+39 333 0000002")).toHaveCount(0)
   await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+  expect(sensitiveRequests).toEqual([])
 })
 
 test("compagno associato vede solo la proiezione sicura", async ({
@@ -538,6 +649,20 @@ test("compagno associato vede solo la proiezione sicura", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Mario Manager" }),
   ).toBeVisible()
+  await expect(page.getByText("DIFENSORE", { exact: true })).toBeVisible()
+  await expect(page.getByText("#4", { exact: true })).toBeVisible()
+  for (const label of [
+    "Goal: 0",
+    "Assist: 0",
+    "MVP: 0",
+    "Ammonizioni: 0",
+    "Espulsioni: 0",
+  ]) {
+    await expect(page.getByLabel(label)).toBeVisible()
+  }
+  await expect(page.getByText("+39 333 0000001")).toHaveCount(0)
+  await expect(page.getByText("mario.operativo@chigi.test")).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
   for (const privateHeading of [
     "Tesseramento",
     "Pagamenti",
@@ -681,7 +806,7 @@ test("dashboard manager densa con azioni rapide", async ({
   await authenticate(context, "manager@chigi.test", "Manager123!")
   await page.goto("/gestione")
 
-  await expect(page.getByRole("heading", { name: "Gestione squadra" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Gestione" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Persona" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Tesseramenti" })).toBeVisible()
   await expect(
@@ -731,7 +856,7 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     await expect(visibleAddAction).toHaveCSS("position", "fixed")
     await expectCircularIconOnlyAction(visibleAddAction)
     const management = page.getByRole("link", {
-      name: "Gestione squadra",
+      name: "Gestione",
     })
     await expectCircularIconOnlyAction(management)
     await expect(management).toHaveClass(/bg-violet-600/)
@@ -739,12 +864,13 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     await expect(
       calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
     ).toBeVisible()
+    await expect(visibleAddAction).toContainText("Aggiungi evento")
     await expect(visibleAddAction).not.toHaveCSS("position", "fixed")
     const management = page.getByRole("link", {
-      name: "Gestione squadra",
+      name: "Gestione",
     })
     await expect(management.locator("span")).toBeVisible()
-    await expect(management).toContainText("Gestione squadra")
+    await expect(management).toContainText("Gestione")
     await expect(management).toHaveClass(/bg-violet-600/)
   }
 
@@ -754,7 +880,7 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     ["/torneo", "Torneo"],
     ["/statistiche", "Statistiche"],
     ["/profilo", "Profilo"],
-    ["/gestione", "Gestione squadra"],
+    ["/gestione", "Gestione"],
   ] as const) {
     await page.goto(route)
     await expect(

@@ -76,15 +76,37 @@ ammonizioni ed espulsioni. Non crea eventi sintetici, assist o presenze.
 Prima di qualsiasi scrittura:
 
 ```bash
+test -s supabase/.temp/project-ref
+linked_ref="$(tr -d '[:space:]' < supabase/.temp/project-ref)"
+env_ref="$(
+  node --input-type=module -e '
+    import { loadDotEnv } from "./scripts/import-enjore-history.mjs"
+    const env = {}
+    loadDotEnv(".env.local", env)
+    const value = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL
+    if (!value) throw new Error("URL Supabase assente in .env.local")
+    const match = new URL(value).hostname.match(/^([a-z0-9-]+)\.supabase\.co$/)
+    if (!match) throw new Error("Hostname Supabase remoto non valido")
+    process.stdout.write(match[1])
+  '
+)"
+test "$linked_ref" = "$env_ref"
 npx supabase migration list --linked
-npx supabase db dump --linked --data-only \
-  -f /tmp/calcio-chigi-pre-enjore-2025-2026.sql
-npx supabase db push --dry-run
+backup_path="/tmp/calcio-chigi-pre-enjore-2025-2026.sql"
+npx supabase db dump --linked --data-only -f "$backup_path"
+test -s "$backup_path"
+shasum -a 256 "$backup_path" > "${backup_path}.sha256"
+npx supabase db push --linked --dry-run
 npm run import:enjore-history -- --dry-run
 ```
 
-Il dry-run scarica 15 risposte, riconcilia le quattro fasi con le classifiche
-all-phases, risolve i profili remoti e non invoca la RPC di import.
+Il confronto tra `supabase/.temp/project-ref` e il project ref ricavato
+dall’hostname in `.env.local` deve riuscire prima di migration, dump o import.
+I comandi non stampano URL, chiavi o altri secret. Il dry-run scarica 15
+risposte, stampa le righe per giocatore/fase e i totali per fase, risolve i
+profili remoti e non invoca la RPC di import. La riconciliazione con le
+classifiche all-phases è un controllo interno dello script: non viene stampata
+come sezione separata.
 
 Evidenza del 29 luglio 2026:
 
@@ -100,7 +122,7 @@ In questo task non sono stati eseguiti `db push`, import `--apply` o deploy
 Web. I comandi operativi da eseguire dopo review sono:
 
 ```bash
-npx supabase db push
+npx supabase db push --linked
 npm run import:enjore-history -- --dry-run
 npm run import:enjore-history -- --apply
 vercel --prod
@@ -113,38 +135,67 @@ Non proseguire se il secondo dry-run differisce dal preflight approvato.
 Eseguire sul database collegato:
 
 ```sql
+with expected_phases(phase_key, sort_order) as (
+  values
+    ('FASE_1'::text, 1),
+    ('FASE_2_CALCIATORI'::text, 2),
+    ('FASE_2_PROFESSIONISTI'::text, 3),
+    ('COPPA_LAZIO_PROFESSIONISTI'::text, 4)
+),
+phase_totals as (
+  select
+    h.phase_key,
+    count(*) as players,
+    sum(h.goals) as goals,
+    sum(h.mvp) as mvp,
+    sum(h.yellow_cards) as yellow_cards,
+    sum(h.red_cards) as red_cards
+  from public.historical_player_stats h
+  join public.seasons s on s.id = h.season_id
+  where s.slug = '2025-2026'
+  group by h.phase_key
+)
 select
-  phase_key,
-  count(*) as players,
-  sum(goals) as goals,
-  sum(mvp) as mvp,
-  sum(yellow_cards) as yellow_cards,
-  sum(red_cards) as red_cards
-from public.historical_player_stats h
-join public.seasons s on s.id = h.season_id
-where s.slug = '2025-2026'
-group by phase_key
-order by phase_key;
+  e.phase_key,
+  coalesce(t.players, 0) as players,
+  coalesce(t.goals, 0) as goals,
+  coalesce(t.mvp, 0) as mvp,
+  coalesce(t.yellow_cards, 0) as yellow_cards,
+  coalesce(t.red_cards, 0) as red_cards
+from expected_phases e
+left join phase_totals t using (phase_key)
+order by e.sort_order;
 
 select
+  h.phase_key,
   h.profile_id,
   p.cognome,
   p.nome,
-  sum(h.goals) as goals,
-  sum(h.mvp) as mvp,
-  sum(h.yellow_cards) as yellow_cards,
-  sum(h.red_cards) as red_cards
+  h.goals,
+  h.mvp,
+  h.yellow_cards,
+  h.red_cards
 from public.historical_player_stats h
 join public.seasons s on s.id = h.season_id
 join public.profiles p on p.id = h.profile_id
 where s.slug = '2025-2026'
-group by h.profile_id, p.cognome, p.nome
-order by p.cognome, p.nome;
+order by
+  case h.phase_key
+    when 'FASE_1' then 1
+    when 'FASE_2_CALCIATORI' then 2
+    when 'FASE_2_PROFESSIONISTI' then 3
+    when 'COPPA_LAZIO_PROFESSIONISTI' then 4
+  end,
+  p.cognome,
+  p.nome;
 ```
 
-Confrontare il secondo risultato con la sezione all-phases del dry-run. Dopo
-il deploy verificare `/statistiche`: 2026/27 a zero, 2025/26 con assist `—` e
-presenze `Dati non disponibili`.
+Confrontare il primo risultato con i quattro totali per fase del dry-run,
+inclusa la riga a zero di `FASE_2_CALCIATORI`. Confrontare ogni riga
+giocatore/fase del secondo risultato con la corrispondente riga stampata dal
+dry-run. La riconciliazione all-phases resta validata internamente dallo
+script. Dopo il deploy verificare `/statistiche`: 2026/27 a zero, 2025/26 con
+assist `—` e presenze `Dati non disponibili`.
 
 ### Errore e recupero
 
@@ -156,9 +207,13 @@ presenze `Dati non disponibili`.
   `npm run import:enjore-history -- --dry-run`, revisione dell’output, poi
   `npm run import:enjore-history -- --apply`. Il secondo apply sostituisce
   atomicamente il dataset precedente.
-- Per un incidente più ampio, bloccare le scritture e usare il dump
-  `/tmp/calcio-chigi-pre-enjore-2025-2026.sql` o il ripristino puntuale
-  Supabase. Non eseguire `db reset` sul progetto collegato e non tentare un
+- Il dump è diagnostico finché un ripristino non viene provato in un ambiente
+  isolato e verificato applicativamente; checksum e file non dimostrano da
+  soli la recuperabilità.
+- Per un incidente di produzione più ampio, bloccare le scritture, annotare il
+  timestamp e avviare il Point-in-Time Recovery Supabase secondo il piano del
+  progetto. Non dichiarare il recupero riuscito prima dei controlli
+  applicativi. Non eseguire `db reset` sul progetto collegato e non tentare un
   down manuale della migration: applicare una migration correttiva.
 
 ## Account e onboarding
@@ -240,9 +295,14 @@ riprogettare l’accesso pubblico e rieseguire i test RLS.
 Prima di migrazioni o import:
 
 ```bash
-npx supabase db dump --linked --data-only -f /tmp/calcio-chigi-data.sql
+backup_path="/tmp/calcio-chigi-data.sql"
+npx supabase db dump --linked --data-only -f "$backup_path"
+test -s "$backup_path"
+shasum -a 256 "$backup_path" > "${backup_path}.sha256"
 ```
 
-Conservare il dump fuori dalla repository. Per un incidente limitare prima le
-scritture, raccogliere log e identificativi, quindi scegliere un ripristino
-puntuale; non eseguire reset sul database remoto.
+Conservare dump e checksum fuori dalla repository. Il dump è diagnostico a
+meno che il restore sia stato provato in un ambiente isolato. In produzione,
+per un incidente limitare prima le scritture, raccogliere log, identificativi e
+timestamp, quindi usare il Point-in-Time Recovery Supabase previsto dal piano;
+non eseguire reset sul database remoto.

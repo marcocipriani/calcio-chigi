@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { requireLocalSupabaseUrl } from "./local-supabase-url"
+
 const IDS = {
   manager: "91000000-0000-0000-0000-000000000001",
   player: "91000000-0000-0000-0000-000000000002",
@@ -8,6 +10,7 @@ const IDS = {
   staff: "91000000-0000-0000-0000-000000000005",
   match: "92000000-0000-0000-0000-000000000001",
   training: "92000000-0000-0000-0000-000000000002",
+  earlierMatch: "92000000-0000-0000-0000-000000000003",
   communication: "93000000-0000-0000-0000-000000000001",
 }
 
@@ -42,6 +45,7 @@ export default async function globalSetup() {
   const url = process.env.E2E_SUPABASE_URL
   const serviceRoleKey = process.env.E2E_SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceRoleKey) throw new Error("Local Supabase E2E environment missing")
+  requireLocalSupabaseUrl(url)
 
   const client = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -53,7 +57,7 @@ export default async function globalSetup() {
     IDS.no,
     IDS.staff,
   ]
-  const eventIds = [IDS.match, IDS.training]
+  const eventIds = [IDS.match, IDS.training, IDS.earlierMatch]
   const failOnError = (error: { message: string } | null) => {
     if (error) throw error
   }
@@ -375,6 +379,22 @@ export default async function globalSetup() {
       gol_ospite: 1,
       fase: "FASE_1",
       giornata: 1,
+    },
+    {
+      id: IDS.earlierMatch,
+      season_id: oldSeason.id,
+      tipo: "PARTITA",
+      data_ora: "2026-07-25T21:15:00+02:00",
+      luogo: "Campo Circolo Chigi",
+      squadra_casa: "PSICOLOGOL",
+      squadra_ospite: "CIRC. CHIGI",
+      avversario: "PSICOLOGOL",
+      cancellato: false,
+      giocata: true,
+      gol_casa: 0,
+      gol_ospite: 2,
+      fase: "FASE_1",
+      giornata: 2,
     },
   ])
   if (eventsError) throw eventsError

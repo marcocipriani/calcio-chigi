@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process"
 import { defineConfig, devices } from "@playwright/test"
 
+import { requireLocalSupabaseUrl } from "./tests/e2e/local-supabase-url"
+
 function localSupabaseEnvironment() {
   if (
     process.env.E2E_SUPABASE_URL &&
@@ -28,7 +30,8 @@ function localSupabaseEnvironment() {
 }
 
 const local = localSupabaseEnvironment()
-process.env.E2E_SUPABASE_URL = local.API_URL
+const localSupabaseUrl = requireLocalSupabaseUrl(local.API_URL)
+process.env.E2E_SUPABASE_URL = localSupabaseUrl
 process.env.E2E_SUPABASE_ANON_KEY = local.ANON_KEY
 process.env.E2E_SUPABASE_SERVICE_ROLE_KEY = local.SERVICE_ROLE_KEY
 
@@ -36,6 +39,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
+  workers: 1,
   forbidOnly: true,
   retries: 0,
   reporter: [["list"]],
@@ -47,7 +51,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
     env: {
-      NEXT_PUBLIC_SUPABASE_URL: local.API_URL,
+      NEXT_PUBLIC_SUPABASE_URL: localSupabaseUrl,
       NEXT_PUBLIC_SUPABASE_KEY: local.ANON_KEY,
       NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3100",
     },

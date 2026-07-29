@@ -399,7 +399,7 @@ export function ManagementDashboard() {
           </select>
         }
         subtitle="Sala operativa"
-        title="Gestione squadra"
+        title="Gestione"
       />
 
       <KpiStrip

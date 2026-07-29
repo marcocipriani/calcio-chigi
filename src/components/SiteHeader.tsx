@@ -56,7 +56,7 @@ export function SiteHeader() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    aria-label="Gestione squadra"
+                    aria-label="Gestione"
                     asChild
                     className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
                     size="sm"
@@ -64,13 +64,13 @@ export function SiteHeader() {
                     <Link href="/gestione">
                       <Settings2 aria-hidden="true" />
                       <span className="sr-only sm:not-sr-only">
-                        Gestione squadra
+                        Gestione
                       </span>
                     </Link>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="sm:hidden">
-                  Gestione squadra
+                  Gestione
                 </TooltipContent>
               </Tooltip>
             </>

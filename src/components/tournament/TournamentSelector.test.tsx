@@ -27,9 +27,16 @@ const api = vi.hoisted(() => ({
   getUserContext: vi.fn().mockResolvedValue({ isManager: false }),
 }))
 
+const realtime = vi.hoisted(() => ({
+  callback: undefined as undefined | (() => void),
+}))
+
 const supabase = vi.hoisted(() => ({
   channel: vi.fn(() => ({
-    on: vi.fn(() => ({ subscribe: vi.fn() })),
+    on: vi.fn((_: unknown, __: unknown, callback: () => void) => {
+      realtime.callback = callback
+      return { subscribe: vi.fn() }
+    }),
   })),
   from: vi.fn(() => ({
     select: vi.fn(() => ({
@@ -245,6 +252,79 @@ describe("TournamentSelector", () => {
         {
           id: "stale",
           season_id: "season-stale",
+          tipo: "PARTITA",
+          data_ora: "2026-08-20T19:00:00.000Z",
+          luogo: "Campo",
+          giocata: true,
+          cancellato: false,
+          giornata: 1,
+          fase: "FASE_1",
+          squadra_casa: "Alpha",
+          squadra_ospite: "Bravo",
+          gol_casa: 1,
+          gol_ospite: 0,
+        },
+      ])
+    })
+
+    expect(screen.getByText("Charlie")).toBeVisible()
+    expect(screen.queryByText("Alpha")).toBeNull()
+  })
+
+  it("ignores an older realtime standings response for the same selection", async () => {
+    type Match = Awaited<ReturnType<typeof api.fetchSeasonEvents>>[number]
+    let resolveFirst: (matches: Match[]) => void
+    let resolveSecond: (matches: Match[]) => void
+    const first = new Promise<Match[]>((resolve) => {
+      resolveFirst = resolve
+    })
+    const second = new Promise<Match[]>((resolve) => {
+      resolveSecond = resolve
+    })
+    const teams = [
+      { id: "alpha", nome: "Alpha", slug: "alpha" },
+      { id: "bravo", nome: "Bravo", slug: "bravo" },
+      { id: "charlie", nome: "Charlie", slug: "charlie" },
+      { id: "delta", nome: "Delta", slug: "delta" },
+    ]
+
+    realtime.callback = undefined
+    api.fetchTeams.mockResolvedValue(teams)
+    api.fetchSeasonEvents.mockReset().mockReturnValueOnce(first).mockReturnValueOnce(second)
+
+    render(<StandingsContent fase="FASE_1" seasonId="season-current" />)
+    await waitFor(() => expect(api.fetchSeasonEvents).toHaveBeenCalledTimes(1))
+    expect(realtime.callback).toBeTypeOf("function")
+
+    act(() => realtime.callback!())
+    await waitFor(() => expect(api.fetchSeasonEvents).toHaveBeenCalledTimes(2))
+
+    await act(async () => {
+      resolveSecond!([
+        {
+          id: "current",
+          season_id: "season-current",
+          tipo: "PARTITA",
+          data_ora: "2026-08-20T19:00:00.000Z",
+          luogo: "Campo",
+          giocata: true,
+          cancellato: false,
+          giornata: 1,
+          fase: "FASE_1",
+          squadra_casa: "Charlie",
+          squadra_ospite: "Delta",
+          gol_casa: 1,
+          gol_ospite: 0,
+        },
+      ])
+    })
+    expect(screen.getByText("Charlie")).toBeVisible()
+
+    await act(async () => {
+      resolveFirst!([
+        {
+          id: "stale",
+          season_id: "season-current",
           tipo: "PARTITA",
           data_ora: "2026-08-20T19:00:00.000Z",
           luogo: "Campo",

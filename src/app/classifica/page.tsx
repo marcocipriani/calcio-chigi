@@ -38,6 +38,7 @@ export function StandingsContent({
 
   useEffect(() => {
     let active = true;
+    let request = 0;
     setStandings([]);
     setMatches([]);
     setLoading(fase !== 'ALL' && Boolean(seasonId));
@@ -49,11 +50,12 @@ export function StandingsContent({
     }
 
     const fetchData = async () => {
+      const currentRequest = ++request;
       try {
         let currentTeams = teams;
         if (currentTeams.length === 0) {
           currentTeams = await fetchTeams(supabase);
-          if (!active) return;
+          if (!active || currentRequest !== request) return;
           setTeams(currentTeams);
         }
 
@@ -63,7 +65,7 @@ export function StandingsContent({
             ? !match.fase || match.fase === 'FASE_1'
             : match.fase === fase),
         );
-        if (!active) return;
+        if (!active || currentRequest !== request) return;
 
         const teamsInPhase = new Set<string>();
         phaseMatches.forEach(m => {
@@ -76,9 +78,9 @@ export function StandingsContent({
         setMatches(playedMatches);
         setStandings(calculateStandings(activeTeams, playedMatches));
       } catch (error) {
-        if (active) console.error("Errore fetch:", error);
+        if (active && currentRequest === request) console.error("Errore fetch:", error);
       } finally {
-        if (active) setLoading(false);
+        if (active && currentRequest === request) setLoading(false);
       }
     };
 
@@ -97,6 +99,7 @@ export function StandingsContent({
 
     return () => {
       active = false;
+      request += 1;
       supabase.removeChannel(channel);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

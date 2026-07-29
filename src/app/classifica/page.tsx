@@ -16,20 +16,32 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { calculateStandings } from "@/lib/utils";
-import { Team, Event, StandingRow, EventFase } from "@/lib/types";
-import { fetchTeams, fetchMatchesByPhase } from '@/lib/api'
+import { Team, Event, StandingRow } from "@/lib/types";
+import { fetchSeasonEvents, fetchTeams } from '@/lib/api'
+import type { PhaseFilter } from "@/lib/season-statistics"
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
 
 interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
 
-export function StandingsContent({ fase }: { fase?: string }) {
+export function StandingsContent({
+  fase = 'ALL',
+  seasonId,
+}: {
+  fase?: PhaseFilter
+  seasonId?: string
+}) {
   const [standings, setStandings] = useState<StandingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState<Event[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
   async function fetchData() {
+    if (fase === 'ALL' || !seasonId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       let currentTeams = teams;
       if (currentTeams.length === 0) {
@@ -37,7 +49,12 @@ export function StandingsContent({ fase }: { fase?: string }) {
           setTeams(currentTeams);
       }
 
-      const phaseMatches = await fetchMatchesByPhase(supabase, (fase ?? 'FASE_1') as EventFase);
+      const phaseMatches = (await fetchSeasonEvents(supabase, seasonId)).filter((match) =>
+        match.tipo === 'PARTITA' &&
+        (fase === 'FASE_1'
+          ? !match.fase || match.fase === 'FASE_1'
+          : match.fase === fase),
+      );
 
       if (currentTeams.length > 0) {
         const teamsInPhase = new Set<string>();
@@ -64,6 +81,8 @@ export function StandingsContent({ fase }: { fase?: string }) {
   useEffect(() => {
     fetchData();
 
+    if (fase === 'ALL' || !seasonId) return;
+
     const channel = supabase
       .channel('public:events:standings')
       .on(
@@ -79,7 +98,7 @@ export function StandingsContent({ fase }: { fase?: string }) {
       supabase.removeChannel(channel);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fase]);
+  }, [fase, seasonId]);
 
   const getForm = (teamName: string) => {
       const key = teamName.toLowerCase().trim();
@@ -107,6 +126,14 @@ export function StandingsContent({ fase }: { fase?: string }) {
           };
       });
   };
+
+  if (fase === 'ALL') {
+    return (
+      <p className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground">
+        Seleziona una fase per vedere la classifica
+      </p>
+    )
+  }
 
   if (loading) return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden p-4 space-y-4">
@@ -229,7 +256,7 @@ export function StandingsContent({ fase }: { fase?: string }) {
   );
 }
 
-export default function ClassificaPage({ fase }: { fase?: string }) {
+export default function ClassificaPage({ fase }: { fase?: PhaseFilter }) {
   return (
     <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
       <StandingsContent fase={fase} />

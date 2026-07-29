@@ -1,5 +1,8 @@
 "use client"
 
+import { FileText } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -8,50 +11,102 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  SEASON_OPTIONS,
+  type PhaseFilter,
+} from "@/lib/season-statistics"
 
-export type TournamentOption = {
-  id: string
+type PhaseOption = {
+  value: PhaseFilter
   label: string
 }
 
-export const TOURNAMENTS: readonly TournamentOption[] = [
-  {
-    id: "asi-over35-2025-2026",
-    label: "Campionato ASI Over35 2025/2026",
-  },
-] as const
+function tournamentLabel(label: string) {
+  return label.replace(/20(\d{2})\/20(\d{2})/, "20$1/$2")
+}
 
 export function TournamentSelector({
-  value,
-  onValueChange,
+  seasonId,
+  onSeasonChange,
+  phase,
+  onPhaseChange,
+  phaseOptions,
 }: {
-  value: string
-  onValueChange: (value: string) => void
+  seasonId: string
+  onSeasonChange: (seasonId: string) => void
+  phase: PhaseFilter
+  onPhaseChange: (phase: PhaseFilter) => void
+  phaseOptions: readonly PhaseOption[]
 }): React.JSX.Element {
   return (
-    <div className="min-w-0">
-      <Label
-        className="text-[10px] font-bold uppercase tracking-wider"
-        htmlFor="tournament-selector"
-      >
-        Torneo
-      </Label>
-      <Select onValueChange={onValueChange} value={value}>
-        <SelectTrigger
-          aria-label="Torneo"
-          className="mt-1 min-w-0 w-full sm:w-[320px]"
-          id="tournament-selector"
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="min-w-0 sm:w-[280px]">
+        <Label
+          className="text-[10px] font-bold uppercase tracking-wider"
+          htmlFor="tournament-selector"
         >
-          <SelectValue className="truncate" />
-        </SelectTrigger>
-        <SelectContent>
-          {TOURNAMENTS.map((tournament) => (
-            <SelectItem key={tournament.id} value={tournament.id}>
-              {tournament.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          Torneo
+        </Label>
+        <Select onValueChange={onSeasonChange} value={seasonId}>
+          <SelectTrigger
+            aria-label="Torneo"
+            className="mt-1 min-w-0 w-full"
+            id="tournament-selector"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SEASON_OPTIONS.map((season) => (
+              <SelectItem key={season.slug} value={season.slug}>
+                {tournamentLabel(season.label)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="min-w-0 sm:w-[220px]">
+        <Label
+          className="text-[10px] font-bold uppercase tracking-wider"
+          htmlFor="phase-selector"
+        >
+          Fase
+        </Label>
+        <Select
+          onValueChange={(value) => onPhaseChange(value as PhaseFilter)}
+          value={phase}
+        >
+          <SelectTrigger
+            aria-label="Fase"
+            className="mt-1 min-w-0 w-full"
+            id="phase-selector"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {phaseOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
+  )
+}
+
+export function CommunicationsAction(): React.JSX.Element {
+  return (
+    <Button
+      aria-label="Comunicati"
+      className="h-11 w-11 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10 sm:h-10 sm:w-auto sm:rounded-md"
+      size="icon"
+      title="Comunicati"
+      variant="outline"
+    >
+      <FileText aria-hidden="true" className="h-5 w-5" />
+      <span className="hidden sm:inline">Comunicati</span>
+    </Button>
   )
 }

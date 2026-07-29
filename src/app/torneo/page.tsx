@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input" 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarDays, Trophy, FileText, Download, Pencil, Save } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from 'date-fns'
@@ -15,21 +14,44 @@ import { it } from 'date-fns/locale'
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageContainer } from "@/components/layout/PageContainer"
-import { TournamentSelector, TOURNAMENTS } from "@/components/tournament/TournamentSelector"
+import {
+    CommunicationsAction,
+    TournamentSelector,
+} from "@/components/tournament/TournamentSelector"
+import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import { StandingsContent } from '../classifica/page'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
-import { Event, EventFase } from '@/lib/types'
-import { getUserContext, fetchComunicati, fetchTeams, fetchAllMatches, type Comunicato } from '@/lib/api'
+import { Event } from '@/lib/types'
+import {
+    phaseOptionsForSeason,
+    SEASON_OPTIONS,
+    type PhaseFilter,
+} from '@/lib/season-statistics'
+import {
+    fetchComunicati,
+    fetchPlayerStatisticsByPhase,
+    fetchSeasonEvents,
+    fetchTeams,
+    getUserContext,
+    type Comunicato,
+} from '@/lib/api'
+
+type SeasonRow = { id: string; slug: string }
 
 export default function TorneoPage() {
   const [loading, setLoading] = useState(true)
   const [allMatches, setAllMatches] = useState<Event[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
-  const [tournamentId, setTournamentId] = useState(TOURNAMENTS[0].id)
-  const [activePhase, setActivePhase] = useState<EventFase>('FASE_2_PROFESSIONISTI')
+  const [seasons, setSeasons] = useState<SeasonRow[]>([])
+  const [tournamentSlug, setTournamentSlug] = useState<string>(SEASON_OPTIONS[0].slug)
+  const [activePhase, setActivePhase] = useState<PhaseFilter>('ALL')
+  const [historicalStats, setHistoricalStats] = useState<{
+    season_id: string
+    phase_key: Event["fase"]
+  }[]>([])
   const [comunicati, setComunicati] = useState<Comunicato[]>([])
 
   const [selectedGiornataOverride, setSelectedGiornataOverride] = useState<number | null>(null)
@@ -44,11 +66,14 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
-        const [{ isManager }, comunicatiData, teamsData, matches] = await Promise.all([
+        const [{ isManager }, comunicatiData, teamsData, seasonsData] = await Promise.all([
             getUserContext(supabase),
             fetchComunicati(supabase),
             fetchTeams(supabase),
-            fetchAllMatches(supabase),
+            supabase
+                .from('seasons')
+                .select('id, slug')
+                .in('slug', SEASON_OPTIONS.map(({ slug }) => slug)),
         ])
 
         if (isManager) setIsManager(true)
@@ -60,15 +85,59 @@ export default function TorneoPage() {
         })
         setTeamsMap(tMap)
 
-        if (matches.length > 0) setAllMatches(matches)
-
-        setLoading(false)
+        setSeasons((seasonsData.data ?? []) as SeasonRow[])
     }
     init()
   }, [])
 
+  const seasonId = useMemo(
+    () => seasons.find(({ slug }) => slug === tournamentSlug)?.id ?? null,
+    [seasons, tournamentSlug],
+  )
+
+  useEffect(() => {
+    if (!seasonId) return
+    let active = true
+    setLoading(true)
+
+    void Promise.all([
+        fetchSeasonEvents(supabase, seasonId),
+        fetchPlayerStatisticsByPhase(supabase, seasonId),
+    ]).then(([matches, stats]) => {
+        if (!active) return
+        setAllMatches(matches)
+        setHistoricalStats(stats)
+        setLoading(false)
+    })
+
+    return () => {
+        active = false
+    }
+  }, [seasonId])
+
+  const phaseOptions = useMemo(
+    () =>
+        seasonId
+            ? phaseOptionsForSeason(seasonId, [
+                ...allMatches
+                    .filter(({ tipo }) => tipo === 'PARTITA')
+                    .map(({ season_id, fase }) => ({ season_id, fase })),
+                ...historicalStats,
+            ])
+            : [{ value: 'ALL' as const, label: 'Tutte le fasi' }],
+    [allMatches, historicalStats, seasonId],
+  )
+
+  const handleTournamentChange = (slug: string) => {
+    setTournamentSlug(slug)
+    setActivePhase('ALL')
+    setSelectedGiornataOverride(null)
+  }
+
   const currentPhaseMatches = useMemo(() => {
     return allMatches.filter(m => {
+        if (m.tipo !== 'PARTITA') return false
+        if (activePhase === 'ALL') return true
         if (activePhase === 'FASE_1') return !m.fase || m.fase === 'FASE_1'
         return m.fase === activePhase
     })
@@ -193,31 +262,12 @@ export default function TorneoPage() {
 
   return (
     <PageContainer contentClassName="mx-auto max-w-4xl space-y-4 pb-24">
-        
-        <div className="flex min-w-0 flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-4">
-            <div className="min-w-0 flex-1">
-                <h1 className="text-3xl font-black text-foreground tracking-tight">Torneo</h1>
-                <TournamentSelector value={tournamentId} onValueChange={setTournamentId} />
-            </div>
-            
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Select value={activePhase} onValueChange={(v) => { setActivePhase(v as EventFase); setSelectedGiornataOverride(null); }}>
-                    <SelectTrigger aria-label="Fase" className="w-[200px] h-10 font-bold bg-card border-primary/20">
-                        <SelectValue placeholder="Seleziona Fase" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="FASE_1">Fase 1: Girone unico</SelectItem>
-                        <SelectItem value="FASE_2_CALCIATORI">Fase 2: Calciatori</SelectItem>
-                        <SelectItem value="FASE_2_PROFESSIONISTI">Fase 2: Professionisti</SelectItem>
-                        <SelectItem value="COPPA_LAZIO_PROFESSIONISTI">Coppa Lazio Professionisti</SelectItem>
-                    </SelectContent>
-                </Select>
-
+        <PageTitleBar
+            actions={
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Dialog>
                     <DialogTrigger asChild>
-                        <Button aria-label="Apri comunicati" variant="outline" size="icon" className="h-10 w-10 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10">
-                            <FileText aria-hidden="true" className="h-5 w-5" />
-                        </Button>
+                        <CommunicationsAction />
                     </DialogTrigger>
                     <DialogContent className="max-w-sm rounded-2xl">
                         <DialogHeader>
@@ -255,8 +305,23 @@ export default function TorneoPage() {
                         <Pencil className="h-5 w-5" />
                     </Button>
                 )}
-            </div>
-        </div>
+                </div>
+            }
+            filters={
+                <TournamentSelector
+                    onPhaseChange={(phase) => {
+                        setActivePhase(phase)
+                        setSelectedGiornataOverride(null)
+                    }}
+                    onSeasonChange={handleTournamentChange}
+                    phase={activePhase}
+                    phaseOptions={phaseOptions}
+                    seasonId={tournamentSlug}
+                />
+            }
+            subtitle="Calendario e classifica della stagione"
+            title="Torneo"
+        />
 
         <Tabs defaultValue="classifica" className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-12 bg-muted/50 p-1 rounded-xl mb-6">
@@ -269,7 +334,7 @@ export default function TorneoPage() {
             </TabsList>
 
             <TabsContent value="classifica" className="space-y-4 animate-in fade-in slide-in-from-left-2">
-                <StandingsContent fase={activePhase} />
+                <StandingsContent fase={activePhase} seasonId={seasonId ?? undefined} />
             </TabsContent>
 
             <TabsContent value="calendario" className="space-y-4 animate-in fade-in slide-in-from-right-2">

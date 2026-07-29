@@ -118,17 +118,18 @@ FASE_2_PROFESSIONISTI: G=12 MVP=10 A=3 ESP=0
 COPPA_LAZIO_PROFESSIONISTI: G=11 MVP=6 A=0 ESP=0
 ```
 
-In questo task non sono stati eseguiti `db push`, import `--apply` o deploy
-Web. I comandi operativi da eseguire dopo review sono:
+Esecuzione live del 29 luglio 2026:
 
-```bash
-npx supabase db push --linked
-npm run import:enjore-history -- --dry-run
-npm run import:enjore-history -- --apply
-vercel --prod
+```text
+project ref: fandfnvxrceqsjonvjtw
+backup: /tmp/calcio-chigi-pre-enjore-2025-2026.sql (409306 byte)
+SHA-256: a9418ff9d2b77c77b9b8d1e9e66e10371b66690c5d0e5153657a38d8a28cf3f3
+migrazione applicata: 20260729010000_season_stats_player_access.sql
+import applicato: 27 righe
 ```
 
-Non proseguire se il secondo dry-run differisce dal preflight approvato.
+Il secondo dry-run ha riprodotto esattamente i totali del preflight prima
+dell’import atomico.
 
 ### Verifica post-import
 
@@ -196,6 +197,16 @@ giocatore/fase del secondo risultato con la corrispondente riga stampata dal
 dry-run. La riconciliazione all-phases resta validata internamente dallo
 script. Dopo il deploy verificare `/statistiche`: 2026/27 a zero, 2025/26 con
 assist `—` e presenze `Dati non disponibili`.
+
+Verifica live del 29 luglio 2026:
+
+```text
+27 righe totali
+FASE_1: 10 righe, G=26, MVP=19, A=5, ESP=0
+FASE_2_CALCIATORI: 0 righe, G=0, MVP=0, A=0, ESP=0
+FASE_2_PROFESSIONISTI: 10 righe, G=12, MVP=10, A=3, ESP=0
+COPPA_LAZIO_PROFESSIONISTI: 7 righe, G=11, MVP=6, A=0, ESP=0
+```
 
 ### Errore e recupero
 

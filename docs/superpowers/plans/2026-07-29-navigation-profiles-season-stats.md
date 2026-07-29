@@ -57,6 +57,8 @@
 - Create: `supabase/migrations/20260729010000_season_stats_player_access.sql`
 - Modify: `tests/db/team-management.test.sql`
 - Modify: `tests/db/rls-roles.test.sql`
+- Modify: `scripts/build-schema-snapshot.mjs`
+- Modify: `scripts/verify-schema.mjs`
 - Regenerate: `supabase/schema.sql`
 
 **Interfaces:**
@@ -155,14 +157,19 @@ goals, assists, mvp, yellow_cards, red_cards
 ```
 
 Implement the service-role importer to validate the JSON array, resolve the
-season, delete that season/source dataset, and insert all rows in the same
-function transaction. Revoke default execution and grant only intended roles.
+season, delete the complete existing dataset for that `season_id`, and insert
+all rows in the same function transaction. A changed source URL must not leave
+stale rows. Filter `get_player_profile` through
+`public_season_player_directory`, so associated users cannot enumerate profiles
+outside the selected season directory. Revoke default execution and grant only
+intended roles.
 
 - [ ] **Step 4: Regenerate and verify schema**
 
 Run:
 
 ```bash
+npx supabase db reset
 npm run db:snapshot
 npm run db:verify
 npx supabase test db tests/db/*.sql
@@ -173,7 +180,7 @@ Expected: schema verification and all pgTAP tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260729010000_season_stats_player_access.sql supabase/schema.sql tests/db/team-management.test.sql tests/db/rls-roles.test.sql
+git add supabase/migrations/20260729010000_season_stats_player_access.sql supabase/schema.sql tests/db/team-management.test.sql tests/db/rls-roles.test.sql scripts/build-schema-snapshot.mjs scripts/verify-schema.mjs
 git commit -m "feat: add seasonal statistics data contracts"
 ```
 
@@ -188,6 +195,8 @@ git commit -m "feat: add seasonal statistics data contracts"
 - Create: `scripts/fixtures/enjore/mvp-263752.json`
 - Create: `scripts/fixtures/enjore/discipline-263752.json`
 - Create corresponding fixtures for `265281`, `265282`, and `265296`
+- Create all-phases reconciliation fixtures for `score`, `top-player`, and
+  `discipline`
 - Modify: `package.json`
 
 **Interfaces:**

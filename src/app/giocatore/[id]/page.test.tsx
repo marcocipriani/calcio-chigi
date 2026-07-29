@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const session = vi.hoisted(() => ({
@@ -531,12 +531,13 @@ describe("protected player page", () => {
       await screen.findByRole("heading", { level: 1, name: "Nino Nuovo" }),
     ).toBeVisible()
 
-    firstProfile.resolve({ data: database.safePlayer, error: null })
-    await waitFor(() => {
-      expect(
-        screen.getByRole("heading", { level: 1, name: "Nino Nuovo" }),
-      ).toBeVisible()
+    await act(async () => {
+      firstProfile.resolve({ data: database.safePlayer, error: null })
+      await firstProfile.promise
     })
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Nino Nuovo" }),
+    ).toBeVisible()
     expect(
       screen.queryByRole("heading", { level: 1, name: "Elio Dorbolò" }),
     ).not.toBeInTheDocument()

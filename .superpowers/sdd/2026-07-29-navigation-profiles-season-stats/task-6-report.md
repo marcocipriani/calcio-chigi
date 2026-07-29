@@ -65,3 +65,13 @@
 - Focused verification: 5 files / 28 tests passed.
 - Full verification: 20 files / 87 tests passed.
 - Lint, typecheck, and `git diff --check`: passed.
+
+## Review fix round 2
+
+- The stale safe-profile test now resolves and awaits the deferred request
+  inside React `act`, so assertions run only after the late state-update path
+  has flushed.
+- No production file changed.
+- Focused verification: 5 files / 28 tests passed.
+- Full verification: 20 files / 87 tests passed.
+- Lint, typecheck, and `git diff --check`: passed.

@@ -1,5 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+const stateSetters = vi.hoisted(() => ({
+  arrayState: vi.fn(),
+}))
 
 const database = vi.hoisted(() => ({
   rows: [] as unknown[],
@@ -16,6 +20,24 @@ const supabase = vi.hoisted(() => ({
   })),
   rpc: vi.fn(async () => ({ data: null })),
 }))
+
+vi.mock("react", async (importOriginal) => {
+  const react = await importOriginal<typeof import("react")>()
+
+  return {
+    ...react,
+    useState(initialState: unknown) {
+      const [state, setState] = react.useState(initialState)
+      return [
+        state,
+        (value: unknown) => {
+          if (Array.isArray(initialState)) stateSetters.arrayState(value)
+          setState(value)
+        },
+      ]
+    },
+  }
+})
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/gestione" }))
 vi.mock("@/lib/supabaseBrowser", () => ({ supabaseBrowser: supabase }))
@@ -60,6 +82,7 @@ describe("ManagerPresence", () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     vi.setSystemTime(now)
     database.response = null
+    stateSetters.arrayState.mockClear()
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -131,15 +154,17 @@ describe("ManagerPresence", () => {
   it("does not update after an unmounted deferred activity query resolves", async () => {
     const response = deferred<{ data: unknown[] }>()
     database.response = response.promise
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 
     const { unmount } = render(<ManagerPresence />)
     await waitFor(() => expect(supabase.from).toHaveBeenCalledOnce())
 
     unmount()
-    response.resolve({ data: [manager(minutesAgo(3))] })
-    await response.promise
+    await act(async () => {
+      response.resolve({ data: [manager(minutesAgo(3))] })
+      await response.promise
+      await Promise.resolve()
+    })
 
-    expect(consoleError).not.toHaveBeenCalled()
+    expect(stateSetters.arrayState).not.toHaveBeenCalled()
   })
 })

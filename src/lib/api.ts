@@ -263,7 +263,24 @@ export async function fetchSafePlayerProfile(
         .maybeSingle()
 
     if (error) throw error
-    return data as SafePlayerProfile | null
+    if (!data) return null
+
+    const profile = data as SafePlayerProfile
+
+    return {
+        profile_id: profile.profile_id,
+        season_id: profile.season_id,
+        nome: profile.nome,
+        cognome: profile.cognome,
+        avatar_url: profile.avatar_url,
+        role: profile.role,
+        jersey_number: profile.jersey_number,
+        goals: profile.goals,
+        assists: profile.assists,
+        mvp: profile.mvp,
+        yellow_cards: profile.yellow_cards,
+        red_cards: profile.red_cards,
+    }
 }
 
 /**

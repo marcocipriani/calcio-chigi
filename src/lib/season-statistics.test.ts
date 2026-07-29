@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { describe, expect, it } from "vitest"
 
+import { fetchSafePlayerProfile } from "@/lib/api"
 import {
   aggregateSeasonStats,
   phaseOptionsForSeason,
@@ -14,24 +16,66 @@ describe("SEASON_OPTIONS", () => {
 })
 
 describe("phaseOptionsForSeason", () => {
-  it("returns each available phase once in competition order after all phases", () => {
+  it("returns each selected-season phase once in competition order after all phases", () => {
     const rows = [
-      { phase_key: "COPPA_LAZIO_PROFESSIONISTI" },
-      { phase_key: "FASE_2_PROFESSIONISTI" },
-      { phase_key: "FASE_1" },
-      { phase_key: "FASE_2_CALCIATORI" },
-      { phase_key: "FASE_1" },
+      { season_id: "season-2025", phase_key: "FASE_2_PROFESSIONISTI" },
+      { season_id: "season-2025", phase_key: "FASE_1" },
+      { season_id: "season-2025", phase_key: "FASE_1" },
+      { season_id: "season-2026", phase_key: "FASE_2_CALCIATORI" },
+      { season_id: "season-2026", phase_key: "COPPA_LAZIO_PROFESSIONISTI" },
     ] as const
 
     expect(
-      phaseOptionsForSeason("2025-2026", rows).map(({ value }) => value),
+      phaseOptionsForSeason("season-2025", rows).map(({ value }) => value),
     ).toEqual([
       "ALL",
       "FASE_1",
-      "FASE_2_CALCIATORI",
       "FASE_2_PROFESSIONISTI",
-      "COPPA_LAZIO_PROFESSIONISTI",
     ])
+  })
+})
+
+describe("fetchSafePlayerProfile", () => {
+  it("returns only the safe profile fields from the RPC payload", async () => {
+    const supabase = {
+      rpc: () => ({
+        maybeSingle: async () => ({
+          data: {
+            profile_id: "player-1",
+            season_id: "season-2026",
+            nome: "Elio",
+            cognome: "Dorbolò",
+            avatar_url: null,
+            role: "ATT",
+            jersey_number: 9,
+            goals: 4,
+            assists: 2,
+            mvp: 1,
+            yellow_cards: 0,
+            red_cards: 0,
+            private_field_added_later: "must not escape",
+          },
+          error: null,
+        }),
+      }),
+    } as unknown as SupabaseClient
+
+    await expect(
+      fetchSafePlayerProfile(supabase, "player-1", "season-2026"),
+    ).resolves.toEqual({
+      profile_id: "player-1",
+      season_id: "season-2026",
+      nome: "Elio",
+      cognome: "Dorbolò",
+      avatar_url: null,
+      role: "ATT",
+      jersey_number: 9,
+      goals: 4,
+      assists: 2,
+      mvp: 1,
+      yellow_cards: 0,
+      red_cards: 0,
+    })
   })
 })
 

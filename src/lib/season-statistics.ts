@@ -65,17 +65,20 @@ const PHASE_LABELS: Record<PhaseFilter, string> = {
   COPPA_LAZIO_PROFESSIONISTI: "Coppa Lazio Professionisti",
 }
 
-type PhaseRow = {
+export type SeasonPhaseRow = {
+  season_id: string
   fase?: EventFase | null
   phase_key?: EventFase | null
 }
 
 export function phaseOptionsForSeason(
-  _season: SeasonOption["slug"],
-  rows: readonly PhaseRow[],
+  seasonId: string,
+  rows: readonly SeasonPhaseRow[],
 ) {
   const available = new Set(
-    rows.map((row) => row.phase_key ?? row.fase ?? "FASE_1"),
+    rows
+      .filter((row) => row.season_id === seasonId)
+      .map((row) => row.phase_key ?? row.fase ?? "FASE_1"),
   )
 
   return (["ALL", ...PHASES.filter((phase) => available.has(phase))] as const)

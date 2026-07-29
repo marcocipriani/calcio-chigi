@@ -36,52 +36,53 @@ export function StandingsContent({
   const [matches, setMatches] = useState<Event[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
-  async function fetchData() {
+  useEffect(() => {
+    let active = true;
+    setStandings([]);
+    setMatches([]);
+    setLoading(fase !== 'ALL' && Boolean(seasonId));
+
     if (fase === 'ALL' || !seasonId) {
-      setLoading(false);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    try {
-      let currentTeams = teams;
-      if (currentTeams.length === 0) {
+    const fetchData = async () => {
+      try {
+        let currentTeams = teams;
+        if (currentTeams.length === 0) {
           currentTeams = await fetchTeams(supabase);
+          if (!active) return;
           setTeams(currentTeams);
-      }
+        }
 
-      const phaseMatches = (await fetchSeasonEvents(supabase, seasonId)).filter((match) =>
-        match.tipo === 'PARTITA' &&
-        (fase === 'FASE_1'
-          ? !match.fase || match.fase === 'FASE_1'
-          : match.fase === fase),
-      );
+        const phaseMatches = (await fetchSeasonEvents(supabase, seasonId)).filter((match) =>
+          match.tipo === 'PARTITA' &&
+          (fase === 'FASE_1'
+            ? !match.fase || match.fase === 'FASE_1'
+            : match.fase === fase),
+        );
+        if (!active) return;
 
-      if (currentTeams.length > 0) {
         const teamsInPhase = new Set<string>();
         phaseMatches.forEach(m => {
-            if (m.squadra_casa) teamsInPhase.add(m.squadra_casa.toLowerCase().trim());
-            if (m.squadra_ospite) teamsInPhase.add(m.squadra_ospite.toLowerCase().trim());
+          if (m.squadra_casa) teamsInPhase.add(m.squadra_casa.toLowerCase().trim());
+          if (m.squadra_ospite) teamsInPhase.add(m.squadra_ospite.toLowerCase().trim());
         });
 
         const activeTeams = currentTeams.filter(t => teamsInPhase.has(t.nome.toLowerCase().trim()));
-
         const playedMatches = phaseMatches.filter(m => m.giocata);
         setMatches(playedMatches);
-
-        const calculatedStandings = calculateStandings(activeTeams, playedMatches);
-        setStandings(calculatedStandings);
+        setStandings(calculateStandings(activeTeams, playedMatches));
+      } catch (error) {
+        if (active) console.error("Errore fetch:", error);
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch (error) {
-      console.error("Errore fetch:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    };
 
-  useEffect(() => {
-    fetchData();
-
-    if (fase === 'ALL' || !seasonId) return;
+    void fetchData();
 
     const channel = supabase
       .channel('public:events:standings')
@@ -89,12 +90,13 @@ export function StandingsContent({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
         () => {
-           fetchData();
+          if (active) void fetchData();
         }
       )
       .subscribe();
 
     return () => {
+      active = false;
       supabase.removeChannel(channel);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

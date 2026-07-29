@@ -40,12 +40,19 @@ import {
 
 type SeasonRow = { id: string; slug: string }
 
+function tournamentEdition(slug: string) {
+  const [start, end] = slug.split('-')
+  return `${start}/${end.slice(-2)}`
+}
+
 export default function TorneoPage() {
   const [loading, setLoading] = useState(true)
   const [allMatches, setAllMatches] = useState<Event[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
   const [isManager, setIsManager] = useState(false)
   const [seasons, setSeasons] = useState<SeasonRow[]>([])
+  const [seasonsLoading, setSeasonsLoading] = useState(true)
+  const [seasonError, setSeasonError] = useState<string | null>(null)
   const [tournamentSlug, setTournamentSlug] = useState<string>(SEASON_OPTIONS[0].slug)
   const [activePhase, setActivePhase] = useState<PhaseFilter>('ALL')
   const [historicalStats, setHistoricalStats] = useState<{
@@ -66,14 +73,10 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
-        const [{ isManager }, comunicatiData, teamsData, seasonsData] = await Promise.all([
+        const [{ isManager }, comunicatiData, teamsData] = await Promise.all([
             getUserContext(supabase),
             fetchComunicati(supabase),
             fetchTeams(supabase),
-            supabase
-                .from('seasons')
-                .select('id, slug')
-                .in('slug', SEASON_OPTIONS.map(({ slug }) => slug)),
         ])
 
         if (isManager) setIsManager(true)
@@ -85,9 +88,42 @@ export default function TorneoPage() {
         })
         setTeamsMap(tMap)
 
-        setSeasons((seasonsData.data ?? []) as SeasonRow[])
     }
-    init()
+    void init()
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const defaultEdition = tournamentEdition(SEASON_OPTIONS[0].slug)
+
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('seasons')
+          .select('id, slug')
+          .in('slug', SEASON_OPTIONS.map(({ slug }) => slug))
+        if (!active) return
+        const seasonRows = data ?? []
+        const slugs = new Set(seasonRows.map(({ slug }) => slug))
+        if (error || SEASON_OPTIONS.some(({ slug }) => !slugs.has(slug))) {
+          setSeasons([])
+          setSeasonError(`Impossibile caricare il torneo ${defaultEdition}.`)
+        } else {
+          setSeasons(seasonRows as SeasonRow[])
+          setSeasonError(null)
+        }
+        setSeasonsLoading(false)
+      } catch {
+        if (!active) return
+        setSeasons([])
+        setSeasonError(`Impossibile caricare il torneo ${defaultEdition}.`)
+        setSeasonsLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
   }, [])
 
   const seasonId = useMemo(
@@ -96,8 +132,21 @@ export default function TorneoPage() {
   )
 
   useEffect(() => {
-    if (!seasonId) return
     let active = true
+
+    if (seasonsLoading) return () => {
+      active = false
+    }
+
+    setAllMatches([])
+    setHistoricalStats([])
+    if (seasonError || !seasonId) {
+      setLoading(false)
+      return () => {
+        active = false
+      }
+    }
+
     setLoading(true)
 
     void Promise.all([
@@ -107,13 +156,18 @@ export default function TorneoPage() {
         if (!active) return
         setAllMatches(matches)
         setHistoricalStats(stats)
-        setLoading(false)
+    }).catch(() => {
+        if (active) {
+          setSeasonError(`Impossibile caricare il torneo ${tournamentEdition(tournamentSlug)}.`)
+        }
+    }).finally(() => {
+        if (active) setLoading(false)
     })
 
     return () => {
         active = false
     }
-  }, [seasonId])
+  }, [seasonError, seasonId, seasonsLoading, tournamentSlug])
 
   const phaseOptions = useMemo(
     () =>
@@ -132,6 +186,14 @@ export default function TorneoPage() {
     setTournamentSlug(slug)
     setActivePhase('ALL')
     setSelectedGiornataOverride(null)
+    setAllMatches([])
+    setHistoricalStats([])
+    if (!seasons.some((season) => season.slug === slug)) {
+      setSeasonError(`Impossibile caricare il torneo ${tournamentEdition(slug)}.`)
+      setLoading(false)
+      return
+    }
+    setSeasonError(null)
   }
 
   const currentPhaseMatches = useMemo(() => {
@@ -300,9 +362,11 @@ export default function TorneoPage() {
                         aria-label="Modifica risultati"
                         onClick={handleOpenScoreDialog}
                         size="icon"
-                        className="h-10 w-10 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-500/20 rounded-full"
+                        className="h-11 w-11 rounded-full bg-purple-600 text-white shadow-lg shadow-purple-500/20 hover:bg-purple-700 sm:h-10 sm:w-auto sm:rounded-md"
+                        title="Modifica risultati"
                     >
                         <Pencil className="h-5 w-5" />
+                        <span className="hidden sm:inline">Modifica risultati</span>
                     </Button>
                 )}
                 </div>
@@ -323,6 +387,11 @@ export default function TorneoPage() {
             title="Torneo"
         />
 
+        {seasonError ? (
+            <p className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground" role="alert">
+                {seasonError}
+            </p>
+        ) : (
         <Tabs defaultValue="classifica" className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-12 bg-muted/50 p-1 rounded-xl mb-6">
                 <TabsTrigger value="classifica" className="rounded-lg font-bold gap-2">
@@ -469,6 +538,7 @@ export default function TorneoPage() {
 
             </TabsContent>
         </Tabs>
+        )}
 
         <EventDialog 
             open={dialogOpen} 

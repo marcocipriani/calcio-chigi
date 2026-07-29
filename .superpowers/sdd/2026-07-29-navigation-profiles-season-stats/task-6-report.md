@@ -49,3 +49,19 @@
   modes, directly between titlebar and roster. Publish refresh remains wired.
 - `TeamTitleBar` now delegates presentation to `PageTitleBar`; its match
   capsule, disabled explanations, mobile tooltips, and desktop labels remain.
+
+## Review fix round 1
+
+- Tightened viewer-tier assertions to exact table sets: teammate queries only
+  `seasons` plus the safe RPC; owner excludes contacts; manager excludes events
+  and check-ins.
+- Replaced the permissive season response with a filter-aware fake that records
+  `eq`/`lte`/`gte`/`in`. Tests now prove both the date-based 2025/26 fallback
+  and explicit `?season=2026-2027` slug resolution.
+- Added safe RPC null and error states plus a deferred stale-response regression
+  across player-id changes. The error assertion verifies database detail is not
+  rendered.
+- No production file changed in this round.
+- Focused verification: 5 files / 28 tests passed.
+- Full verification: 20 files / 87 tests passed.
+- Lint, typecheck, and `git diff --check`: passed.

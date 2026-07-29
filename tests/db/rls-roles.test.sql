@@ -1,6 +1,6 @@
 begin;
 
-select plan(40);
+select plan(54);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -125,6 +125,10 @@ where (now() at time zone 'Europe/Rome')::date
       between season.starts_on and season.ends_on
 limit 1;
 
+update public.events
+set fase = null
+where id = '20000000-0000-0000-0000-000000000001';
+
 insert into public.official_formations (
   event_id,
   formation_module,
@@ -213,6 +217,15 @@ select results_eq(
   array[0::bigint],
   'public statistics do not enumerate interested or unrostered people'
 );
+select throws_ok(
+  $$select * from public.get_player_profile(
+    '10000000-0000-0000-0000-000000000002',
+    (select id from public.seasons where slug = '2025-2026')
+  )$$,
+  '42501',
+  'permission denied for function get_player_profile',
+  'anonymous users cannot call the player detail RPC'
+);
 reset role;
 
 set local role authenticated;
@@ -233,6 +246,15 @@ select results_eq(
       from public.authenticated_active_roster$$,
   array[0::bigint],
   'unlinked account cannot query the extended authenticated roster'
+);
+select throws_ok(
+  $$select * from public.get_player_profile(
+    '10000000-0000-0000-0000-000000000002',
+    (select id from public.seasons where slug = '2025-2026')
+  )$$,
+  '42501',
+  'Approved account required',
+  'unlinked account cannot call the player detail RPC'
 );
 select results_eq(
   $$select id
@@ -322,6 +344,80 @@ select results_eq(
   array['222'::text],
   'player reads own private details'
 );
+select results_eq(
+  $$select count(*)::bigint
+      from public.season_memberships
+     where profile_id = '10000000-0000-0000-0000-000000000002'$$,
+  array[2::bigint],
+  'player reads own season memberships'
+);
+select results_eq(
+  $$select array_agg(key order by key)
+      from (
+        select jsonb_object_keys(to_jsonb(detail)) as key
+        from public.get_player_profile(
+          '10000000-0000-0000-0000-000000000001',
+          (select id from public.seasons where slug = '2025-2026')
+        ) detail
+      ) safe_keys$$,
+  $$values (array[
+    'assists',
+    'avatar_url',
+    'cognome',
+    'goals',
+    'jersey_number',
+    'mvp',
+    'nome',
+    'profile_id',
+    'red_cards',
+    'role',
+    'season_id',
+    'yellow_cards'
+  ]::text[])$$,
+  'associated teammate receives only the safe player fields'
+);
+select results_eq(
+  $$select
+      profile_id,
+      season_id,
+      nome,
+      cognome,
+      role,
+      jersey_number,
+      goals,
+      assists,
+      mvp,
+      yellow_cards,
+      red_cards
+    from public.get_player_profile(
+      '10000000-0000-0000-0000-000000000001',
+      (select id from public.seasons where slug = '2025-2026')
+    )$$,
+  $$select
+      '10000000-0000-0000-0000-000000000001'::uuid,
+      id,
+      'Mario'::text,
+      'Manager'::text,
+      'DIFENSORE'::text,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0
+    from public.seasons
+    where slug = '2025-2026'$$,
+  'associated teammate receives the selected season safe profile'
+);
+select results_eq(
+  $$select count(*)::bigint
+    from public.get_player_profile(
+      '10000000-0000-0000-0000-000000000004',
+      (select id from public.seasons where slug = '2025-2026')
+    )$$,
+  array[0::bigint],
+  'player detail cannot enumerate a target outside the season directory'
+);
 select throws_ok(
   $$update public.profiles
        set is_manager = true
@@ -364,6 +460,13 @@ select results_eq(
      )$$,
   array[3::bigint],
   'manager reads all profiles'
+);
+select results_eq(
+  $$select phone
+      from public.profile_private_details
+     where profile_id = '10000000-0000-0000-0000-000000000002'$$,
+  array['222'::text],
+  'manager reads teammate private details through existing table RLS'
 );
 select results_eq(
   $$select profile_id
@@ -516,14 +619,22 @@ select results_eq(
 );
 select lives_ok(
   $$insert into public.match_player_stats (
-      event_id, profile_id, goals, assists, updated_by
+      event_id, profile_id, goals, assists, yellow_cards, red_cards, updated_by
     ) values (
       '20000000-0000-0000-0000-000000000001',
       '10000000-0000-0000-0000-000000000002',
-      1, 1,
+      1, 1, 2, 1,
       '10000000-0000-0000-0000-000000000001'
     )$$,
   'match stats accept a present player'
+);
+select results_eq(
+  $$select yellow_cards, red_cards
+      from public.match_player_stats
+     where event_id = '20000000-0000-0000-0000-000000000001'
+       and profile_id = '10000000-0000-0000-0000-000000000002'$$,
+  $$values (2, 1)$$,
+  'manager records match cards'
 );
 select lives_ok(
   $$insert into public.match_awards (
@@ -577,19 +688,19 @@ select public.set_event_checkin(
   'PRESENT'
 );
 insert into public.match_player_stats (
-  event_id, profile_id, goals, assists, updated_by
+  event_id, profile_id, goals, assists, yellow_cards, red_cards, updated_by
 )
 values
   (
     '20000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000002',
-    5, 3,
+    5, 3, 4, 1,
     '10000000-0000-0000-0000-000000000001'
   ),
   (
     '20000000-0000-0000-0000-000000000002',
     '10000000-0000-0000-0000-000000000002',
-    2, 1,
+    2, 1, 1, 0,
     '10000000-0000-0000-0000-000000000001'
   );
 insert into public.match_awards (event_id, profile_id, updated_by)
@@ -611,7 +722,90 @@ select results_eq(
   $$values (2, 1, 1)$$,
   'public player statistics include only events from the active season'
 );
+select results_eq(
+  $$select
+      statistics.phase_key,
+      statistics.goals,
+      statistics.assists,
+      statistics.mvp,
+      statistics.yellow_cards,
+      statistics.red_cards
+    from public.public_player_statistics_by_phase statistics
+    join public.events event
+      on event.season_id = statistics.season_id
+     and event.id = '20000000-0000-0000-0000-000000000001'
+    where statistics.profile_id =
+      '10000000-0000-0000-0000-000000000002'$$,
+  $$values ('FASE_1'::text, 5, 3, 1, 4, 1)$$,
+  'legacy null match phases aggregate as FASE_1'
+);
 reset role;
+
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
+select lives_ok(
+  $$select public.import_historical_player_stats(
+    '2025-2026',
+    'https://history.test/old',
+    '[
+      {
+        "phase_key": "FASE_1",
+        "profile_id": "10000000-0000-0000-0000-000000000001",
+        "goals": 1,
+        "mvp": 0,
+        "yellow_cards": 0,
+        "red_cards": 0
+      },
+      {
+        "phase_key": "FASE_1",
+        "profile_id": "10000000-0000-0000-0000-000000000002",
+        "goals": 9,
+        "mvp": 3,
+        "yellow_cards": 2,
+        "red_cards": 1
+      }
+    ]'::jsonb
+  )$$,
+  'service role imports historical phase rows'
+);
+select results_eq(
+  $$select goals, assists, mvp, yellow_cards, red_cards
+      from public.public_player_statistics_by_phase statistics
+      join public.seasons season on season.id = statistics.season_id
+     where season.slug = '2025-2026'
+       and statistics.phase_key = 'FASE_1'
+       and statistics.profile_id =
+         '10000000-0000-0000-0000-000000000002'$$,
+  $$values (9, null::integer, 3, 2, 1)$$,
+  'historical phase row overrides matching live aggregates'
+);
+select lives_ok(
+  $$select public.import_historical_player_stats(
+    '2025-2026',
+    'https://history.test/new',
+    '[
+      {
+        "phase_key": "FASE_1",
+        "profile_id": "10000000-0000-0000-0000-000000000002",
+        "goals": 10,
+        "mvp": 4,
+        "yellow_cards": 3,
+        "red_cards": 1
+      }
+    ]'::jsonb
+  )$$,
+  'service role can replace a season from a changed source URL'
+);
+select results_eq(
+  $$select count(*)::bigint, min(source_url)
+      from public.historical_player_stats history
+      join public.seasons season on season.id = history.season_id
+     where season.slug = '2025-2026'$$,
+  $$values (1::bigint, 'https://history.test/new'::text)$$,
+  'history import replaces the complete season dataset'
+);
+reset role;
+select set_config('request.jwt.claim.role', 'authenticated', true);
 
 set local role authenticated;
 select set_config(
@@ -635,6 +829,15 @@ select results_eq(
      where user_id = '00000000-0000-0000-0000-000000000002'$$,
   array[1::bigint],
   'payment creates canonical in-app notification'
+);
+select results_eq(
+  $$update public.match_player_stats
+       set yellow_cards = yellow_cards + 1
+     where event_id = '20000000-0000-0000-0000-000000000002'
+       and profile_id = '10000000-0000-0000-0000-000000000002'
+     returning profile_id$$,
+  array[]::uuid[],
+  'player cannot write own card totals'
 );
 reset role;
 

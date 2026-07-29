@@ -5,11 +5,19 @@ const migrationPath =
   "supabase/migrations/20260725010000_team_management.sql"
 const publicFormationSummaryMigrationPath =
   "supabase/migrations/20260728010000_public_formation_summaries.sql"
+const seasonStatsMigrationPath =
+  "supabase/migrations/20260729010000_season_stats_player_access.sql"
 const schemaPath = "supabase/schema.sql"
 
-const [migration, publicFormationSummaryMigration, schema] = await Promise.all([
+const [
+  migration,
+  publicFormationSummaryMigration,
+  seasonStatsMigration,
+  schema,
+] = await Promise.all([
   readFile(migrationPath, "utf8"),
   readFile(publicFormationSummaryMigrationPath, "utf8"),
+  readFile(seasonStatsMigrationPath, "utf8"),
   readFile(schemaPath, "utf8"),
 ])
 
@@ -39,6 +47,22 @@ for (const table of expectedTables) {
     `schema snapshot missing table ${table}`,
   )
 }
+
+assert.match(
+  seasonStatsMigration,
+  /create table public\.historical_player_stats\b/i,
+  "missing historical player statistics table",
+)
+assert.match(
+  seasonStatsMigration,
+  /function public\.get_player_profile\(\s*p_profile_id uuid,\s*p_season_id uuid\s*\)/i,
+  "missing safe player profile RPC",
+)
+assert.match(
+  seasonStatsMigration,
+  /function public\.import_historical_player_stats\(\s*p_season_slug text,\s*p_source_url text,\s*p_rows jsonb\s*\)/i,
+  "missing historical player statistics importer",
+)
 
 for (const view of [
   "public_profile_directory",
@@ -75,7 +99,37 @@ assert.match(
   /create or replace view public\.public_published_formation_summaries\s+with \(security_barrier = true\)/i,
   "schema snapshot missing public published formation summaries",
 )
+for (const view of [
+  "public_season_player_directory",
+  "public_player_statistics_by_phase",
+]) {
+  assert.match(
+    seasonStatsMigration,
+    new RegExp(`create(?: or replace)? view public\\.${view}\\b`, "i"),
+    `missing view ${view}`,
+  )
+  assert.match(
+    schema,
+    new RegExp(`create(?: or replace)? view public\\.${view}\\b`, "i"),
+    `schema snapshot missing view ${view}`,
+  )
+}
+assert.match(
+  schema,
+  /create table public\.historical_player_stats\b/i,
+  "schema snapshot missing historical player statistics table",
+)
+assert.match(
+  schema,
+  /function public\.get_player_profile\(\s*p_profile_id uuid,\s*p_season_id uuid\s*\)/i,
+  "schema snapshot missing safe player profile RPC",
+)
+assert.match(
+  schema,
+  /function public\.import_historical_player_stats\(\s*p_season_slug text,\s*p_source_url text,\s*p_rows jsonb\s*\)/i,
+  "schema snapshot missing historical player statistics importer",
+)
 
 console.log(
-  `Schema verification passed: ${expectedTables.length} tables, 5 safe views`,
+  `Schema verification passed: ${expectedTables.length + 1} tables, 7 safe views`,
 )

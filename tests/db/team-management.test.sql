@@ -1,6 +1,6 @@
 begin;
 
-select plan(46);
+select plan(58);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -12,6 +12,71 @@ select has_view('public'::name, 'public_active_roster'::name);
 select has_view('public'::name, 'public_published_formation_summaries'::name);
 select has_function('public', 'is_current_user_manager', array[]::text[]);
 select has_function('public', 'import_roster_plan', array['jsonb']);
+select has_table('public'::name, 'historical_player_stats'::name);
+select has_column(
+  'public'::name,
+  'match_player_stats'::name,
+  'yellow_cards'::name,
+  'match player statistics include yellow cards'
+);
+select has_column(
+  'public'::name,
+  'match_player_stats'::name,
+  'red_cards'::name,
+  'match player statistics include red cards'
+);
+select has_view('public'::name, 'public_season_player_directory'::name);
+select has_view('public'::name, 'public_player_statistics_by_phase'::name);
+select has_function(
+  'public',
+  'get_player_profile',
+  array['uuid', 'uuid']
+);
+select has_function(
+  'public',
+  'import_historical_player_stats',
+  array['text', 'text', 'jsonb']
+);
+select ok(
+  not has_table_privilege(
+    'authenticated',
+    'public.historical_player_stats',
+    'SELECT'
+  ),
+  'clients cannot read historical storage directly'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.import_historical_player_stats(text,text,jsonb)',
+    'EXECUTE'
+  ),
+  'history import remains service-only'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.import_historical_player_stats(text,text,jsonb)',
+    'EXECUTE'
+  ),
+  'service role can execute the historical importer'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.get_player_profile(uuid,uuid)',
+    'EXECUTE'
+  ),
+  'associated clients can execute the safe player RPC'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.get_player_profile(uuid,uuid)',
+    'EXECUTE'
+  ),
+  'anonymous users cannot execute the safe player RPC'
+);
 select ok(
   has_table_privilege('service_role', 'public.profiles', 'SELECT'),
   'service role can read profiles for administrative scripts'

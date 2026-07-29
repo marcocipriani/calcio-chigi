@@ -1,14 +1,17 @@
 import AxeBuilder from "@axe-core/playwright"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type Session } from "@supabase/supabase-js"
 import {
   devices,
   expect,
   test,
   type BrowserContext,
+  type Locator,
   type Page,
 } from "@playwright/test"
 
 const E2E_MATCH_ID = "92000000-0000-0000-0000-000000000001"
+const E2E_MANAGER_ID = "91000000-0000-0000-0000-000000000001"
+const E2E_PLAYER_ID = "91000000-0000-0000-0000-000000000002"
 const OFFICIAL_FORMATION_TEST_TITLE =
   "capsula formazione passa da bozza a pubblicata"
 const ANONYMOUS_CAPSULE_TEST_TITLE =
@@ -24,10 +27,29 @@ async function authenticate(
   const client = createClient(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
-  const { data, error } = await client.auth.signInWithPassword({ email, password })
-  if (error || !data.session) throw error ?? new Error("E2E login failed")
+  let session: Session | null = null
+  for (let attempt = 0; attempt < 3 && !session; attempt += 1) {
+    try {
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) throw error
+      session = data.session
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.name !== "AuthRetryableFetchError" ||
+        attempt === 2
+      ) {
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+    }
+  }
+  if (!session) throw new Error("E2E login failed")
   const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`
-  const encoded = `base64-${Buffer.from(JSON.stringify(data.session)).toString("base64url")}`
+  const encoded = `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`
   const chunks = Array.from(
     { length: Math.ceil(encoded.length / 3180) },
     (_, index) => encoded.slice(index * 3180, (index + 1) * 3180),
@@ -90,6 +112,36 @@ async function expectNoHorizontalOverflow(page: Page) {
       document.documentElement.clientWidth,
   )
   expect(overflow).toBeLessThanOrEqual(1)
+}
+
+async function expectCircularIconOnlyAction(action: Locator) {
+  await expect(action).toBeVisible()
+  const box = await action.boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.width).toBeGreaterThanOrEqual(44)
+  expect(box!.height).toBeGreaterThanOrEqual(44)
+  expect(Math.abs(box!.width - box!.height)).toBeLessThanOrEqual(1)
+  await expect
+    .poll(() =>
+      action.evaluate((element) =>
+        Array.from(element.querySelectorAll("span")).every((label) => {
+          const style = getComputedStyle(label)
+          const rect = label.getBoundingClientRect()
+          return (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            (rect.width <= 1 && rect.height <= 1)
+          )
+        }),
+      ),
+    )
+    .toBe(true)
+}
+
+async function dismissPaymentReminder(page: Page) {
+  const postpone = page.getByRole("button", { name: "Più tardi" })
+  await postpone.waitFor({ state: "visible", timeout: 2_000 }).catch(() => {})
+  if (await postpone.isVisible()) await postpone.click()
 }
 
 async function resetSeededOfficialFormation() {
@@ -157,7 +209,6 @@ test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
     "/torneo",
     "/classifica",
     "/statistiche",
-    "/giocatore/91000000-0000-0000-0000-000000000002",
     "/evento/92000000-0000-0000-0000-000000000001",
     "/login",
   ]
@@ -205,7 +256,6 @@ test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
     "/torneo",
     "/classifica",
     "/statistiche",
-    "/giocatore/91000000-0000-0000-0000-000000000002",
     "/evento/92000000-0000-0000-0000-000000000001",
     "/login",
   ]
@@ -292,43 +342,321 @@ test("overflow orizzontale assente su squadra e torneo", async ({
   }
 })
 
-test("selettore torneo", async ({ page }) => {
+test("torneo stagionale resetta fase e mantiene il contratto comunicati", async ({
+  page,
+}, testInfo) => {
   await page.goto("/torneo")
 
   await expect(page.getByRole("combobox")).toHaveCount(2)
   await expect(page.getByRole("combobox", { name: "Torneo" })).toHaveText(
-    "Campionato ASI Over35 2025/2026",
+    "Campionato ASI Over35 2026/27",
   )
   await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
-    "Fase 2: Professionisti",
+    "Tutte le fasi",
   )
   await expect(
-    page.locator("p", { hasText: "Campionato ASI Over35 2025/2026" }),
-  ).toHaveCount(0)
+    page.getByText("Seleziona una fase per vedere la classifica"),
+  ).toBeVisible()
+
+  const filters = page.getByLabel("Filtri pagina")
+  const tournamentBox = await filters
+    .getByRole("combobox", { name: "Torneo" })
+    .boundingBox()
+  const phaseBox = await filters
+    .getByRole("combobox", { name: "Fase" })
+    .boundingBox()
+  expect(tournamentBox).not.toBeNull()
+  expect(phaseBox).not.toBeNull()
+  if (testInfo.project.name === "desktop") {
+    expect(Math.abs(tournamentBox!.y - phaseBox!.y)).toBeLessThanOrEqual(2)
+  }
+
+  await page.getByRole("combobox", { name: "Fase" }).click()
+  await expect(page.getByRole("option")).toHaveCount(1)
+  await page.keyboard.press("Escape")
+
+  await page.getByRole("combobox", { name: "Torneo" }).click()
+  await page
+    .getByRole("option", { name: "Campionato ASI Over35 2025/26" })
+    .click()
+  await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
+    "Tutte le fasi",
+  )
+  await page.getByRole("combobox", { name: "Fase" }).click()
+  await expect(page.getByRole("option", { name: "Fase 1" })).toBeVisible()
+  await expect(
+    page.getByRole("option", { name: "Fase 2 Professionisti" }),
+  ).toBeVisible()
+  await page.getByRole("option", { name: "Fase 2 Professionisti" }).click()
+  await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
+    "Fase 2 Professionisti",
+  )
+
+  await page.getByRole("combobox", { name: "Torneo" }).click()
+  await page
+    .getByRole("option", { name: "Campionato ASI Over35 2026/27" })
+    .click()
+  await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
+    "Tutte le fasi",
+  )
+  await page.getByRole("combobox", { name: "Fase" }).click()
+  await expect(page.getByRole("option")).toHaveCount(1)
+  await page.keyboard.press("Escape")
+
+  const communications = page.getByRole("button", { name: "Comunicati" })
+  if (testInfo.project.name === "mobile") {
+    await expectCircularIconOnlyAction(communications)
+  } else {
+    await expect(communications.locator("span")).toBeVisible()
+    await expect(communications).toContainText("Comunicati")
+  }
 })
 
-test("statistiche torneo pubbliche e presenze protette", async ({ page }) => {
-  await page.goto("/statistiche")
-
-  await expect(page.getByText("Player Piero")).toBeVisible()
-  await expect(page.getByText("Accedi per vedere le presenze")).toBeVisible()
-  await expect(page.getByText("2", { exact: true }).first()).toBeVisible()
-  await expectNoSeriousA11yViolations(page)
-})
-
-test("profilo giocatore pubblico mostra statistiche e protegge le presenze", async ({
+test("statistiche stagionali distinguono zero corrente e storico indisponibile", async ({
   page,
 }) => {
-  await page.goto("/giocatore/91000000-0000-0000-0000-000000000002")
+  await page.goto("/statistiche")
 
+  await expect(page.getByRole("combobox", { name: "Stagione" })).toHaveValue(
+    "2026-2027",
+  )
+  for (const heading of [
+    "Goal",
+    "Assist",
+    "MVP",
+    "Ammonizioni",
+    "Espulsioni",
+  ]) {
+    await expect(page.getByRole("heading", { level: 3, name: heading })).toBeVisible()
+  }
+  const goalRanking = page.locator(
+    'section[aria-labelledby="ranking-goals"]',
+  )
   await expect(
-    page.getByRole("heading", { name: "Piero Player" }),
-  ).toBeVisible()
-  await expect(page.getByText("Goal").locator("..")).toContainText("2")
-  await expect(page.getByText("Assist").locator("..")).toContainText("1")
-  await expect(page.getByText("MVP").locator("..")).toContainText("1")
+    goalRanking.getByRole("listitem").filter({ hasText: "Piero Player" }),
+  ).toContainText("0")
   await expect(page.getByText("Accedi per vedere le presenze")).toBeVisible()
+  await expect(page.locator('a[href^="/giocatore/"]')).toHaveCount(0)
+
+  await page.getByRole("combobox", { name: "Stagione" }).selectOption(
+    "2025-2026",
+  )
+  const assistRanking = page.locator(
+    'section[aria-labelledby="ranking-assists"]',
+  )
+  await expect(
+    assistRanking.getByRole("listitem").filter({ hasText: "Piero Player" }),
+  ).toContainText("—")
+  await expect(page.getByText("Dati non disponibili")).toBeVisible()
+  await expect(page.locator('a[href^="/giocatore/"]')).toHaveCount(0)
   await expectNoSeriousA11yViolations(page)
+})
+
+test("statistiche associate propagano la stagione nei dettagli", async ({
+  context,
+  page,
+}) => {
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto("/statistiche")
+  await dismissPaymentReminder(page)
+
+  const currentPlayerLinks = page.locator(
+    `a[href="/giocatore/${E2E_PLAYER_ID}?season=2026-2027"]`,
+  )
+  await expect(currentPlayerLinks.first()).toBeVisible()
+  await expect.poll(() => currentPlayerLinks.count()).toBeGreaterThanOrEqual(6)
+
+  await page.getByRole("combobox", { name: "Stagione" }).selectOption(
+    "2025-2026",
+  )
+  const historicalPlayerLinks = page.locator(
+    `a[href="/giocatore/${E2E_PLAYER_ID}?season=2025-2026"]`,
+  )
+  await expect(historicalPlayerLinks.first()).toBeVisible()
+  await expect
+    .poll(() => historicalPlayerLinks.count())
+    .toBeGreaterThanOrEqual(5)
+  await expect(page.getByText("Dati non disponibili")).toBeVisible()
+})
+
+test("rosa e dettaglio anonimi non espongono profili", async ({
+  page,
+}) => {
+  await page.goto("/squadra")
+  await expect(page.locator('a[href^="/giocatore/"]')).toHaveCount(0)
+
+  const detailRequests: string[] = []
+  page.on("request", (request) => {
+    if (
+      request.url().includes("get_player_profile") ||
+      request.url().includes("profile_private_details") ||
+      request.url().includes("medical_certificates") ||
+      request.url().includes("season_memberships")
+    ) {
+      detailRequests.push(request.url())
+    }
+  })
+  await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByText("+39 333 0000002")).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+  expect(detailRequests).toEqual([])
+})
+
+test("utente non associato resta fuori dai dettagli giocatore", async ({
+  context,
+  page,
+}) => {
+  await authenticate(
+    context,
+    "unassociated@chigi.test",
+    "Unassociated123!",
+  )
+  await page.goto("/squadra")
+  await expect(page.locator('a[href^="/giocatore/"]')).toHaveCount(0)
+
+  await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
+  await expect(page).toHaveURL(/\/squadra$/)
+  await expect(page.getByText("+39 333 0000002")).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+})
+
+test("compagno associato vede solo la proiezione sicura", async ({
+  context,
+  page,
+}) => {
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto("/squadra")
+  await dismissPaymentReminder(page)
+
+  const managerProfile = page.getByRole("link", {
+    name: "Profilo di Mario Manager",
+  })
+  await expect(managerProfile).toBeVisible()
+  await managerProfile.click()
+  await expect(page).toHaveURL(new RegExp(`/giocatore/${E2E_MANAGER_ID}$`))
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Mario Manager" }),
+  ).toBeVisible()
+  for (const privateHeading of [
+    "Tesseramento",
+    "Pagamenti",
+    "Certificato medico",
+    "Contatti operativi",
+    "Presenze",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: privateHeading }),
+    ).toHaveCount(0)
+  }
+  await expect(page.getByText("mario.operativo@chigi.test")).toHaveCount(0)
+  await expect(page.getByText("+39 333 0000001")).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+})
+
+test("proprietario vede tesseramento quote certificato e presenze", async ({
+  context,
+  page,
+}) => {
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
+  await dismissPaymentReminder(page)
+
+  for (const privateHeading of [
+    "Tesseramento",
+    "Pagamenti",
+    "Certificato medico",
+    "Presenze",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: privateHeading }),
+    ).toBeVisible()
+  }
+  await expect(page.getByText("ASI-E2E-2025")).toBeVisible()
+  await expect(page.getByText("Quota stagione")).toBeVisible()
+  await expect(page.getByText("Centro Medico E2E")).toBeVisible()
+  await expect(page.getByText("1/1 allenamenti")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Contatti operativi" }),
+  ).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+})
+
+test("manager vede dati operativi del compagno ma mai note mediche", async ({
+  context,
+  page,
+}) => {
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
+
+  for (const privateHeading of [
+    "Tesseramento",
+    "Pagamenti",
+    "Certificato medico",
+    "Contatti operativi",
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: privateHeading }),
+    ).toBeVisible()
+  }
+  await expect(page.getByText("+39 333 0000002")).toBeVisible()
+  await expect(page.getByText("piero.operativo@chigi.test")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Presenze" }),
+  ).toHaveCount(0)
+  await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
+})
+
+test("builder formazione monta tra titlebar e rosa, riceve focus e si chiude", async ({
+  page,
+}) => {
+  await page.goto("/squadra")
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      ),
+    )
+    .toBe(true)
+
+  await page.getByRole("button", { name: "Crea la tua formazione" }).click()
+  const builder = page.locator(
+    'section[aria-label="Crea la tua formazione"]',
+  )
+  await expect(builder).toBeVisible()
+  await expect(
+    builder.getByRole("heading", { name: "Crea la tua formazione" }),
+  ).toBeVisible()
+  await expect
+    .poll(() => builder.evaluate((element) => document.activeElement === element))
+    .toBe(true)
+  await expect(page.locator("[data-player-grid]")).toBeVisible()
+
+  const order = await page.evaluate(() => {
+    const titlebar = document.querySelector("h1")?.closest("header")
+    const formation = document.querySelector(
+      'section[aria-label="Crea la tua formazione"]',
+    )
+    const roster = document.querySelector("[data-player-grid]")
+    if (!titlebar || !formation || !roster) return null
+    return {
+      titlebarBeforeFormation: Boolean(
+        titlebar.compareDocumentPosition(formation) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+      formationBeforeRoster: Boolean(
+        formation.compareDocumentPosition(roster) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    }
+  })
+  expect(order).toEqual({
+    titlebarBeforeFormation: true,
+    formationBeforeRoster: true,
+  })
+
+  await builder.getByRole("button", { name: "Chiudi formazione" }).click()
+  await expect(builder).toHaveCount(0)
 })
 
 test("il giocatore vede quote e scheda privata", async ({ context, page }) => {
@@ -378,6 +706,107 @@ test("dashboard manager densa con azioni rapide", async ({
   await page.getByRole("button", { name: "Persona" }).click()
   await expect(page.getByRole("dialog")).toContainText("Aggiungi persona")
   await expectNoSeriousA11yViolations(page)
+})
+
+test("gerarchia titlebar e azioni manager restano responsive ed esclusive", async ({
+  context,
+  page,
+}, testInfo) => {
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto("/")
+
+  const calendarHeading = page.getByRole("heading", {
+    level: 1,
+    name: "Calendario",
+  })
+  const calendarTitlebar = page.locator("header", { has: calendarHeading })
+  const visibleAddAction = page.getByRole("button", {
+    name: "Aggiungi evento",
+  })
+  await expect(visibleAddAction).toHaveCount(1)
+  if (testInfo.project.name === "mobile") {
+    await expect(
+      calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
+    ).toHaveCount(0)
+    await expect(visibleAddAction).toHaveCSS("position", "fixed")
+    await expectCircularIconOnlyAction(visibleAddAction)
+    const management = page.getByRole("link", {
+      name: "Gestione squadra",
+    })
+    await expectCircularIconOnlyAction(management)
+    await expect(management).toHaveClass(/bg-violet-600/)
+  } else {
+    await expect(
+      calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
+    ).toBeVisible()
+    await expect(visibleAddAction).not.toHaveCSS("position", "fixed")
+    const management = page.getByRole("link", {
+      name: "Gestione squadra",
+    })
+    await expect(management.locator("span")).toBeVisible()
+    await expect(management).toContainText("Gestione squadra")
+    await expect(management).toHaveClass(/bg-violet-600/)
+  }
+
+  for (const [route, title] of [
+    ["/", "Calendario"],
+    ["/squadra", "Squadra"],
+    ["/torneo", "Torneo"],
+    ["/statistiche", "Statistiche"],
+    ["/profilo", "Profilo"],
+    ["/gestione", "Gestione squadra"],
+  ] as const) {
+    await page.goto(route)
+    await expect(
+      page.getByRole("heading", { level: 1, name: title }),
+    ).toHaveCount(1)
+  }
+})
+
+test("manager salva goal assist MVP ammonizioni ed espulsioni ufficiali", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  await authenticate(context, "manager@chigi.test", "Manager123!")
+  await page.goto(`/evento/${E2E_MATCH_ID}`)
+
+  await expect(
+    page.getByRole("heading", { name: "Check-in ufficiale" }),
+  ).toBeVisible()
+  await page.getByLabel("Goal di Piero Player").fill("3")
+  await page.getByLabel("Assist di Piero Player").fill("2")
+  await page.getByLabel("Ammonizioni di Piero Player").fill("2")
+  await page.getByLabel("Espulsioni di Piero Player").fill("1")
+  await page.getByLabel("MVP").selectOption(E2E_PLAYER_ID)
+  await page.getByRole("button", { name: "Salva statistiche" }).click()
+  await expect(page.getByText("Check-in e statistiche salvati")).toBeVisible()
+
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const { data: stats, error: statsError } = await serviceClient
+    .from("match_player_stats")
+    .select("goals, assists, yellow_cards, red_cards")
+    .eq("event_id", E2E_MATCH_ID)
+    .eq("profile_id", E2E_PLAYER_ID)
+    .single()
+  expect(statsError).toBeNull()
+  expect(stats).toEqual({
+    goals: 3,
+    assists: 2,
+    yellow_cards: 2,
+    red_cards: 1,
+  })
+  const { data: award, error: awardError } = await serviceClient
+    .from("match_awards")
+    .select("profile_id")
+    .eq("event_id", E2E_MATCH_ID)
+    .single()
+  expect(awardError).toBeNull()
+  expect(award).toEqual({ profile_id: E2E_PLAYER_ID })
 })
 
 test("il playground anonimo usa soltanto la rosa pubblica", async ({
@@ -648,7 +1077,7 @@ test("builder formazione privato e leggero", async ({
   await authenticate(context, "player@chigi.test", "Player123!")
   await page.goto("/squadra")
 
-  await page.getByRole("button", { name: "Più tardi" }).click()
+  await dismissPaymentReminder(page)
   await page.getByRole("button", { name: "Crea la tua formazione" }).click()
   await expect(
     page.getByRole("heading", { name: "Crea la tua formazione" }),

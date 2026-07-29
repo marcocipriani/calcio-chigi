@@ -65,6 +65,102 @@ where s.slug = '2026-2027';
 
 Eliminare il workbook locale solo dopo verifica remota riuscita.
 
+## Import storico Enjore 2025/26
+
+L’import usa esclusivamente le classifiche aggregate Enjore per goal, MVP,
+ammonizioni ed espulsioni. Non crea eventi sintetici, assist o presenze.
+`FASE_2_CALCIATORI` è una fase valida anche quando non contiene righe Chigi.
+
+### Preflight e dry-run
+
+Prima di qualsiasi scrittura:
+
+```bash
+npx supabase migration list --linked
+npx supabase db dump --linked --data-only \
+  -f /tmp/calcio-chigi-pre-enjore-2025-2026.sql
+npx supabase db push --dry-run
+npm run import:enjore-history -- --dry-run
+```
+
+Il dry-run scarica 15 risposte, riconcilia le quattro fasi con le classifiche
+all-phases, risolve i profili remoti e non invoca la RPC di import.
+
+Evidenza del 29 luglio 2026:
+
+```text
+Dry-run: 27 righe storiche validate; nessuna scrittura database.
+FASE_1: G=26 MVP=19 A=5 ESP=0
+FASE_2_CALCIATORI: G=0 MVP=0 A=0 ESP=0
+FASE_2_PROFESSIONISTI: G=12 MVP=10 A=3 ESP=0
+COPPA_LAZIO_PROFESSIONISTI: G=11 MVP=6 A=0 ESP=0
+```
+
+In questo task non sono stati eseguiti `db push`, import `--apply` o deploy
+Web. I comandi operativi da eseguire dopo review sono:
+
+```bash
+npx supabase db push
+npm run import:enjore-history -- --dry-run
+npm run import:enjore-history -- --apply
+vercel --prod
+```
+
+Non proseguire se il secondo dry-run differisce dal preflight approvato.
+
+### Verifica post-import
+
+Eseguire sul database collegato:
+
+```sql
+select
+  phase_key,
+  count(*) as players,
+  sum(goals) as goals,
+  sum(mvp) as mvp,
+  sum(yellow_cards) as yellow_cards,
+  sum(red_cards) as red_cards
+from public.historical_player_stats h
+join public.seasons s on s.id = h.season_id
+where s.slug = '2025-2026'
+group by phase_key
+order by phase_key;
+
+select
+  h.profile_id,
+  p.cognome,
+  p.nome,
+  sum(h.goals) as goals,
+  sum(h.mvp) as mvp,
+  sum(h.yellow_cards) as yellow_cards,
+  sum(h.red_cards) as red_cards
+from public.historical_player_stats h
+join public.seasons s on s.id = h.season_id
+join public.profiles p on p.id = h.profile_id
+where s.slug = '2025-2026'
+group by h.profile_id, p.cognome, p.nome
+order by p.cognome, p.nome;
+```
+
+Confrontare il secondo risultato con la sezione all-phases del dry-run. Dopo
+il deploy verificare `/statistiche`: 2026/27 a zero, 2025/26 con assist `—` e
+presenze `Dati non disponibili`.
+
+### Errore e recupero
+
+- Errori di rete, parsing, mapping o riconciliazione avvengono prima della RPC:
+  non c’è nulla da ripristinare.
+- La RPC sostituisce l’intero dataset 2025/26 in una transazione; un errore DB
+  esegue rollback completo. Verificare le query sopra prima di rilanciare.
+- Un import completato ma errato si corregge sul mapping/script e si rilancia:
+  `npm run import:enjore-history -- --dry-run`, revisione dell’output, poi
+  `npm run import:enjore-history -- --apply`. Il secondo apply sostituisce
+  atomicamente il dataset precedente.
+- Per un incidente più ampio, bloccare le scritture e usare il dump
+  `/tmp/calcio-chigi-pre-enjore-2025-2026.sql` o il ripristino puntuale
+  Supabase. Non eseguire `db reset` sul progetto collegato e non tentare un
+  down manuale della migration: applicare una migration correttiva.
+
 ## Account e onboarding
 
 1. L’utente si registra.

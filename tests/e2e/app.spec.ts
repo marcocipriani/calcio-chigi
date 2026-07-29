@@ -176,6 +176,90 @@ async function expectCircularIconOnlyAction(action: Locator) {
     .toBe(true)
 }
 
+async function measureExactRenderedText(action: Locator, exactText: string) {
+  return action.evaluate((element, expectedText) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    let found = false
+    let maxWidth = 0
+    let maxHeight = 0
+    let node = walker.nextNode()
+
+    while (node) {
+      if (node.textContent?.trim() === expectedText) {
+        found = true
+        const parent = node.parentElement
+        if (parent) {
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          const textRect = range.getBoundingClientRect()
+          let left = textRect.left
+          let right = textRect.right
+          let top = textRect.top
+          let bottom = textRect.bottom
+          let ancestor: HTMLElement | null = parent
+          let visible = true
+
+          while (ancestor) {
+            const style = getComputedStyle(ancestor)
+            const rect = ancestor.getBoundingClientRect()
+            if (
+              style.display === "none" ||
+              style.visibility === "hidden" ||
+              Number.parseFloat(style.opacity) === 0
+            ) {
+              visible = false
+              break
+            }
+            left = Math.max(left, rect.left)
+            right = Math.min(right, rect.right)
+            top = Math.max(top, rect.top)
+            bottom = Math.min(bottom, rect.bottom)
+            if (ancestor === element) break
+            ancestor = ancestor.parentElement
+          }
+
+          if (visible) {
+            const width = Math.max(0, right - left)
+            const height = Math.max(0, bottom - top)
+            if (width * height > maxWidth * maxHeight) {
+              maxWidth = width
+              maxHeight = height
+            }
+          }
+        }
+      }
+      node = walker.nextNode()
+    }
+
+    return { found, height: maxHeight, width: maxWidth }
+  }, exactText)
+}
+
+async function expectExactTextRendered(action: Locator, exactText: string) {
+  await expect
+    .poll(async () => {
+      const measurement = await measureExactRenderedText(action, exactText)
+      return (
+        measurement.found &&
+        measurement.width > 1 &&
+        measurement.height > 1
+      )
+    })
+    .toBe(true)
+}
+
+async function expectExactTextNotRendered(action: Locator, exactText: string) {
+  await expect
+    .poll(async () => {
+      const measurement = await measureExactRenderedText(action, exactText)
+      return (
+        measurement.found &&
+        (measurement.width <= 1 || measurement.height <= 1)
+      )
+    })
+    .toBe(true)
+}
+
 async function expectCompleteSeasonPlayerLinks(
   page: Page,
   seasonSlug: string,
@@ -859,18 +943,18 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
       name: "Gestione",
     })
     await expectCircularIconOnlyAction(management)
+    await expectExactTextNotRendered(management, "Gestione")
     await expect(management).toHaveClass(/bg-violet-600/)
   } else {
     await expect(
       calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
     ).toBeVisible()
-    await expect(visibleAddAction).toContainText("Aggiungi evento")
+    await expectExactTextRendered(visibleAddAction, "Aggiungi evento")
     await expect(visibleAddAction).not.toHaveCSS("position", "fixed")
     const management = page.getByRole("link", {
       name: "Gestione",
     })
-    await expect(management.locator("span")).toBeVisible()
-    await expect(management).toContainText("Gestione")
+    await expectExactTextRendered(management, "Gestione")
     await expect(management).toHaveClass(/bg-violet-600/)
   }
 

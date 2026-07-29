@@ -46,6 +46,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
+import { PageTitleBar } from "@/components/layout/PageTitleBar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   filterManagementRows,
   type ManagementFilters,
@@ -306,19 +312,79 @@ export function ManagementDashboard() {
 
   return (
     <div className="min-h-screen space-y-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-            Sala operativa
-          </p>
-          <h1 className="text-2xl font-black tracking-tight">
-            Gestione squadra
-          </h1>
-        </div>
-        <div
-          aria-label="Azioni rapide"
-          className="flex flex-wrap items-center gap-1.5"
-        >
+      <PageTitleBar
+        actions={
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Aggiungi persona"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={() => setAddOpen(true)}
+                  size="sm"
+                >
+                  <Plus aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Persona</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Aggiungi persona</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Registra quota"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={() =>
+                    selected.size
+                      ? setPaymentOpen(true)
+                      : toast.error("Seleziona almeno una persona")
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  <CircleDollarSign aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Quota</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Registra quota</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Imposta scadenza"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={applyDeadline}
+                  size="sm"
+                  variant="outline"
+                >
+                  <CalendarClock aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Scadenza</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Imposta scadenza</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Invia notifica"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={() =>
+                    selectedUserIds.length
+                      ? setNotificationOpen(true)
+                      : toast.error("Seleziona persone con un account attivo")
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  <BellPlus aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Notifica</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Invia notifica</TooltipContent>
+            </Tooltip>
+          </>
+        }
+        context={
           <select
             aria-label="Stagione"
             className={selectClass}
@@ -331,40 +397,10 @@ export function ManagementDashboard() {
             <option value="2026-2027">2026–2027</option>
             <option value="2025-2026">2025–2026</option>
           </select>
-          <Button onClick={() => setAddOpen(true)} size="sm">
-            <Plus aria-hidden="true" />
-            Persona
-          </Button>
-          <Button
-            onClick={() =>
-              selected.size
-                ? setPaymentOpen(true)
-                : toast.error("Seleziona almeno una persona")
-            }
-            size="sm"
-            variant="outline"
-          >
-            <CircleDollarSign aria-hidden="true" />
-            Quota
-          </Button>
-          <Button onClick={applyDeadline} size="sm" variant="outline">
-            <CalendarClock aria-hidden="true" />
-            Scadenza
-          </Button>
-          <Button
-            onClick={() =>
-              selectedUserIds.length
-                ? setNotificationOpen(true)
-                : toast.error("Seleziona persone con un account attivo")
-            }
-            size="sm"
-            variant="outline"
-          >
-            <BellPlus aria-hidden="true" />
-            Notifica
-          </Button>
-        </div>
-      </div>
+        }
+        subtitle="Sala operativa"
+        title="Gestione squadra"
+      />
 
       <KpiStrip
         activeView={view}

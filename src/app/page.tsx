@@ -28,6 +28,7 @@ import { it } from 'date-fns/locale';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { PageTitleBar } from "@/components/layout/PageTitleBar";
 import { Event, Team } from "@/lib/types";
 import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
 
@@ -492,22 +493,32 @@ export default function Home() {
       <main className="space-y-4">
       
       <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-end">
-              <div>
-                  <h2 className="text-3xl font-black text-foreground tracking-tight">Calendario</h2>
-                  <p className="text-sm text-muted-foreground font-medium">Gli impegni della squadra</p>
-              </div>
-              
-              {nextMatch && (
+          <PageTitleBar
+            actions={isManager ? (
+              <Button
+                aria-label="Aggiungi evento"
+                className="hidden gap-1.5 sm:inline-flex"
+                onClick={handleCreateNew}
+                size="sm"
+              >
+                <Plus aria-hidden="true" />
+                Aggiungi evento
+              </Button>
+            ) : null}
+            context={nextMatch ? (
+              <div className="flex justify-end">
                 <div className="flex flex-col items-end pb-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Next Match</span>
-                    <div className="bg-red-600 text-white px-2 py-1 rounded-md text-xs font-black flex items-center gap-1 shadow-sm animate-pulse">
-                        <Clock className="h-3 w-3" />
-                        {getCountdownLabel(nextMatch.data_ora!)}
-                    </div>
+                  <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next Match</span>
+                  <div className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs font-black text-white shadow-sm animate-pulse">
+                    <Clock className="h-3 w-3" />
+                    {getCountdownLabel(nextMatch.data_ora!)}
+                  </div>
                 </div>
-              )}
-          </div>
+              </div>
+            ) : null}
+            subtitle="Gli impegni della squadra"
+            title="Calendario"
+          />
 
           <div className="flex items-center justify-between gap-2 py-2">
               
@@ -685,7 +696,7 @@ export default function Home() {
       {isManager && (
           <Button 
             aria-label="Aggiungi evento"
-            className="fixed bottom-24 right-4 h-14 w-14 rounded-md shadow-2xl bg-purple-600 hover:bg-purple-700 z-50 flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+            className="fixed bottom-24 right-4 z-50 size-14 rounded-full bg-purple-600 shadow-2xl transition-transform hover:scale-110 hover:bg-purple-700 active:scale-95 sm:hidden"
             onClick={handleCreateNew}
           >
               <Plus className="h-8 w-8 text-white" />

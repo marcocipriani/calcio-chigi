@@ -10,6 +10,11 @@ import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { ManagerPresence } from "@/components/management/ManagerPresence"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 export function SiteHeader() {
@@ -48,16 +53,26 @@ export function SiteHeader() {
           {isManager && (
             <>
               <ManagerPresence />
-              <Button
-                asChild
-                className="hidden h-9 gap-1.5 px-3 sm:inline-flex"
-                size="sm"
-              >
-                <Link href="/gestione">
-                  <Settings2 aria-hidden="true" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="Gestione squadra"
+                    asChild
+                    className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
+                    size="sm"
+                  >
+                    <Link href="/gestione">
+                      <Settings2 aria-hidden="true" />
+                      <span className="sr-only sm:not-sr-only">
+                        Gestione squadra
+                      </span>
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">
                   Gestione squadra
-                </Link>
-              </Button>
+                </TooltipContent>
+              </Tooltip>
             </>
           )}
 

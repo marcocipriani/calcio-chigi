@@ -32,7 +32,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageContainer } from "@/components/layout/PageContainer"
+import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { BOMBER_TAGS } from "@/lib/constants"
 import { fetchOwnProfile } from "@/lib/api"
 import {
@@ -476,18 +482,27 @@ export default function ProfilePage() {
   return (
     <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
       <main className="space-y-4">
-      <header className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-            Area personale
-          </p>
-          <h1 className="text-3xl font-black tracking-tight">Profilo</h1>
-        </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={logout}>
-          <LogOut className="h-4 w-4" aria-hidden="true" />
-          Esci
-        </Button>
-      </header>
+      <PageTitleBar
+        actions={
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Esci"
+                className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                onClick={logout}
+                size="sm"
+                variant="outline"
+              >
+                <LogOut aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Esci</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="sm:hidden">Esci</TooltipContent>
+          </Tooltip>
+        }
+        subtitle="Area personale"
+        title="Profilo"
+      />
 
       <section className="relative overflow-hidden rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

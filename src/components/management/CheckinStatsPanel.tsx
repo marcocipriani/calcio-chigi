@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ClipboardCheck, Save, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -62,9 +62,11 @@ export function CheckinStatsPanel({
     () => new Set(),
   )
   const [saving, setSaving] = useState(false)
+  const generationRef = useRef(0)
 
   useEffect(() => {
-    if (!isManager) return
+    const generation = generationRef.current + 1
+    generationRef.current = generation
     let active = true
     setLoading(true)
     setLoadError(null)
@@ -72,6 +74,16 @@ export function CheckinStatsPanel({
     setCheckins({})
     setStats({})
     setPlayerOfMatch("")
+    setPendingCheckins(new Set())
+    setSaving(false)
+    const invalidate = () => {
+      active = false
+      if (generationRef.current === generation) {
+        generationRef.current += 1
+      }
+    }
+    if (!isManager) return invalidate
+
     void Promise.all([
       supabaseBrowser.rpc("get_event_roster", {
         p_event_id: eventId,
@@ -97,7 +109,7 @@ export function CheckinStatsPanel({
         : Promise.resolve({ data: null, error: null }),
     ])
       .then(([rosterResult, checkinResult, statsResult, awardResult]) => {
-        if (!active) return
+        if (!active || generationRef.current !== generation) return
         if (
           rosterResult.error ||
           checkinResult.error ||
@@ -146,7 +158,7 @@ export function CheckinStatsPanel({
         setLoading(false)
       })
       .catch(() => {
-        if (!active) return
+        if (!active || generationRef.current !== generation) return
         setRoster([])
         setCheckins({})
         setStats({})
@@ -154,9 +166,7 @@ export function CheckinStatsPanel({
         setLoadError("Impossibile caricare check-in e statistiche.")
         setLoading(false)
       })
-    return () => {
-      active = false
-    }
+    return invalidate
   }, [eventId, isManager, isMatch])
 
   const present = useMemo(
@@ -171,6 +181,7 @@ export function CheckinStatsPanel({
     field: keyof MatchStatDraft,
     value: string,
   ) {
+    if (saving) return
     setStats((current) => {
       const previous = current[profileId] ?? {
         goals: 0,
@@ -189,6 +200,8 @@ export function CheckinStatsPanel({
   }
 
   async function setCheckin(profileId: string, status: CheckinStatus) {
+    if (saving || loading || loadError) return
+    const generation = generationRef.current
     const previous = checkins[profileId]
     const previousPlayerOfMatch = playerOfMatch
     const clearsPlayerOfMatch =
@@ -202,8 +215,10 @@ export function CheckinStatsPanel({
         p_profile_id: profileId,
         p_status: status,
       })
+      if (generationRef.current !== generation) return
       if (error) throw error
     } catch (error) {
+      if (generationRef.current !== generation) return
       setCheckins((current) => {
         const next = { ...current }
         if (previous) next[profileId] = previous
@@ -222,11 +237,13 @@ export function CheckinStatsPanel({
             : "Riprova tra qualche istante.",
       })
     } finally {
-      setPendingCheckins((current) => {
-        const next = new Set(current)
-        next.delete(profileId)
-        return next
-      })
+      if (generationRef.current === generation) {
+        setPendingCheckins((current) => {
+          const next = new Set(current)
+          next.delete(profileId)
+          return next
+        })
+      }
     }
   }
 
@@ -236,10 +253,12 @@ export function CheckinStatsPanel({
       !isMatch ||
       loading ||
       loadError ||
+      saving ||
       pendingCheckins.size > 0
     ) {
       return
     }
+    const generation = generationRef.current
     setSaving(true)
     try {
       const statsRows = present.map((player) => ({
@@ -258,6 +277,7 @@ export function CheckinStatsPanel({
             .from("match_player_stats")
             .upsert(statsRows, { onConflict: "event_id,profile_id" })
         : { error: null }
+      if (generationRef.current !== generation) return
       if (statsError) {
         toast.error("Statistiche non salvate", {
           description: statsError.message,
@@ -278,6 +298,7 @@ export function CheckinStatsPanel({
             .from("match_awards")
             .delete()
             .eq("event_id", eventId)
+      if (generationRef.current !== generation) return
       if (awardError) {
         toast.error("Statistiche non salvate", {
           description: awardError.message,
@@ -286,6 +307,7 @@ export function CheckinStatsPanel({
       }
       toast.success("Check-in e statistiche salvati")
     } catch (error) {
+      if (generationRef.current !== generation) return
       toast.error("Statistiche non salvate", {
         description:
           error instanceof Error
@@ -293,7 +315,7 @@ export function CheckinStatsPanel({
             : "Riprova tra qualche istante.",
       })
     } finally {
-      setSaving(false)
+      if (generationRef.current === generation) setSaving(false)
     }
   }
 
@@ -375,7 +397,7 @@ export function CheckinStatsPanel({
                     "size-8",
                     isPresent && "bg-emerald-600 text-white hover:bg-emerald-700",
                   )}
-                  disabled={checkinPending}
+                  disabled={saving || checkinPending}
                   onClick={() => setCheckin(player.id, "PRESENT")}
                   size="icon-sm"
                   variant={isPresent ? "default" : "outline"}
@@ -389,7 +411,7 @@ export function CheckinStatsPanel({
                     status === "ABSENT" &&
                       "bg-rose-600 text-white hover:bg-rose-700",
                   )}
-                  disabled={checkinPending}
+                  disabled={saving || checkinPending}
                   onClick={() => setCheckin(player.id, "ABSENT")}
                   size="icon-sm"
                   variant={status === "ABSENT" ? "default" : "outline"}
@@ -404,6 +426,7 @@ export function CheckinStatsPanel({
                     <Input
                       aria-label={`Goal di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
+                      disabled={saving}
                       min="0"
                       onChange={(event) =>
                         updateStat(player.id, "goals", event.target.value)
@@ -418,6 +441,7 @@ export function CheckinStatsPanel({
                     <Input
                       aria-label={`Assist di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
+                      disabled={saving}
                       min="0"
                       onChange={(event) =>
                         updateStat(player.id, "assists", event.target.value)
@@ -432,6 +456,7 @@ export function CheckinStatsPanel({
                     <Input
                       aria-label={`Ammonizioni di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
+                      disabled={saving}
                       min="0"
                       onChange={(event) =>
                         updateStat(
@@ -450,6 +475,7 @@ export function CheckinStatsPanel({
                     <Input
                       aria-label={`Espulsioni di ${player.nome} ${player.cognome}`}
                       className="h-8 w-12 px-1 text-center"
+                      disabled={saving}
                       min="0"
                       onChange={(event) =>
                         updateStat(
@@ -477,10 +503,15 @@ export function CheckinStatsPanel({
           <select
             className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
             disabled={
-              loading || Boolean(loadError) || pendingCheckins.size > 0
+              saving ||
+              loading ||
+              Boolean(loadError) ||
+              pendingCheckins.size > 0
             }
             id="player-of-match"
-            onChange={(event) => setPlayerOfMatch(event.target.value)}
+            onChange={(event) => {
+              if (!saving) setPlayerOfMatch(event.target.value)
+            }}
             value={playerOfMatch}
           >
             <option value="">Non assegnato</option>

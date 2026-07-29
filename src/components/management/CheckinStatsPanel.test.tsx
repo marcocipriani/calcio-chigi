@@ -11,11 +11,19 @@ const session = vi.hoisted(() => ({
   useAppSession: vi.fn(),
 }))
 
+const toasts = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}))
+
 const database = vi.hoisted(() => {
   type Response = { data?: unknown; error: unknown }
   const responses = new Map<string, Response | Promise<Response>>()
   const rpcResults = new Map<string, Array<Promise<Response>>>()
-  const upsertResponses = new Map<string, Response[]>()
+  const upsertResponses = new Map<
+    string,
+    Array<Response | Promise<Response>>
+  >()
   const selections: Array<{ table: string; columns: string }> = []
   const upserts: Array<{
     table: string
@@ -101,6 +109,8 @@ const database = vi.hoisted(() => {
 vi.mock("@/components/auth/AppSessionProvider", () => ({
   useAppSession: session.useAppSession,
 }))
+
+vi.mock("sonner", () => ({ toast: toasts }))
 
 vi.mock("@/lib/supabaseBrowser", () => ({
   supabaseBrowser: {
@@ -398,5 +408,152 @@ describe("CheckinStatsPanel match statistics", () => {
       database.upserts.filter(({ table }) => table === "match_awards"),
     ).toHaveLength(0)
     expect(database.deletes).toHaveLength(0)
+  })
+
+  it("locks every mutable control until the statistics save completes", async () => {
+    const save = deferred<{ data: null; error: null }>()
+    database.upsertResponses.set("match_player_stats", [save.promise])
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    const goal = await screen.findByRole("spinbutton", {
+      name: "Goal di Elio Dorbolò",
+    })
+    const saveButton = screen.getByRole("button", {
+      name: "Salva statistiche",
+    })
+    fireEvent.click(saveButton)
+
+    expect(saveButton).toBeDisabled()
+    expect(
+      screen.getByRole("button", { name: "Segna presente Elio Dorbolò" }),
+    ).toBeDisabled()
+    const absentButton = screen.getByRole("button", {
+      name: "Segna assente Elio Dorbolò",
+    })
+    expect(absentButton).toBeDisabled()
+    for (const input of screen.getAllByRole("spinbutton")) {
+      expect(input).toBeDisabled()
+    }
+    const mvp = screen.getByRole("combobox", { name: "MVP" })
+    expect(mvp).toBeDisabled()
+
+    fireEvent.change(goal, { target: { value: "99" } })
+    fireEvent.change(mvp, { target: { value: "" } })
+    fireEvent.click(absentButton)
+    expect(database.rpc).not.toHaveBeenCalledWith(
+      "set_event_checkin",
+      expect.anything(),
+    )
+    expect(goal).toHaveValue(2)
+    expect(mvp).toHaveValue("player-1")
+
+    await act(async () => {
+      save.resolve({ data: null, error: null })
+      await save.promise
+    })
+    await waitFor(() => expect(saveButton).toBeEnabled())
+    expect(absentButton).toBeEnabled()
+    expect(goal).toBeEnabled()
+    expect(mvp).toBeEnabled()
+  })
+
+  it("ignores an old check-in rejection after loading a new event", async () => {
+    const oldCheckin = deferred<{ data: null; error: null }>()
+    database.rpcResults.set("set_event_checkin", [oldCheckin.promise])
+    const rendered = render(
+      <CheckinStatsPanel eventId="match-1" isMatch />,
+    )
+
+    await screen.findByRole("spinbutton", {
+      name: "Goal di Elio Dorbolò",
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Segna assente Elio Dorbolò" }),
+    )
+
+    database.responses.set("event_checkins", {
+      data: [{ profile_id: "player-1", status: "ABSENT" }],
+      error: null,
+    })
+    database.responses.set("match_awards", { data: null, error: null })
+    rendered.rerender(
+      <CheckinStatsPanel eventId="match-2" isMatch />,
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Salva statistiche" }),
+      ).toBeEnabled()
+    })
+    expect(screen.queryByRole("spinbutton")).toBeNull()
+    expect(screen.getByRole("combobox", { name: "MVP" })).toHaveValue("")
+
+    await act(async () => {
+      oldCheckin.reject(new Error("old event failed"))
+      await oldCheckin.promise.catch(() => undefined)
+    })
+
+    expect(screen.queryByRole("spinbutton")).toBeNull()
+    expect(screen.getByRole("combobox", { name: "MVP" })).toHaveValue("")
+    expect(
+      screen.getByRole("button", { name: "Segna assente Elio Dorbolò" }),
+    ).toBeEnabled()
+    expect(toasts.error).not.toHaveBeenCalled()
+  })
+
+  it("does not let an old save unlock or toast during the next event save", async () => {
+    const oldSave = deferred<{
+      data: null
+      error: { message: string } | null
+    }>()
+    const currentSave = deferred<{ data: null; error: null }>()
+    database.upsertResponses.set("match_player_stats", [
+      oldSave.promise,
+      currentSave.promise,
+    ])
+    const rendered = render(
+      <CheckinStatsPanel eventId="match-1" isMatch />,
+    )
+
+    await screen.findByRole("spinbutton", {
+      name: "Goal di Elio Dorbolò",
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    )
+    rendered.rerender(
+      <CheckinStatsPanel eventId="match-2" isMatch />,
+    )
+
+    const saveButton = screen.getByRole("button", {
+      name: "Salva statistiche",
+    })
+    await waitFor(() => expect(saveButton).toBeEnabled())
+    fireEvent.click(saveButton)
+    await waitFor(() => {
+      expect(
+        database.upserts.filter(
+          ({ table }) => table === "match_player_stats",
+        ),
+      ).toHaveLength(2)
+    })
+    expect(saveButton).toBeDisabled()
+
+    await act(async () => {
+      oldSave.resolve({
+        data: null,
+        error: { message: "old save failed" },
+      })
+      await oldSave.promise
+    })
+    expect(saveButton).toBeDisabled()
+    expect(toasts.error).not.toHaveBeenCalled()
+
+    await act(async () => {
+      currentSave.resolve({ data: null, error: null })
+      await currentSave.promise
+    })
+    await waitFor(() => expect(saveButton).toBeEnabled())
+    expect(toasts.success).toHaveBeenCalledTimes(1)
   })
 })

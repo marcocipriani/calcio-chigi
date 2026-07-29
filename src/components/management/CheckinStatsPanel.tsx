@@ -56,11 +56,22 @@ export function CheckinStatsPanel({
   const [checkins, setCheckins] = useState<Record<string, CheckinStatus>>({})
   const [stats, setStats] = useState<Record<string, MatchStatDraft>>({})
   const [playerOfMatch, setPlayerOfMatch] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [pendingCheckins, setPendingCheckins] = useState<Set<string>>(
+    () => new Set(),
+  )
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!isManager) return
     let active = true
+    setLoading(true)
+    setLoadError(null)
+    setRoster([])
+    setCheckins({})
+    setStats({})
+    setPlayerOfMatch("")
     void Promise.all([
       supabaseBrowser.rpc("get_event_roster", {
         p_event_id: eventId,
@@ -76,53 +87,73 @@ export function CheckinStatsPanel({
               "profile_id, goals, assists, yellow_cards, red_cards",
             )
             .eq("event_id", eventId)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       isMatch
         ? supabaseBrowser
             .from("match_awards")
             .select("profile_id")
             .eq("event_id", eventId)
             .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]).then(([rosterResult, checkinResult, statsResult, awardResult]) => {
-      if (!active) return
-      const eventRoster = (rosterResult.data ?? []) as EventRosterRow[]
-      setRoster(
-        eventRoster
-          .filter(({ category, training_only }) =>
-            category === "PLAYER" && !training_only,
-          )
-          .map((row): RosterRow => ({
-            id: row.profile_id,
-            nome: row.nome,
-            cognome: row.cognome,
-            avatar_url: row.avatar_url,
-            role: row.role,
-          })),
-      )
-      setCheckins(
-        Object.fromEntries(
-          (checkinResult.data ?? []).map((row) => [
-            row.profile_id,
-            row.status as CheckinStatus,
-          ]),
-        ),
-      )
-      setStats(
-        Object.fromEntries(
-          (statsResult.data ?? []).map((row) => [
-            row.profile_id,
-            {
-              goals: row.goals,
-              assists: row.assists,
-              yellow_cards: row.yellow_cards,
-              red_cards: row.red_cards,
-            },
-          ]),
-        ),
-      )
-      setPlayerOfMatch(awardResult.data?.profile_id ?? "")
-    })
+        : Promise.resolve({ data: null, error: null }),
+    ])
+      .then(([rosterResult, checkinResult, statsResult, awardResult]) => {
+        if (!active) return
+        if (
+          rosterResult.error ||
+          checkinResult.error ||
+          statsResult.error ||
+          awardResult.error
+        ) {
+          throw new Error("load failed")
+        }
+        const eventRoster = (rosterResult.data ?? []) as EventRosterRow[]
+        setRoster(
+          eventRoster
+            .filter(
+              ({ category, training_only }) =>
+                category === "PLAYER" && !training_only,
+            )
+            .map((row): RosterRow => ({
+              id: row.profile_id,
+              nome: row.nome,
+              cognome: row.cognome,
+              avatar_url: row.avatar_url,
+              role: row.role,
+            })),
+        )
+        setCheckins(
+          Object.fromEntries(
+            (checkinResult.data ?? []).map((row) => [
+              row.profile_id,
+              row.status as CheckinStatus,
+            ]),
+          ),
+        )
+        setStats(
+          Object.fromEntries(
+            (statsResult.data ?? []).map((row) => [
+              row.profile_id,
+              {
+                goals: row.goals,
+                assists: row.assists,
+                yellow_cards: row.yellow_cards,
+                red_cards: row.red_cards,
+              },
+            ]),
+          ),
+        )
+        setPlayerOfMatch(awardResult.data?.profile_id ?? "")
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!active) return
+        setRoster([])
+        setCheckins({})
+        setStats({})
+        setPlayerOfMatch("")
+        setLoadError("Impossibile caricare check-in e statistiche.")
+        setLoading(false)
+      })
     return () => {
       active = false
     }
@@ -159,68 +190,111 @@ export function CheckinStatsPanel({
 
   async function setCheckin(profileId: string, status: CheckinStatus) {
     const previous = checkins[profileId]
+    const previousPlayerOfMatch = playerOfMatch
+    const clearsPlayerOfMatch =
+      status === "ABSENT" && playerOfMatch === profileId
+    setPendingCheckins((current) => new Set(current).add(profileId))
     setCheckins((current) => ({ ...current, [profileId]: status }))
-    const { error } = await supabaseBrowser.rpc("set_event_checkin", {
-      p_event_id: eventId,
-      p_profile_id: profileId,
-      p_status: status,
-    })
-    if (error) {
+    if (clearsPlayerOfMatch) setPlayerOfMatch("")
+    try {
+      const { error } = await supabaseBrowser.rpc("set_event_checkin", {
+        p_event_id: eventId,
+        p_profile_id: profileId,
+        p_status: status,
+      })
+      if (error) throw error
+    } catch (error) {
       setCheckins((current) => {
         const next = { ...current }
         if (previous) next[profileId] = previous
         else delete next[profileId]
         return next
       })
-      toast.error("Check-in non salvato", { description: error.message })
+      if (clearsPlayerOfMatch) {
+        setPlayerOfMatch((current) =>
+          current === "" ? previousPlayerOfMatch : current,
+        )
+      }
+      toast.error("Check-in non salvato", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Riprova tra qualche istante.",
+      })
+    } finally {
+      setPendingCheckins((current) => {
+        const next = new Set(current)
+        next.delete(profileId)
+        return next
+      })
     }
   }
 
   async function saveStats() {
-    if (!profile || !isMatch) return
-    setSaving(true)
-    const statsRows = present.map((player) => ({
-      event_id: eventId,
-      profile_id: player.id,
-      goals: nonNegativeInteger(stats[player.id]?.goals),
-      assists: nonNegativeInteger(stats[player.id]?.assists),
-      yellow_cards: nonNegativeInteger(stats[player.id]?.yellow_cards),
-      red_cards: nonNegativeInteger(stats[player.id]?.red_cards),
-      updated_by: profile.id,
-    }))
-    const { error: statsError } = statsRows.length
-      ? await supabaseBrowser
-          .from("match_player_stats")
-          .upsert(statsRows, { onConflict: "event_id,profile_id" })
-      : { error: null }
-
-    let awardError = null
-    if (playerOfMatch) {
-      const result = await supabaseBrowser.from("match_awards").upsert(
-        {
-          event_id: eventId,
-          profile_id: playerOfMatch,
-          updated_by: profile.id,
-        },
-        { onConflict: "event_id" },
-      )
-      awardError = result.error
-    } else {
-      const result = await supabaseBrowser
-        .from("match_awards")
-        .delete()
-        .eq("event_id", eventId)
-      awardError = result.error
-    }
-    setSaving(false)
-
-    if (statsError || awardError) {
-      toast.error("Statistiche non salvate", {
-        description: statsError?.message ?? awardError?.message,
-      })
+    if (
+      !profile ||
+      !isMatch ||
+      loading ||
+      loadError ||
+      pendingCheckins.size > 0
+    ) {
       return
     }
-    toast.success("Check-in e statistiche salvati")
+    setSaving(true)
+    try {
+      const statsRows = present.map((player) => ({
+        event_id: eventId,
+        profile_id: player.id,
+        goals: nonNegativeInteger(stats[player.id]?.goals),
+        assists: nonNegativeInteger(stats[player.id]?.assists),
+        yellow_cards: nonNegativeInteger(
+          stats[player.id]?.yellow_cards,
+        ),
+        red_cards: nonNegativeInteger(stats[player.id]?.red_cards),
+        updated_by: profile.id,
+      }))
+      const { error: statsError } = statsRows.length
+        ? await supabaseBrowser
+            .from("match_player_stats")
+            .upsert(statsRows, { onConflict: "event_id,profile_id" })
+        : { error: null }
+      if (statsError) {
+        toast.error("Statistiche non salvate", {
+          description: statsError.message,
+        })
+        return
+      }
+
+      const { error: awardError } = playerOfMatch
+        ? await supabaseBrowser.from("match_awards").upsert(
+            {
+              event_id: eventId,
+              profile_id: playerOfMatch,
+              updated_by: profile.id,
+            },
+            { onConflict: "event_id" },
+          )
+        : await supabaseBrowser
+            .from("match_awards")
+            .delete()
+            .eq("event_id", eventId)
+      if (awardError) {
+        toast.error("Statistiche non salvate", {
+          description: awardError.message,
+        })
+        return
+      }
+      toast.success("Check-in e statistiche salvati")
+    } catch (error) {
+      toast.error("Statistiche non salvate", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Riprova tra qualche istante.",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -234,22 +308,40 @@ export function CheckinStatsPanel({
           <div>
             <h3 className="text-sm font-bold">Check-in ufficiale</h3>
             <p className="text-[11px] text-muted-foreground">
-              {present.length} presenti · il check-in conferma anche la
-              disponibilità
+              {loading
+                ? "Caricamento…"
+                : loadError
+                  ? "Dati non disponibili"
+                  : `${present.length} presenti · il check-in conferma anche la disponibilità`}
             </p>
           </div>
         </div>
         {isMatch && (
-          <Button disabled={saving} onClick={saveStats} size="sm">
+          <Button
+            disabled={
+              saving ||
+              loading ||
+              Boolean(loadError) ||
+              pendingCheckins.size > 0
+            }
+            onClick={saveStats}
+            size="sm"
+          >
             <Save aria-hidden="true" />
             Salva statistiche
           </Button>
         )}
       </div>
+      {loadError && (
+        <p className="p-3 text-sm text-destructive" role="alert">
+          {loadError}
+        </p>
+      )}
       <div className="max-h-96 divide-y overflow-y-auto">
         {roster.map((player) => {
           const status = checkins[player.id]
           const isPresent = status === "PRESENT"
+          const checkinPending = pendingCheckins.has(player.id)
           return (
             <div
               className="grid min-h-12 grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 sm:grid-cols-[minmax(180px,1fr)_auto_280px]"
@@ -283,6 +375,7 @@ export function CheckinStatsPanel({
                     "size-8",
                     isPresent && "bg-emerald-600 text-white hover:bg-emerald-700",
                   )}
+                  disabled={checkinPending}
                   onClick={() => setCheckin(player.id, "PRESENT")}
                   size="icon-sm"
                   variant={isPresent ? "default" : "outline"}
@@ -296,6 +389,7 @@ export function CheckinStatsPanel({
                     status === "ABSENT" &&
                       "bg-rose-600 text-white hover:bg-rose-700",
                   )}
+                  disabled={checkinPending}
                   onClick={() => setCheckin(player.id, "ABSENT")}
                   size="icon-sm"
                   variant={status === "ABSENT" ? "default" : "outline"}
@@ -382,6 +476,9 @@ export function CheckinStatsPanel({
           </label>
           <select
             className="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
+            disabled={
+              loading || Boolean(loadError) || pendingCheckins.size > 0
+            }
             id="player-of-match"
             onChange={(event) => setPlayerOfMatch(event.target.value)}
             value={playerOfMatch}

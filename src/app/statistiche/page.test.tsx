@@ -291,9 +291,11 @@ describe("StatisticsPage seasonal rankings", () => {
       error: null,
     })
 
+    const requestStartedAt = Date.now()
     render(<StatisticsPage />)
 
     await screen.findByText("1/1 allenamenti")
+    const requestFinishedAt = Date.now()
     const links = screen.getAllByRole("link", { name: /Elio Dorbolò/ })
     expect(links.length).toBeGreaterThan(1)
     for (const link of links) {
@@ -302,10 +304,54 @@ describe("StatisticsPage seasonal rankings", () => {
         "/giocatore/player-1?season=2026-2027",
       )
     }
-    expect(privateQueries().map(({ table }) => table)).toEqual([
-      "events",
-      "event_checkins",
-    ])
+    const [eventsQuery, checkinsQuery] = privateQueries()
+    expect(eventsQuery).toEqual({
+      table: "events",
+      columns: "id",
+      filters: [
+        { method: "eq", column: "season_id", value: "season-2026" },
+        { method: "eq", column: "tipo", value: "ALLENAMENTO" },
+        {
+          method: "lte",
+          column: "data_ora",
+          value: expect.any(String),
+        },
+      ],
+    })
+    const cutoff = Date.parse(
+      String(eventsQuery.filters.find(({ method }) => method === "lte")?.value),
+    )
+    expect(cutoff).toBeGreaterThanOrEqual(requestStartedAt)
+    expect(cutoff).toBeLessThanOrEqual(requestFinishedAt)
+    expect(checkinsQuery).toEqual({
+      table: "event_checkins",
+      columns: "event_id, profile_id",
+      filters: [
+        { method: "eq", column: "status", value: "PRESENT" },
+        {
+          method: "in",
+          column: "event_id",
+          value: ["training-1"],
+        },
+      ],
+    })
+  })
+
+  it("shows a generic attendance error and stops before loading check-ins", async () => {
+    session.useAppSession.mockReturnValue(associatedSession())
+    database.responses.set("events", {
+      data: [{ id: "training-1" }],
+      error: { message: "private attendance detail" },
+    })
+
+    render(<StatisticsPage />)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Impossibile caricare le presenze.")
+    expect(alert).not.toHaveTextContent("private attendance detail")
+    expect(
+      database.queries.filter(({ table }) => table === "event_checkins"),
+    ).toHaveLength(0)
   })
 
   it("renders historical assists and attendance as unavailable without private queries", async () => {

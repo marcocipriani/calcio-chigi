@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const session = vi.hoisted(() => ({
@@ -6,13 +12,17 @@ const session = vi.hoisted(() => ({
 }))
 
 const database = vi.hoisted(() => {
-  const responses = new Map<string, { data: unknown; error: unknown }>()
+  type Response = { data?: unknown; error: unknown }
+  const responses = new Map<string, Response | Promise<Response>>()
+  const rpcResults = new Map<string, Array<Promise<Response>>>()
+  const upsertResponses = new Map<string, Response[]>()
   const selections: Array<{ table: string; columns: string }> = []
   const upserts: Array<{
     table: string
     rows: unknown
     options: unknown
   }> = []
+  const deletes: string[] = []
 
   const from = vi.fn((table: string) => {
     const query = {
@@ -24,30 +34,39 @@ const database = vi.hoisted(() => {
         return query
       },
       maybeSingle() {
-        return Promise.resolve(
-          responses.get(table) ?? { data: null, error: null },
+        return (
+          responses.get(table) ??
+          Promise.resolve({ data: null, error: null })
         )
       },
       upsert(rows: unknown, options: unknown) {
         upserts.push({ table, rows, options })
-        return Promise.resolve({ error: null })
+        return Promise.resolve(
+          upsertResponses.get(table)?.shift() ?? { error: null },
+        )
       },
       delete() {
-        return query
+        deletes.push(table)
+        return {
+          eq: () => Promise.resolve({ error: null }),
+        }
       },
       then(
-        onFulfilled: (value: { data: unknown; error: unknown }) => unknown,
+        onFulfilled: (value: Response) => unknown,
         onRejected?: (reason: unknown) => unknown,
       ) {
-        return Promise.resolve(
-          responses.get(table) ?? { data: [], error: null },
-        ).then(onFulfilled, onRejected)
+        const response =
+          responses.get(table) ??
+          Promise.resolve({ data: [], error: null })
+        return Promise.resolve(response).then(onFulfilled, onRejected)
       },
     }
     return query
   })
 
   const rpc = vi.fn((name: string) => {
+    const queued = rpcResults.get(name)?.shift()
+    if (queued) return queued
     if (name === "get_event_roster") {
       return Promise.resolve({
         data: [
@@ -67,7 +86,16 @@ const database = vi.hoisted(() => {
     return Promise.resolve({ data: null, error: null })
   })
 
-  return { from, responses, rpc, selections, upserts }
+  return {
+    deletes,
+    from,
+    responses,
+    rpc,
+    rpcResults,
+    selections,
+    upsertResponses,
+    upserts,
+  }
 })
 
 vi.mock("@/components/auth/AppSessionProvider", () => ({
@@ -83,11 +111,24 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 
 import { CheckinStatsPanel } from "@/components/management/CheckinStatsPanel"
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((finish, fail) => {
+    resolve = finish
+    reject = fail
+  })
+  return { promise, reject, resolve }
+}
+
 describe("CheckinStatsPanel match statistics", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    database.deletes.length = 0
     database.responses.clear()
+    database.rpcResults.clear()
     database.selections.length = 0
+    database.upsertResponses.clear()
     database.upserts.length = 0
     session.useAppSession.mockReturnValue({
       isManager: true,
@@ -118,6 +159,9 @@ describe("CheckinStatsPanel match statistics", () => {
   it("loads and saves all four non-negative fields for officially present players", async () => {
     render(<CheckinStatsPanel eventId="match-1" isMatch />)
 
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeDisabled()
     const goal = await screen.findByRole("spinbutton", {
       name: "Goal di Elio Dorbolò",
     })
@@ -135,6 +179,9 @@ describe("CheckinStatsPanel match statistics", () => {
     expect(assist).toHaveValue(3)
     expect(yellowCards).toHaveValue(4)
     expect(redCards).toHaveValue(1)
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeEnabled()
     expect(
       database.selections.find(
         ({ table }) => table === "match_player_stats",
@@ -203,5 +250,153 @@ describe("CheckinStatsPanel match statistics", () => {
         expect.objectContaining({ goals: 0, assists: 0 }),
       ])
     })
+  })
+
+  it("keeps Save disabled and does not expose partial data when a load query fails", async () => {
+    database.responses.set("match_player_stats", {
+      data: [
+        {
+          profile_id: "player-1",
+          goals: 99,
+          assists: 99,
+          yellow_cards: 99,
+          red_cards: 99,
+        },
+      ],
+      error: { message: "private database detail" },
+    })
+
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Impossibile caricare check-in e statistiche.")
+    expect(alert).not.toHaveTextContent("private database detail")
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeDisabled()
+    expect(screen.queryByRole("spinbutton")).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    )
+    expect(database.upserts).toHaveLength(0)
+    expect(database.deletes).toHaveLength(0)
+  })
+
+  it("catches rejected load requests without enabling destructive actions", async () => {
+    const rejectedAward = deferred<{
+      data?: unknown
+      error: unknown
+    }>()
+    database.responses.set("match_awards", rejectedAward.promise)
+
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    await act(async () => {
+      rejectedAward.reject(new Error("network detail"))
+      await rejectedAward.promise.catch(() => undefined)
+    })
+
+    expect(await screen.findByRole("alert")).not.toHaveTextContent(
+      "network detail",
+    )
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeDisabled()
+  })
+
+  it("clears an absent MVP while check-in is pending, then deletes only the valid award", async () => {
+    const mutation = deferred<{ data: null; error: null }>()
+    database.rpcResults.set("set_event_checkin", [mutation.promise])
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    const mvp = await screen.findByRole("combobox", { name: "MVP" })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Segna assente Elio Dorbolò" }),
+    )
+
+    expect(mvp).toHaveValue("")
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeDisabled()
+    expect(database.upserts).toHaveLength(0)
+    expect(database.deletes).toHaveLength(0)
+
+    await act(async () => {
+      mutation.resolve({ data: null, error: null })
+      await mutation.promise
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Salva statistiche" }),
+      ).toBeEnabled()
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    )
+    await waitFor(() => {
+      expect(database.deletes).toEqual(["match_awards"])
+    })
+    expect(
+      database.upserts.filter(({ table }) => table === "match_awards"),
+    ).toHaveLength(0)
+  })
+
+  it("restores both official presence and MVP when the check-in mutation fails", async () => {
+    const mutation = deferred<{
+      data: null
+      error: { message: string }
+    }>()
+    database.rpcResults.set("set_event_checkin", [mutation.promise])
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    const mvp = await screen.findByRole("combobox", { name: "MVP" })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Segna assente Elio Dorbolò" }),
+    )
+    expect(mvp).toHaveValue("")
+
+    await act(async () => {
+      mutation.resolve({
+        data: null,
+        error: { message: "check-in failed" },
+      })
+      await mutation.promise
+    })
+
+    await waitFor(() => expect(mvp).toHaveValue("player-1"))
+    expect(
+      screen.getByRole("spinbutton", { name: "Goal di Elio Dorbolò" }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    ).toBeEnabled()
+  })
+
+  it("stops before changing MVP when the player-stat upsert fails", async () => {
+    database.upsertResponses.set("match_player_stats", [
+      { error: { message: "stats failed" } },
+    ])
+    render(<CheckinStatsPanel eventId="match-1" isMatch />)
+
+    await screen.findByRole("spinbutton", {
+      name: "Goal di Elio Dorbolò",
+    })
+    fireEvent.click(
+      screen.getByRole("button", { name: "Salva statistiche" }),
+    )
+
+    await waitFor(() => {
+      expect(
+        database.upserts.filter(
+          ({ table }) => table === "match_player_stats",
+        ),
+      ).toHaveLength(1)
+    })
+    expect(
+      database.upserts.filter(({ table }) => table === "match_awards"),
+    ).toHaveLength(0)
+    expect(database.deletes).toHaveLength(0)
   })
 })

@@ -132,4 +132,30 @@ describe("ManagementTable", () => {
       "https://signed.example/anna.jpg",
     )
   })
+
+  it("opens the passport preview without opening the person drawer", () => {
+    const onOpen = vi.fn()
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "passportPhoto"]}
+        onOpen={onOpen}
+        passportPhotoUrls={new Map([["photos/anna.jpg", "https://signed.example/anna.jpg"]])}
+        people={[{ ...people[1], passportPhotoPath: "photos/anna.jpg" }]}
+        selected={new Set()}
+        view="REGISTRATIONS"
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Apri fototessera di Anna Rossi",
+      }),
+    )
+
+    expect(
+      screen.getByRole("dialog", { name: "Fototessera di Anna Rossi" }),
+    ).toBeVisible()
+    expect(onOpen).not.toHaveBeenCalled()
+  })
 })

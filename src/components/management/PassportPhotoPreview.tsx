@@ -22,7 +22,11 @@ export function PassportPhotoPreview({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button aria-label={`Apri fototessera di ${personName}`} type="button">
+        <button
+          aria-label={`Apri fototessera di ${personName}`}
+          onClick={(event) => event.stopPropagation()}
+          type="button"
+        >
           {/* Signed storage URLs are not compatible with static image optimization. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

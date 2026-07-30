@@ -142,7 +142,7 @@ function RankingCard({
       >
         {label}
       </h3>
-      <ol className="max-h-72 divide-y overflow-y-auto">
+      <ol className="max-h-72 divide-y overflow-y-auto" tabIndex={0}>
         {ranked.map((player, index) => (
           <li
             className="grid grid-cols-[24px_minmax(0,1fr)_36px] items-center gap-2 px-3 py-2 text-xs"

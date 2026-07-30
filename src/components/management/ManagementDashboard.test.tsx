@@ -200,6 +200,25 @@ describe("ManagementDashboard operational state", () => {
     })
   })
 
+  it("uses the semantic destructive foreground for account rejection", async () => {
+    api.fetchManagementPeople.mockResolvedValue([
+      {
+        ...currentRoster[0],
+        accountStatus: "PENDING",
+        associationRequestId: "request-1",
+      },
+    ])
+
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("tab", { name: /Account/ }))
+    fireEvent.click(await screen.findByRole("button", { name: "Rifiuta" }))
+
+    expect(
+      await screen.findByRole("button", { name: "Elimina account" }),
+    ).toHaveClass("text-destructive-foreground")
+  })
+
   it("shows loading while passport signatures are pending", async () => {
     const pending = deferred<{
       data: Array<{

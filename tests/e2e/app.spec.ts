@@ -163,6 +163,24 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1)
 }
 
+async function expectConsistentLucideIcons(page: Page) {
+  const exceptions = await page.locator("svg.lucide:visible").evaluateAll(
+    (icons) =>
+      icons
+        .map((icon) => ({
+          fill: icon.getAttribute("fill"),
+          name: icon.getAttribute("class"),
+          strokeWidth: getComputedStyle(icon).strokeWidth,
+        }))
+        .filter(
+          ({ fill, strokeWidth }) =>
+            fill !== "none" || strokeWidth !== "2px",
+        ),
+  )
+
+  expect(exceptions).toEqual([])
+}
+
 async function expectCircularIconOnlyAction(action: Locator) {
   await expect(action).toBeVisible()
   const box = await action.boundingBox()
@@ -416,6 +434,7 @@ test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
     await expectBottomNavClearance(page)
     await expectSharedPageViewport(page)
     await expectNoHorizontalOverflow(page)
+    await expectConsistentLucideIcons(page)
   }
 })
 
@@ -465,6 +484,7 @@ test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
     await page.goto(route)
     await expectSharedPageViewport(page)
     await expectNoHorizontalOverflow(page)
+    await expectConsistentLucideIcons(page)
   }
 })
 
@@ -472,20 +492,23 @@ test("header mobile e temi mantengono titolo e contrasto AA", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile")
+  await page.addInitScript(() => window.localStorage.setItem("theme", "light"))
+  await page.goto("/login")
 
-  for (const theme of ["light", "dark"]) {
-    await page.addInitScript(
-      (value) => window.localStorage.setItem("theme", value),
-      theme,
-    )
-    await page.goto("/login")
-    await expect(
-      page.getByText("Calcio Chigi", { exact: true }),
-    ).toBeVisible()
-    await expectNoHorizontalOverflow(page)
-    await expectNoSeriousA11yViolations(page)
-    await expectSemanticThemeContrast(page)
-  }
+  await expect(
+    page.getByText("Calcio Chigi", { exact: true }),
+  ).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await expectConsistentLucideIcons(page)
+  await expectNoSeriousA11yViolations(page)
+  await expectSemanticThemeContrast(page)
+
+  await page.getByRole("button", { name: "Cambia tema" }).click()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expectNoHorizontalOverflow(page)
+  await expectConsistentLucideIcons(page)
+  await expectNoSeriousA11yViolations(page)
+  await expectSemanticThemeContrast(page)
 })
 
 test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {

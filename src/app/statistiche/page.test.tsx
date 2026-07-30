@@ -260,6 +260,10 @@ describe("StatisticsPage seasonal rankings", () => {
     ]) {
       expect(ranking(heading).getByText("Elio Dorbolò")).toBeVisible()
       expect(ranking(heading).getByText("0")).toBeVisible()
+      expect(ranking(heading).getByRole("list")).toHaveAttribute(
+        "tabindex",
+        "0",
+      )
     }
 
     expect(

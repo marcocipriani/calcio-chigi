@@ -1,6 +1,11 @@
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import type { AttendanceSummary } from "@/lib/management-attendance"
 import { cn } from "@/lib/utils"
 
@@ -51,13 +56,22 @@ export function AttendanceStreak({
             key={item.eventId}
           >
             <span className="text-[9px] text-muted-foreground">{shortDay}</span>
-            <span
-              aria-label={`${accessibleDay}: ${statusLabel[item.status]}`}
-              className={cn(
-                "size-3 rounded-sm",
-                statusClass[item.status],
-              )}
-            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={`${accessibleDay}: ${statusLabel[item.status]}`}
+                  className={cn(
+                    "size-3 rounded-sm border-0 p-0",
+                    statusClass[item.status],
+                  )}
+                  tabIndex={0}
+                  type="button"
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {accessibleDay}: {statusLabel[item.status]}
+              </TooltipContent>
+            </Tooltip>
           </span>
         )
       })}

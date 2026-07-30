@@ -21,6 +21,7 @@ import {
   ManagementTable,
 } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
+import type { PassportPhotoState } from "@/components/management/PassportPhotoPreview"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
 import {
   AlertDialog,
@@ -113,6 +114,10 @@ type VisibleTableState = {
   people: ManagementPerson[]
 }
 
+type RosterLoadError = {
+  seasonSlug: string
+}
+
 function attendanceRosterSignature(people: ManagementPerson[]) {
   return people
     .filter(({ category }) => category === "PLAYER")
@@ -135,6 +140,8 @@ export function ManagementDashboard() {
   )
   const [people, setPeople] = useState<ManagementPerson[]>([])
   const [loadedSeasonSlug, setLoadedSeasonSlug] = useState<string | null>(null)
+  const [rosterLoadError, setRosterLoadError] =
+    useState<RosterLoadError | null>(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ManagementView>("PEOPLE")
   const [filters, setFilters] = useState(emptyFilters)
@@ -145,9 +152,9 @@ export function ManagementDashboard() {
   const [attendanceBySeason, setAttendanceBySeason] = useState<
     Record<string, AttendanceLoadState>
   >({})
-  const [passportPhotoUrls, setPassportPhotoUrls] = useState<Map<string, string>>(
-    new Map(),
-  )
+  const [passportPhotoStates, setPassportPhotoStates] = useState<
+    Map<string, PassportPhotoState>
+  >(new Map())
   const [visibleTableState, setVisibleTableState] =
     useState<VisibleTableState | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -173,6 +180,9 @@ export function ManagementDashboard() {
     if (targetSeason?.slug) {
       rosterLoadGeneration.current += 1
       setLoading(true)
+      setLoadedSeasonSlug(null)
+      setRosterLoadError(null)
+      setSelected(new Set())
       setSeasonSlug(targetSeason.slug)
     }
   }, [targetSeason?.slug])
@@ -181,6 +191,9 @@ export function ManagementDashboard() {
     if (!isManager) return
     const generation = ++rosterLoadGeneration.current
     setLoading(true)
+    setLoadedSeasonSlug(null)
+    setRosterLoadError(null)
+    setSelected(new Set())
     try {
       const nextPeople = await fetchManagementPeople(
         supabaseBrowser,
@@ -189,11 +202,9 @@ export function ManagementDashboard() {
       if (generation !== rosterLoadGeneration.current) return
       setPeople(nextPeople)
       setLoadedSeasonSlug(seasonSlug)
-    } catch (error) {
+    } catch {
       if (generation !== rosterLoadGeneration.current) return
-      toast.error("Dashboard non caricata", {
-        description: error instanceof Error ? error.message : undefined,
-      })
+      setRosterLoadError({ seasonSlug })
     } finally {
       if (generation === rosterLoadGeneration.current) {
         setLoading(false)
@@ -240,9 +251,17 @@ export function ManagementDashboard() {
     }
   }, [profile?.id])
 
+  const currentRosterLoaded =
+    !loading &&
+    loadedSeasonSlug === seasonSlug &&
+    rosterLoadError?.seasonSlug !== seasonSlug
+  const currentPeople = useMemo(
+    () => (currentRosterLoaded ? people : []),
+    [currentRosterLoaded, people],
+  )
   const rosterSignature = useMemo(
-    () => attendanceRosterSignature(people),
-    [people],
+    () => attendanceRosterSignature(currentPeople),
+    [currentPeople],
   )
   const cachedAttendanceState = attendanceBySeason[seasonSlug]
   const attendanceState =
@@ -270,7 +289,7 @@ export function ManagementDashboard() {
       },
     }))
 
-    void fetchManagementAttendance(supabaseBrowser, seasonSlug, people)
+    void fetchManagementAttendance(supabaseBrowser, seasonSlug, currentPeople)
       .then((summaries) => {
         setAttendanceBySeason((current) => {
           if (current[seasonSlug]?.requestId !== requestId) return current
@@ -303,19 +322,19 @@ export function ManagementDashboard() {
     cachedAttendanceState,
     loadedSeasonSlug,
     loading,
-    people,
+    currentPeople,
     rosterSignature,
     seasonSlug,
     view,
   ])
 
   const peopleWithAttendance = useMemo(() => {
-    if (attendanceState?.status !== "loaded") return people
-    return people.map((person) => ({
+    if (attendanceState?.status !== "loaded") return currentPeople
+    return currentPeople.map((person) => ({
       ...person,
       attendance: attendanceState.summaries.get(person.profileId),
     }))
-  }, [attendanceState, people])
+  }, [attendanceState, currentPeople])
 
   useEffect(() => {
     const requestId = ++passportPhotoRequestId.current
@@ -324,12 +343,21 @@ export function ManagementDashboard() {
       loading ||
       loadedSeasonSlug !== seasonSlug
     ) {
-      setPassportPhotoUrls(new Map())
+      setPassportPhotoStates(new Map())
       return
     }
 
-    const paths = people.flatMap(({ passportPhotoPath }) =>
-      passportPhotoPath ? [passportPhotoPath] : [],
+    const paths = [
+      ...new Set(
+        currentPeople.flatMap(({ passportPhotoPath }) =>
+          passportPhotoPath ? [passportPhotoPath] : [],
+        ),
+      ),
+    ]
+    setPassportPhotoStates(
+      new Map<string, PassportPhotoState>(
+        paths.map((path) => [path, { status: "loading" }]),
+      ),
     )
 
     void (async () => {
@@ -341,20 +369,32 @@ export function ManagementDashboard() {
       if (requestId !== passportPhotoRequestId.current) return
       if (error) {
         toast.error("Anteprime fototessera non disponibili")
-        setPassportPhotoUrls(new Map())
+        setPassportPhotoStates(
+          new Map<string, PassportPhotoState>(
+            paths.map((path) => [path, { status: "unavailable" }]),
+          ),
+        )
         return
       }
-      setPassportPhotoUrls(
+      const resultsByPath = new Map(
+        (data ?? []).flatMap((item) =>
+          item.path ? [[item.path, item] as const] : [],
+        ),
+      )
+      setPassportPhotoStates(
         new Map(
-          (data ?? []).flatMap((item) =>
-            item.path && item.signedUrl
-              ? [[item.path, item.signedUrl] as const]
-              : [],
-          ),
+          paths.map((path) => {
+            const result = resultsByPath.get(path)
+            const state: PassportPhotoState =
+              result?.signedUrl && !result.error
+                ? { status: "ready", signedUrl: result.signedUrl }
+                : { status: "unavailable" }
+            return [path, state]
+          }),
         ),
       )
     })()
-  }, [loadedSeasonSlug, loading, people, seasonSlug, view])
+  }, [currentPeople, loadedSeasonSlug, loading, seasonSlug, view])
 
   const tablePeople = useMemo(
     () =>
@@ -385,16 +425,18 @@ export function ManagementDashboard() {
       ? visibleTableState.people
       : filtered
   const selectedPeople = useMemo(
-    () => people.filter(({ id }) => selected.has(id)),
-    [people, selected],
+    () => currentPeople.filter(({ id }) => selected.has(id)),
+    [currentPeople, selected],
   )
+  const selectedMembershipIds = selectedPeople.map(({ id }) => id)
   const selectedUserIds = selectedPeople
     .map(({ userId }) => userId)
     .filter((id): id is string => Boolean(id))
-  const kpis = managementKpis(people)
+  const kpis = managementKpis(currentPeople)
   const viewCounts: Record<ManagementView, number> = {
     PEOPLE: kpis.total,
-    ATTENDANCE: people.filter(({ category }) => category === "PLAYER").length,
+    ATTENDANCE: currentPeople.filter(({ category }) => category === "PLAYER")
+      .length,
     PAYMENTS: kpis.paymentsOpen,
     REGISTRATIONS: kpis.registrationsOpen,
     CERTIFICATES: kpis.certificatesOpen,
@@ -475,7 +517,7 @@ export function ManagementDashboard() {
   }
 
   function applyDeadline() {
-    if (!selected.size) {
+    if (!currentRosterLoaded || !selectedMembershipIds.length) {
       toast.error("Seleziona almeno una persona")
       return
     }
@@ -484,12 +526,19 @@ export function ManagementDashboard() {
   }
 
   async function saveDeadline() {
-    if (!quickValue) return
+    if (
+      !currentRosterLoaded ||
+      !quickValue ||
+      !selectedMembershipIds.length
+    ) {
+      setQuickDialog(null)
+      return
+    }
     setActionBusy(true)
     const { error } = await supabaseBrowser
       .from("season_memberships")
       .update({ next_contact_on: quickValue, updated_by: profile?.id })
-      .in("id", [...selected])
+      .in("id", selectedMembershipIds)
     setActionBusy(false)
     if (error) {
       toast.error("Scadenza non aggiornata", { description: error.message })
@@ -613,8 +662,9 @@ export function ManagementDashboard() {
                 <Button
                   aria-label="Registra quota"
                   className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  disabled={!currentRosterLoaded}
                   onClick={() =>
-                    selected.size
+                    selectedMembershipIds.length
                       ? setPaymentOpen(true)
                       : toast.error("Seleziona almeno una persona")
                   }
@@ -632,6 +682,7 @@ export function ManagementDashboard() {
                 <Button
                   aria-label="Imposta scadenza"
                   className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  disabled={!currentRosterLoaded}
                   onClick={applyDeadline}
                   size="sm"
                   variant="outline"
@@ -647,6 +698,7 @@ export function ManagementDashboard() {
                 <Button
                   aria-label="Invia notifica"
                   className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  disabled={!currentRosterLoaded}
                   onClick={() =>
                     selectedUserIds.length
                       ? setNotificationOpen(true)
@@ -670,6 +722,8 @@ export function ManagementDashboard() {
             onChange={(event) => {
               rosterLoadGeneration.current += 1
               setLoading(true)
+              setLoadedSeasonSlug(null)
+              setRosterLoadError(null)
               setSeasonSlug(event.target.value)
               setSelected(new Set())
             }}
@@ -744,11 +798,13 @@ export function ManagementDashboard() {
         </div>
         <div className="mt-2 flex min-h-7 items-center justify-between border-t pt-2 text-xs text-muted-foreground">
           <span>
-            {visiblePeople.length} risultati · {selected.size} selezionati
+            {visiblePeople.length} risultati · {selectedPeople.length}{" "}
+            selezionati
           </span>
           <div className="flex items-center gap-2">
             <button
               className="min-h-7 underline-offset-4 hover:underline"
+              disabled={!currentRosterLoaded}
               onClick={() =>
                 setSelected(new Set(visiblePeople.map(({ id }) => id)))
               }
@@ -756,7 +812,7 @@ export function ManagementDashboard() {
             >
               Seleziona visibili
             </button>
-            {selected.size > 0 && (
+            {selectedPeople.length > 0 && (
               <button
                 className="min-h-7 underline-offset-4 hover:underline"
                 onClick={() => setSelected(new Set())}
@@ -769,7 +825,25 @@ export function ManagementDashboard() {
         </div>
       </div>
 
-      {loading ||
+      {rosterLoadError?.seasonSlug === seasonSlug ? (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center"
+          role="alert"
+        >
+          <p className="text-sm font-semibold">
+            Rosa della stagione {seasonSlug.replace("-", "–")} non disponibile
+          </p>
+          <Button
+            className="mt-3"
+            onClick={() => void load()}
+            size="sm"
+            variant="outline"
+          >
+            Riprova
+          </Button>
+        </div>
+      ) : loading ||
+      !currentRosterLoaded ||
       (view === "ATTENDANCE" &&
         attendanceState?.status === "loading") ? (
         <div className="grid gap-2">
@@ -814,7 +888,7 @@ export function ManagementDashboard() {
           onSelect={toggleSelection}
           onVerifyPayment={verifyPayment}
           onVisiblePeopleChange={handleVisiblePeopleChange}
-          passportPhotoUrls={passportPhotoUrls}
+          passportPhotoStates={passportPhotoStates}
           people={filtered}
           selected={selected}
           view={view}
@@ -829,7 +903,7 @@ export function ManagementDashboard() {
       />
       <BulkPaymentDialog
         managerProfileId={profile?.id ?? ""}
-        membershipIds={[...selected]}
+        membershipIds={currentRosterLoaded ? selectedMembershipIds : []}
         onOpenChange={setPaymentOpen}
         onSaved={load}
         open={paymentOpen}
@@ -855,7 +929,8 @@ export function ManagementDashboard() {
               <DialogHeader>
                 <DialogTitle>Scadenza prossimo contatto</DialogTitle>
                 <DialogDescription>
-                  Applica la data alle {selected.size} persone selezionate.
+                  Applica la data alle {selectedMembershipIds.length} persone
+                  selezionate.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 py-2">

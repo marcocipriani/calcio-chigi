@@ -13,7 +13,10 @@ import {
 } from "lucide-react"
 
 import { AttendanceStreak } from "@/components/management/AttendanceStreak"
-import { PassportPhotoPreview } from "@/components/management/PassportPhotoPreview"
+import {
+  PassportPhotoPreview,
+  type PassportPhotoState,
+} from "@/components/management/PassportPhotoPreview"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -231,7 +234,7 @@ type ManagementColumn = {
   render: (
     person: ManagementPerson,
     actions: ManagementTableActions,
-    passportPhotoUrls: Map<string, string>,
+    passportPhotoStates: Map<string, PassportPhotoState>,
   ) => ReactNode
 }
 
@@ -424,13 +427,15 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       label: "Fototessera",
       filterValue: (person) => (person.passportPhotoPath ? "PRESENT" : "MISSING"),
       sortValue: (person) => (person.passportPhotoPath ? 1 : 0),
-      render: (person, _actions, passportPhotoUrls) => (
+      render: (person, _actions, passportPhotoStates) => (
         <PassportPhotoPreview
           personName={`${person.nome} ${person.cognome}`}
-          signedUrl={
+          state={
             person.passportPhotoPath
-              ? passportPhotoUrls.get(person.passportPhotoPath)
-              : undefined
+              ? (passportPhotoStates.get(person.passportPhotoPath) ?? {
+                  status: "loading",
+                })
+              : { status: "missing" }
           }
         />
       ),
@@ -740,7 +745,7 @@ export function ManagementTable({
   onAccountAction,
   onVerifyPayment,
   onReviewCertificate,
-  passportPhotoUrls = new Map(),
+  passportPhotoStates = new Map(),
 }: {
   people: ManagementPerson[]
   view: ManagementView
@@ -752,7 +757,7 @@ export function ManagementTable({
   onAccountAction: ManagementTableActions["onAccountAction"]
   onVerifyPayment: ManagementTableActions["onVerifyPayment"]
   onReviewCertificate: ManagementTableActions["onReviewCertificate"]
-  passportPhotoUrls?: Map<string, string>
+  passportPhotoStates?: Map<string, PassportPhotoState>
 }) {
   const [sort, setSort] = useState<TableSort>(null)
   const [filters, setFilters] = useState<Record<string, string>>({})
@@ -883,7 +888,7 @@ export function ManagementTable({
                 </TableCell>
                 {visibleColumns.map((column) => (
                   <TableCell key={column.id}>
-                    {column.render(person, actions, passportPhotoUrls)}
+                    {column.render(person, actions, passportPhotoStates)}
                   </TableCell>
                 ))}
                 <TableCell>
@@ -944,7 +949,7 @@ export function ManagementTable({
                       <span className="text-muted-foreground">
                         {column.label}:
                       </span>
-                      {column.render(person, actions, passportPhotoUrls)}
+                      {column.render(person, actions, passportPhotoStates)}
                     </span>
                   ))}
                 </span>

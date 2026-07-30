@@ -117,7 +117,17 @@ describe("ManagementTable", () => {
       <ManagementTable
         {...actions}
         columns={["person", "passportPhoto"]}
-        passportPhotoUrls={new Map([["photos/anna.jpg", "https://signed.example/anna.jpg"]])}
+        passportPhotoStates={
+          new Map([
+            [
+              "photos/anna.jpg",
+              {
+                status: "ready" as const,
+                signedUrl: "https://signed.example/anna.jpg",
+              },
+            ],
+          ])
+        }
         people={[{ ...people[1], passportPhotoPath: "photos/anna.jpg" }]}
         selected={new Set()}
         view="REGISTRATIONS"
@@ -140,7 +150,17 @@ describe("ManagementTable", () => {
         {...actions}
         columns={["person", "passportPhoto"]}
         onOpen={onOpen}
-        passportPhotoUrls={new Map([["photos/anna.jpg", "https://signed.example/anna.jpg"]])}
+        passportPhotoStates={
+          new Map([
+            [
+              "photos/anna.jpg",
+              {
+                status: "ready" as const,
+                signedUrl: "https://signed.example/anna.jpg",
+              },
+            ],
+          ])
+        }
         people={[{ ...people[1], passportPhotoPath: "photos/anna.jpg" }]}
         selected={new Set()}
         view="REGISTRATIONS"

@@ -8,7 +8,10 @@ describe("PassportPhotoPreview", () => {
     render(
       <PassportPhotoPreview
         personName="Anna Rossi"
-        signedUrl="https://signed.example/photo.jpg"
+        state={{
+          status: "ready",
+          signedUrl: "https://signed.example/photo.jpg",
+        }}
       />,
     )
 
@@ -28,7 +31,12 @@ describe("PassportPhotoPreview", () => {
   })
 
   it("shows a missing state without a preview trigger", () => {
-    render(<PassportPhotoPreview personName="Anna Rossi" signedUrl={undefined} />)
+    render(
+      <PassportPhotoPreview
+        personName="Anna Rossi"
+        state={{ status: "missing" }}
+      />,
+    )
 
     expect(screen.getByText("Mancante")).toBeVisible()
     expect(
@@ -36,5 +44,29 @@ describe("PassportPhotoPreview", () => {
         name: "Apri fototessera di Anna Rossi",
       }),
     ).not.toBeInTheDocument()
+  })
+
+  it("distinguishes loading from a missing photo", () => {
+    render(
+      <PassportPhotoPreview
+        personName="Anna Rossi"
+        state={{ status: "loading" }}
+      />,
+    )
+
+    expect(screen.getByText("Caricamento…")).toBeVisible()
+    expect(screen.queryByText("Mancante")).not.toBeInTheDocument()
+  })
+
+  it("shows an unavailable state without exposing a private path", () => {
+    render(
+      <PassportPhotoPreview
+        personName="Anna Rossi"
+        state={{ status: "unavailable" }}
+      />,
+    )
+
+    expect(screen.getByText("Non disponibile")).toBeVisible()
+    expect(screen.queryByText("photos/anna.jpg")).not.toBeInTheDocument()
   })
 })

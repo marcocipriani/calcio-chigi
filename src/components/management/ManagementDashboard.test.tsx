@@ -44,15 +44,18 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 
 vi.mock("@/components/layout/PageTitleBar", () => ({
   PageTitleBar: ({
+    actions,
     context,
     title,
   }: {
+    actions: React.ReactNode
     context: React.ReactNode
     title: string
   }) => (
     <header>
       <h1>{title}</h1>
       {context}
+      {actions}
     </header>
   ),
 }))
@@ -63,9 +66,6 @@ vi.mock("@/components/management/AddPersonDialog", () => ({
       Refresh roster
     </button>
   ),
-}))
-vi.mock("@/components/management/BulkPaymentDialog", () => ({
-  BulkPaymentDialog: () => null,
 }))
 vi.mock("@/components/management/NotificationComposer", () => ({
   NotificationComposer: () => null,
@@ -111,10 +111,12 @@ const currentRoster = [
 
 function deferred<T>() {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((finish) => {
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((finish, fail) => {
     resolve = finish
+    reject = fail
   })
-  return { promise, resolve }
+  return { promise, reject, resolve }
 }
 
 describe("ManagementDashboard operational state", () => {
@@ -180,6 +182,73 @@ describe("ManagementDashboard operational state", () => {
         300,
       )
     })
+  })
+
+  it("shows loading while passport signatures are pending", async () => {
+    const pending = deferred<{
+      data: Array<{
+        error: string | null
+        path: string | null
+        signedUrl: string | null
+      }>
+      error: null
+    }>()
+    storage.createSignedUrls.mockReturnValue(pending.promise)
+
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+
+    const table = await screen.findByRole("table")
+    expect(await within(table).findByText("Caricamento…")).toBeVisible()
+    expect(within(table).queryByText("photos/anna.jpg")).not.toBeInTheDocument()
+
+    pending.resolve({
+      data: [
+        {
+          error: null,
+          path: "photos/anna.jpg",
+          signedUrl: "https://signed.example/anna.jpg",
+        },
+      ],
+      error: null,
+    })
+  })
+
+  it("marks every existing passport photo unavailable after a batch error", async () => {
+    storage.createSignedUrls.mockResolvedValue({
+      data: null,
+      error: new Error("storage unavailable"),
+    })
+
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+
+    const table = await screen.findByRole("table")
+    expect(await within(table).findByText("Non disponibile")).toBeVisible()
+    expect(within(table).queryByText("photos/anna.jpg")).not.toBeInTheDocument()
+  })
+
+  it("marks an individual passport photo unavailable when signing omits its URL", async () => {
+    storage.createSignedUrls.mockResolvedValue({
+      data: [
+        {
+          error: "Object not found",
+          path: "photos/anna.jpg",
+          signedUrl: null,
+        },
+      ],
+      error: null,
+    })
+
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+
+    const table = await screen.findByRole("table")
+    expect(await within(table).findByText("Non disponibile")).toBeVisible()
+    expect(within(table).queryByText("photos/anna.jpg")).not.toBeInTheDocument()
   })
 
   it("ignores a stale passport photo signature after changing views", async () => {
@@ -281,6 +350,57 @@ describe("ManagementDashboard operational state", () => {
         "2025-2026",
         oldSeasonRoster,
       )
+    })
+  })
+
+  it("blocks a failed selected season instead of exposing the previous roster", async () => {
+    const failedSeason = deferred<ManagementPerson[]>()
+    const retry = deferred<ManagementPerson[]>()
+    let failedSeasonAttempts = 0
+    api.fetchManagementPeople.mockImplementation(
+      async (_client, selectedSeasonSlug: string) => {
+        if (selectedSeasonSlug === "2026-2027") return currentRoster
+        failedSeasonAttempts += 1
+        return failedSeasonAttempts === 1
+          ? failedSeason.promise
+          : retry.promise
+      },
+    )
+
+    render(<ManagementDashboard />)
+    const table = await screen.findByRole("table")
+    fireEvent.click(
+      within(table).getByRole("checkbox", { name: "Seleziona Luca Verdi" }),
+    )
+    expect(screen.getByText("2 risultati · 1 selezionati")).toBeVisible()
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Stagione" }), {
+      target: { value: "2025-2026" },
+    })
+    await act(async () => {
+      failedSeason.reject(new Error("season B unavailable"))
+      await Promise.resolve()
+    })
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent(
+      "Rosa della stagione 2025–2026 non disponibile",
+    )
+    expect(within(alert).getByRole("button", { name: "Riprova" })).toBeVisible()
+    expect(screen.queryByText("Luca Verdi")).not.toBeInTheDocument()
+    expect(screen.getByText("0 risultati · 0 selezionati")).toBeVisible()
+    expect(
+      screen.getByRole("button", { name: "Registra quota" }),
+    ).toBeDisabled()
+
+    fireEvent.click(within(alert).getByRole("button", { name: "Riprova" }))
+    await waitFor(() => {
+      expect(
+        api.fetchManagementPeople.mock.calls.filter(
+          ([, selectedSeasonSlug]) =>
+            selectedSeasonSlug === "2025-2026",
+        ),
+      ).toHaveLength(2)
     })
   })
 

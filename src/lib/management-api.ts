@@ -18,6 +18,8 @@ import type { ColumnPreferences } from "@/lib/management-columns"
 
 type UnknownRow = Record<string, unknown>
 
+const CHECKIN_PAGE_SIZE = 1000
+
 function asText(value: unknown) {
   return typeof value === "string" ? value : null
 }
@@ -241,21 +243,35 @@ export async function fetchManagementAttendance(
   if (eventsError) throw eventsError
 
   const eventIds = (events ?? []).map(({ id }) => id)
-  const { data: checkins, error: checkinsError } = eventIds.length
-    ? await client
+  const players = people
+    .filter(({ category }) => category === "PLAYER")
+    .map(({ profileId, joinedOn }) => ({
+      profileId,
+      joinedOn: joinedOn ?? null,
+    }))
+  const profileIds = players.map(({ profileId }) => profileId)
+  const checkins = []
+
+  if (eventIds.length && profileIds.length) {
+    for (let from = 0; ; from += CHECKIN_PAGE_SIZE) {
+      const { data, error } = await client
         .from("event_checkins")
         .select("event_id, profile_id, status")
         .in("event_id", eventIds)
-    : { data: [], error: null }
-  if (checkinsError) throw checkinsError
+        .in("profile_id", profileIds)
+        .order("event_id", { ascending: true })
+        .order("profile_id", { ascending: true })
+        .range(from, from + CHECKIN_PAGE_SIZE - 1)
+      if (error) throw error
+
+      const page = data ?? []
+      checkins.push(...page)
+      if (page.length < CHECKIN_PAGE_SIZE) break
+    }
+  }
 
   return aggregateManagementAttendance(
-    people
-      .filter(({ category }) => category === "PLAYER")
-      .map(({ profileId, joinedOn }) => ({
-        profileId,
-        joinedOn: joinedOn ?? null,
-      })),
+    players,
     (events ?? []).flatMap((event) =>
       event.data_ora
         ? [
@@ -267,7 +283,7 @@ export async function fetchManagementAttendance(
           ]
         : [],
     ),
-    (checkins ?? []).map((row) => ({
+    checkins.map((row) => ({
       eventId: row.event_id,
       profileId: row.profile_id,
       status: row.status,

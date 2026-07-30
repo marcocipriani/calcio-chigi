@@ -8,16 +8,36 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+export type PassportPhotoState =
+  | { status: "missing" }
+  | { status: "loading" }
+  | { status: "unavailable" }
+  | { status: "ready"; signedUrl: string }
+
 export function PassportPhotoPreview({
   personName,
-  signedUrl,
+  state,
 }: {
   personName: string
-  signedUrl?: string
+  state: PassportPhotoState
 }) {
-  if (!signedUrl) {
+  if (state.status === "missing") {
     return <span className="text-xs text-muted-foreground">Mancante</span>
   }
+  if (state.status === "loading") {
+    return (
+      <span className="text-xs text-muted-foreground" role="status">
+        Caricamento…
+      </span>
+    )
+  }
+  if (state.status === "unavailable") {
+    return (
+      <span className="text-xs text-muted-foreground">Non disponibile</span>
+    )
+  }
+
+  const signedUrl = state.signedUrl
 
   return (
     <Dialog>

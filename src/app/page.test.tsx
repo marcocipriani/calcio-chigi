@@ -69,4 +69,31 @@ describe("Calendar page", () => {
       "Aggiungi evento",
     )
   })
+
+  it("uses violet for calendar actions and selected tools", async () => {
+    render(<Home />)
+
+    const addActions = await screen.findAllByRole("button", {
+      name: "Aggiungi evento",
+    })
+    for (const action of addActions) {
+      expect(action).toHaveClass("bg-violet-600", "hover:bg-violet-700")
+    }
+
+    const matches = screen.getByRole("button", { name: "Partite" })
+    expect(matches.querySelector("svg")).toHaveClass(
+      "hidden",
+      "min-[360px]:block",
+    )
+    expect(
+      screen.getByRole("button", { name: "Allenamenti" }).querySelector("svg"),
+    ).toHaveClass("hidden", "min-[360px]:block")
+    fireEvent.click(matches)
+    expect(matches).toHaveClass("bg-violet-600", "text-white")
+
+    expect(screen.getByRole("button", { name: "Vista lista" })).toHaveClass(
+      "bg-violet-600",
+      "text-white",
+    )
+  })
 })

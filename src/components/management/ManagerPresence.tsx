@@ -89,7 +89,7 @@ export function presenceState(
       ringColor: "ring-slate-400",
     }
   }
-  if (elapsed < 3 * 60_000) {
+  if (elapsed < 60 * 60_000) {
     return {
       state: "ONLINE",
       label: "Online",

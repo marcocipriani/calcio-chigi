@@ -33,7 +33,7 @@ export function AppCredits({ uid }: AppCreditsProps) {
                 Dev: <span className="font-bold">Marco Cipriani</span>
             </p>
             <p className="text-[10px] text-muted-foreground">
-                Ultimo aggiornamento: 24 luglio 2026
+                Ultimo aggiornamento: 30 luglio 2026
             </p>
         </div>
         

@@ -430,7 +430,7 @@ export default function StatisticsPage() {
         Stagione
         <select
           aria-label="Stagione"
-          className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs"
+          className="mt-1 block h-9 w-full rounded-md border border-violet-200 bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:border-violet-400 focus-visible:ring-2 focus-visible:ring-ring dark:border-violet-500/30"
           onChange={(event) => {
             setSelectedSeasonSlug(event.target.value as SeasonSlug)
             setPhase("ALL")
@@ -445,7 +445,7 @@ export default function StatisticsPage() {
         >
           {SEASON_OPTIONS.map(({ slug }) => (
             <option key={slug} value={slug}>
-              ASI Over 35 {editionLabel(slug)}
+              {editionLabel(slug)}
             </option>
           ))}
         </select>
@@ -455,7 +455,7 @@ export default function StatisticsPage() {
         Fase
         <select
           aria-label="Fase"
-          className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs"
+          className="mt-1 block h-9 w-full rounded-md border border-violet-200 bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:border-violet-400 focus-visible:ring-2 focus-visible:ring-ring dark:border-violet-500/30"
           onChange={(event) => {
             const nextPhase = event.target.value as PhaseFilter
             setPhase(nextPhase)

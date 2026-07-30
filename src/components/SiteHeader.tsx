@@ -24,7 +24,7 @@ export function SiteHeader() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-16 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88">
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-5">
+      <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-2 px-2 sm:gap-3 sm:px-5">
         <Link
           className="group flex min-w-0 items-center gap-2.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
           href="/"
@@ -39,7 +39,7 @@ export function SiteHeader() {
               src="/icon.png"
             />
           </span>
-          <span className="truncate text-sm font-black uppercase tracking-tight sm:text-base">
+          <span className="hidden truncate text-sm font-black uppercase tracking-tight sm:inline sm:text-base">
             Calcio Circolo Chigi
           </span>
         </Link>
@@ -50,9 +50,9 @@ export function SiteHeader() {
               <ManagerPresence />
               <Button
                 asChild
-                className="size-11 rounded-full px-0 lg:ml-2 lg:h-8 lg:w-auto lg:px-3"
+                className="size-11 rounded-full border-violet-300 px-0 text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-500/50 dark:text-violet-300 dark:hover:bg-violet-950/50 lg:ml-2 lg:h-8 lg:w-auto lg:px-3"
                 size="sm"
-                variant="ghost"
+                variant="outline"
               >
                 <Link aria-label="Gestione squadra" href="/gestione">
                   <UsersRound aria-hidden="true" />
@@ -95,7 +95,7 @@ export function SiteHeader() {
                 className={cn(
                   "size-9 transition-transform duration-150 hover:scale-105",
                   isManager
-                    ? "ring-2 ring-violet-500 ring-offset-2 ring-offset-background"
+                    ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-background"
                     : "border",
                 )}
               >

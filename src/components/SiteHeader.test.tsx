@@ -41,9 +41,29 @@ describe("SiteHeader", () => {
     })
 
     expect(managementLink).toHaveAttribute("href", "/gestione")
+    expect(managementLink).toHaveClass(
+      "border-violet-300",
+      "text-violet-700",
+      "hover:bg-violet-50",
+    )
     expect(managementLink).not.toHaveClass("bg-violet-600")
     expect(managementLink.querySelector(".lucide-users-round")).toBeTruthy()
     expect(screen.getByLabelText("Manager e stato attività").parentElement)
       .toContainElement(managementLink)
+
+    const profileAvatar = screen
+      .getByRole("link", { name: "Marco Rossi" })
+      .querySelector('[data-slot="avatar"]')
+    expect(profileAvatar).toHaveClass("ring-emerald-500")
+    expect(profileAvatar).not.toHaveClass("ring-violet-500")
+  })
+
+  it("lets the brand label collapse before header actions overflow", () => {
+    render(<SiteHeader />)
+
+    expect(screen.getByText("Calcio Circolo Chigi")).toHaveClass(
+      "hidden",
+      "sm:inline",
+    )
   })
 })

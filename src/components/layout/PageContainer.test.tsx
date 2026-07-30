@@ -16,7 +16,13 @@ describe("PageContainer", () => {
 
     const container = screen.getByText("Contenuto pagina").parentElement!
     expect(container).toHaveAttribute("data-page-container")
-    expect(container).toHaveClass("max-w-7xl", "px-2")
+    expect(container).toHaveClass(
+      "max-w-7xl",
+      "min-w-0",
+      "overflow-x-clip",
+      "px-2",
+    )
+    expect(container.firstElementChild).toHaveClass("min-w-0")
     expect(container).not.toHaveClass("max-w-none", "px-0")
   })
 })

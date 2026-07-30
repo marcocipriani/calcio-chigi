@@ -362,7 +362,7 @@ export default function TorneoPage() {
                         aria-label="Modifica risultati"
                         onClick={handleOpenScoreDialog}
                         size="icon"
-                        className="h-11 w-11 rounded-full bg-purple-600 text-white shadow-lg shadow-purple-500/20 hover:bg-purple-700 sm:h-10 sm:w-auto sm:rounded-md"
+                        className="h-11 w-11 rounded-full bg-violet-600 text-white hover:bg-violet-700 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
                         title="Modifica risultati"
                     >
                         <Pencil className="h-5 w-5" />
@@ -393,11 +393,11 @@ export default function TorneoPage() {
             </p>
         ) : (
         <Tabs defaultValue="classifica" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-12 bg-muted/50 p-1 rounded-xl mb-6">
-                <TabsTrigger value="classifica" className="rounded-lg font-bold gap-2">
+            <TabsList className="mb-6 grid h-11 w-full grid-cols-2 rounded-xl bg-muted/50 p-1">
+                <TabsTrigger value="classifica" className="gap-2 rounded-lg font-bold">
                     <Trophy className="h-4 w-4" /> Classifica
                 </TabsTrigger>
-                <TabsTrigger value="calendario" className="rounded-lg font-bold gap-2">
+                <TabsTrigger value="calendario" className="gap-2 rounded-lg font-bold">
                     <CalendarDays className="h-4 w-4" /> Calendario
                 </TabsTrigger>
             </TabsList>
@@ -410,7 +410,7 @@ export default function TorneoPage() {
                 
                 <div 
                     ref={daysScrollRef}
-                    className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+                    className="-mx-2 flex gap-2 overflow-x-auto px-2 pb-2 sm:mx-0 sm:px-0"
                 >
                     {giornate.map(g => (
                         <button
@@ -421,10 +421,10 @@ export default function TorneoPage() {
                             onClick={() => setSelectedGiornataOverride(g)}
                             type="button"
                             className={`
-                                flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl border-2 transition-[color,background-color,border-color,box-shadow,transform] font-black
+                                flex h-14 w-14 flex-shrink-0 flex-col items-center justify-center rounded-xl border transition-[color,background-color,border-color,box-shadow,transform] font-black
                                 ${selectedGiornata === g 
-                                    ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                                    : 'bg-card text-muted-foreground border-transparent hover:bg-muted'
+                                    ? 'border-violet-600 bg-violet-600 text-white shadow-sm scale-105'
+                                    : 'border-border bg-card text-muted-foreground hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                                 }
                             `}
                         >
@@ -518,7 +518,7 @@ export default function TorneoPage() {
                                                     aria-label="Modifica partita"
                                                     size="icon" 
                                                     variant="ghost" 
-                                                    className="absolute bottom-1 right-1 h-6 w-6 text-muted-foreground hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                    className="absolute right-1 bottom-1 h-7 w-7 text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50 dark:hover:text-violet-300"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         handleEditEvent(match)
@@ -588,7 +588,7 @@ export default function TorneoPage() {
                                             })}
                                         />
                                     </div>
-                                    <Button aria-label="Salva risultato" size="icon" className="h-10 w-10 bg-purple-600 hover:bg-purple-700 shrink-0" onClick={() => handleSaveScore(match.id)}>
+                                    <Button aria-label="Salva risultato" size="icon" className="h-10 w-10 shrink-0 bg-violet-600 text-white hover:bg-violet-700" onClick={() => handleSaveScore(match.id)}>
                                         <Save aria-hidden="true" className="h-4 w-4 text-white" />
                                     </Button>
                                 </div>

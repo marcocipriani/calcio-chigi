@@ -280,6 +280,15 @@ describe("StatisticsPage seasonal rankings", () => {
     )
   })
 
+  it("labels season options only with their annuality", async () => {
+    render(<StatisticsPage />)
+
+    const season = screen.getByRole("combobox", { name: "Stagione" })
+    expect(within(season).getByRole("option", { name: "2026/27" })).toBeVisible()
+    expect(within(season).getByRole("option", { name: "2025/26" })).toBeVisible()
+    expect(season).not.toHaveTextContent(/ASI|Over/i)
+  })
+
   it("adds the selected season to every associated player link and loads current attendance", async () => {
     session.useAppSession.mockReturnValue(associatedSession())
     database.responses.set("events", {

@@ -14,9 +14,9 @@ export function PageContainer({
     <div
       {...props}
       data-page-container
-      className={cn(className, "mx-auto w-full max-w-7xl px-2 py-4 sm:px-4 lg:px-6")}
+      className={cn(className, "mx-auto w-full min-w-0 max-w-7xl overflow-x-clip px-2 py-4 sm:px-4 lg:px-6")}
     >
-      <div className={cn("w-full", contentClassName)}>{children}</div>
+      <div className={cn("w-full min-w-0", contentClassName)}>{children}</div>
     </div>
   )
 }

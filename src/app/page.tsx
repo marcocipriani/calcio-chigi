@@ -497,7 +497,7 @@ export default function Home() {
             actions={isManager ? (
               <Button
                 aria-label="Aggiungi evento"
-                className="hidden gap-1.5 sm:inline-flex"
+                className="hidden gap-1.5 bg-violet-600 text-white hover:bg-violet-700 sm:inline-flex"
                 onClick={handleCreateNew}
                 size="sm"
               >
@@ -520,56 +520,59 @@ export default function Home() {
             title="Calendario"
           />
 
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="flex min-w-0 items-center justify-between gap-1.5 py-1.5">
               
-              <div className="flex items-center gap-1 p-1 bg-muted/30 rounded-full overflow-hidden">
+              <div className="flex min-w-0 items-center gap-0.5 overflow-hidden rounded-full bg-muted/30 p-1">
                 <Button 
+                    aria-pressed={filter === 'ALL'}
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('ALL')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
+                    className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALL' 
-                            ? 'bg-slate-800 text-white shadow-md' 
-                            : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
+                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                         }`}
                 >
                      Tutti
                 </Button>
                 <Button 
+                    aria-pressed={filter === 'PARTITA'}
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('PARTITA')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
+                    className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'PARTITA' 
-                            ? 'bg-blue-600 text-white shadow-md' 
-                            : 'text-gray-600 hover:bg-blue-100 hover:text-blue-700'
+                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
+                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                         }`}
                 >
-                    <Trophy className="h-3.5 w-3.5 mr-2" /> Partite
+                    <Trophy className="hidden size-3.5 min-[360px]:block" /> Partite
                 </Button>
                 <Button 
+                    aria-pressed={filter === 'ALLENAMENTO'}
                     variant="ghost"
                     size="sm"
                     onClick={() => setFilter('ALLENAMENTO')}
-                    className={`rounded-full h-8 px-4 text-xs font-bold transition-[color,background-color,box-shadow] border border-transparent
+                    className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALLENAMENTO' 
-                            ? 'bg-orange-500 text-white shadow-md' 
-                            : 'text-gray-600 hover:bg-orange-100 hover:text-orange-700'
+                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
+                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                         }`}
                 >
-                    <Dumbbell className="h-3.5 w-3.5 mr-2" /> Allenamenti
+                    <Dumbbell className="hidden size-3.5 min-[360px]:block" /> Allenamenti
                 </Button>
               </div>
 
-              <div className="flex items-center bg-muted/50 p-1 rounded-xl shrink-0 lg:hidden">
+              <div className="flex shrink-0 items-center rounded-xl bg-muted/50 p-1 lg:hidden">
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     aria-label="Vista lista"
-                    className={`h-8 w-9 p-0 rounded-lg transition-[color,background-color,box-shadow] border border-transparent
+                    className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'ACTIVITY' 
-                            ? 'bg-slate-800 text-white shadow-sm' 
-                            : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
+                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
+                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                         }`}
                     onClick={() => setViewMode('ACTIVITY')}
                   >
@@ -579,10 +582,10 @@ export default function Home() {
                     variant="ghost" 
                     size="sm" 
                     aria-label="Vista calendario"
-                    className={`h-8 w-9 p-0 rounded-lg transition-[color,background-color,box-shadow] border border-transparent
+                    className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'CALENDAR' 
-                            ? 'bg-slate-800 text-white shadow-sm' 
-                            : 'text-muted-foreground hover:bg-gray-200 hover:text-gray-900'
+                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
+                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
                         }`}
                     onClick={() => setViewMode('CALENDAR')}
                   >
@@ -607,10 +610,10 @@ export default function Home() {
               ) : (
                   <Tabs defaultValue="upcoming" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/50 p-1 rounded-xl backdrop-blur-sm dark:bg-slate-900/50 border dark:border-slate-800">
-                        <TabsTrigger value="upcoming" className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-[color,background-color,box-shadow]">
+                    <TabsTrigger value="upcoming" className="h-full gap-2 rounded-lg text-xs font-black uppercase transition-[color,background-color,box-shadow]">
                             <CalendarDays className="h-4 w-4" /> Prossimi
                         </TabsTrigger>
-                        <TabsTrigger value="history" className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-xs font-black uppercase h-full rounded-lg gap-2 transition-[color,background-color,box-shadow]">
+                    <TabsTrigger value="history" className="h-full gap-2 rounded-lg text-xs font-black uppercase transition-[color,background-color,box-shadow]">
                             <History className="h-4 w-4" /> Archivio
                         </TabsTrigger>
                     </TabsList>
@@ -698,10 +701,10 @@ export default function Home() {
             <TooltipTrigger asChild>
               <Button
                 aria-label="Aggiungi evento"
-                className="fixed bottom-24 right-4 z-50 size-14 rounded-full bg-purple-600 shadow-2xl transition-transform hover:scale-110 hover:bg-purple-700 active:scale-95 sm:hidden"
+                className="fixed right-4 bottom-24 z-50 size-14 rounded-full bg-violet-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-violet-700 active:scale-95 sm:hidden"
                 onClick={handleCreateNew}
               >
-              <Plus className="h-8 w-8 text-white" />
+              <Plus className="size-8" />
               </Button>
             </TooltipTrigger>
             <TooltipContent className="sm:hidden">Aggiungi evento</TooltipContent>

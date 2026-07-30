@@ -43,7 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${inter.className} bg-background text-foreground antialiased overscroll-none`}>
+      <body className={`${inter.className} overflow-x-clip bg-background text-foreground antialiased overscroll-none`}>
         <a
           className="fixed left-3 top-3 z-[100] -translate-y-20 rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-foreground shadow-lg transition-transform focus:translate-y-0"
           href="#main-content"

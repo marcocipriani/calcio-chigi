@@ -176,17 +176,30 @@ describe("TournamentSelector", () => {
     const action = await screen.findByRole("button", {
       name: "Modifica risultati",
     })
-    expect(action).toHaveClass("h-11", "w-11", "sm:w-auto", "sm:rounded-md")
+    expect(action).toHaveClass(
+      "h-11",
+      "w-11",
+      "bg-violet-600",
+      "sm:h-9",
+      "sm:w-auto",
+      "sm:px-3",
+      "sm:rounded-md",
+    )
     expect(action).toHaveAttribute("title", "Modifica risultati")
   })
 
   it("keeps the communications action labelled on desktop and circular on mobile", () => {
     render(<CommunicationsAction />)
 
-    expect(screen.getByRole("button", { name: "Comunicati" })).toHaveClass(
+    const action = screen.getByRole("button", { name: "Comunicati" })
+    expect(action).toHaveClass(
+      "border-violet-300",
+      "text-violet-700",
+      "sm:h-9",
+      "sm:px-3",
       "sm:rounded-md",
     )
-    expect(screen.getByRole("button", { name: "Comunicati" })).toHaveAttribute(
+    expect(action).toHaveAttribute(
       "title",
       "Comunicati",
     )

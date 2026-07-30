@@ -138,6 +138,22 @@ describe("ManagementDashboard operational state", () => {
     storage.createSignedUrls.mockResolvedValue({ data: [], error: null })
   })
 
+  it("keeps search, columns, result count and selection in one compact tool group", async () => {
+    render(<ManagementDashboard />)
+
+    const tools = await screen.findByRole("group", {
+      name: "Strumenti dashboard",
+    })
+    expect(
+      within(tools).getByPlaceholderText("Cerca persona, telefono…"),
+    ).toBeVisible()
+    expect(within(tools).getByRole("button", { name: /Colonne/ })).toBeVisible()
+    expect(within(tools).getByText("2 risultati · 0 selezionati")).toBeVisible()
+    expect(
+      within(tools).getByRole("button", { name: "Seleziona visibili" }),
+    ).toBeVisible()
+  })
+
   it("uses column-filtered rows for the result count and visible selection", async () => {
     render(<ManagementDashboard />)
 

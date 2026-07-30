@@ -50,7 +50,7 @@ export function TournamentSelector({
         <Select onValueChange={onSeasonChange} value={seasonId}>
           <SelectTrigger
             aria-label="Torneo"
-            className="mt-1 min-w-0 w-full"
+            className="mt-1 w-full min-w-0 border-violet-200 focus-visible:border-violet-400 dark:border-violet-500/30"
             id="tournament-selector"
           >
             <SelectValue />
@@ -78,7 +78,7 @@ export function TournamentSelector({
         >
           <SelectTrigger
             aria-label="Fase"
-            className="mt-1 min-w-0 w-full"
+            className="mt-1 w-full min-w-0 border-violet-200 focus-visible:border-violet-400 dark:border-violet-500/30"
             id="phase-selector"
           >
             <SelectValue />
@@ -100,7 +100,7 @@ export function CommunicationsAction(): React.JSX.Element {
   return (
     <Button
       aria-label="Comunicati"
-      className="h-11 w-11 rounded-full border-2 border-primary/20 text-primary hover:bg-primary/10 sm:h-10 sm:w-auto sm:rounded-md"
+      className="h-11 w-11 rounded-full border-violet-300 text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-500/50 dark:text-violet-300 dark:hover:bg-violet-950/50 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
       size="icon"
       title="Comunicati"
       variant="outline"

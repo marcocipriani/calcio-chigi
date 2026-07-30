@@ -367,6 +367,7 @@ test("viewport condiviso per tutte le pagine pubbliche mobile", async ({
     await page.goto(route)
     await expectBottomNavClearance(page)
     await expectSharedPageViewport(page)
+    await expectNoHorizontalOverflow(page)
   }
 })
 
@@ -382,6 +383,7 @@ test("viewport condiviso per il profilo riservato mobile", async ({
   await expect(page.getByRole("heading", { name: "Profilo" })).toBeVisible()
   await expectBottomNavClearance(page)
   await expectSharedPageViewport(page)
+  await expectNoHorizontalOverflow(page)
 })
 
 test("viewport condiviso per la gestione riservata mobile", async ({
@@ -394,6 +396,7 @@ test("viewport condiviso per la gestione riservata mobile", async ({
   await expect(page.getByRole("heading", { name: "Gestione" })).toBeVisible()
   await expectBottomNavClearance(page)
   await expectSharedPageViewport(page)
+  await expectNoHorizontalOverflow(page)
 })
 
 test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
@@ -413,6 +416,7 @@ test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
   for (const route of routes) {
     await page.goto(route)
     await expectSharedPageViewport(page)
+    await expectNoHorizontalOverflow(page)
   }
 })
 
@@ -940,11 +944,13 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     await expect(visibleAddAction).toHaveCSS("position", "fixed")
     await expectCircularIconOnlyAction(visibleAddAction)
     const management = page.getByRole("link", {
-      name: "Gestione",
+      name: "Gestione squadra",
+      exact: true,
     })
     await expectCircularIconOnlyAction(management)
-    await expectExactTextNotRendered(management, "Gestione")
-    await expect(management).toHaveClass(/bg-violet-600/)
+    await expectExactTextNotRendered(management, "Gestione squadra")
+    await expect(management).toHaveClass(/border-violet-300/)
+    await expect(management).toHaveClass(/text-violet-700/)
   } else {
     await expect(
       calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
@@ -952,10 +958,12 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     await expectExactTextRendered(visibleAddAction, "Aggiungi evento")
     await expect(visibleAddAction).not.toHaveCSS("position", "fixed")
     const management = page.getByRole("link", {
-      name: "Gestione",
+      name: "Gestione squadra",
+      exact: true,
     })
-    await expectExactTextRendered(management, "Gestione")
-    await expect(management).toHaveClass(/bg-violet-600/)
+    await expectExactTextRendered(management, "Gestione squadra")
+    await expect(management).toHaveClass(/border-violet-300/)
+    await expect(management).toHaveClass(/text-violet-700/)
   }
 
   for (const [route, title] of [

@@ -737,20 +737,20 @@ export function ManagementDashboard() {
         title="Gestione"
       />
 
-      <div className="sticky top-16 z-20 rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+      <div className="sticky top-16 z-20 min-w-0 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
         <div
           aria-label="Viste dashboard"
-          className="flex gap-1 overflow-x-auto"
+          className="flex min-w-0 gap-0.5 overflow-x-auto"
           role="tablist"
         >
           {views.map((item) => (
             <button
               aria-selected={view === item.id}
               className={cn(
-                "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 view === item.id
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted",
+                  ? "bg-violet-600 text-white hover:bg-violet-700"
+                  : "text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50",
               )}
               key={item.id}
               onClick={() => setView(item.id)}
@@ -762,7 +762,7 @@ export function ManagementDashboard() {
                 className={cn(
                   "rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
                   view === item.id &&
-                    "bg-primary-foreground/15 text-primary-foreground",
+                    "bg-white/15 text-white",
                 )}
               >
                 {viewCounts[item.id]}
@@ -770,15 +770,19 @@ export function ManagementDashboard() {
             </button>
           ))}
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
-          <label className="relative min-w-48 flex-1 xl:max-w-80">
+        <div
+          aria-label="Strumenti dashboard"
+          className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 border-t pt-1.5"
+          role="group"
+        >
+          <label className="relative min-w-0 flex-[1_1_14rem] xl:max-w-80">
             <span className="sr-only">Cerca persone</span>
             <Search
               aria-hidden="true"
               className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             />
             <Input
-              className="h-9 pl-8"
+              className="h-8 pl-8"
               onChange={(event) =>
                 setFilters({ query: event.target.value })
               }
@@ -795,13 +799,11 @@ export function ManagementDashboard() {
               updateColumns([...DEFAULT_COLUMNS[view]])
             }
           />
-        </div>
-        <div className="mt-2 flex min-h-7 items-center justify-between border-t pt-2 text-xs text-muted-foreground">
-          <span>
-            {visiblePeople.length} risultati · {selectedPeople.length}{" "}
-            selezionati
-          </span>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex min-h-8 min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <span className="whitespace-nowrap">
+              {visiblePeople.length} risultati · {selectedPeople.length}{" "}
+              selezionati
+            </span>
             <button
               className="min-h-7 underline-offset-4 hover:underline"
               disabled={!currentRosterLoaded}

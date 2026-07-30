@@ -101,8 +101,8 @@ describe("ManagerPresence", () => {
   })
 
   it.each([
-    ["2:59", millisecondsAgo(2 * 60_000 + 59_000), "ONLINE", "Online", "ring-emerald-500"],
-    ["3:00", minutesAgo(3), "RECENT", "Attivo 3 minuti fa", "ring-amber-400"],
+    ["59:59", millisecondsAgo(60 * 60_000 - 1_000), "ONLINE", "Online", "ring-emerald-500"],
+    ["1:00", minutesAgo(60), "RECENT", "Attivo un'ora fa", "ring-amber-400"],
     ["23:59", minutesAgo(23 * 60 + 59), "RECENT", "Attivo 24 ore fa", "ring-amber-400"],
     ["24:00", minutesAgo(24 * 60), "RECENT", "Attivo un giorno fa", "ring-amber-400"],
     ["24:01", minutesAgo(24 * 60 + 1), "STALE", "Attivo un giorno fa", "ring-slate-400"],
@@ -136,19 +136,19 @@ describe("ManagerPresence", () => {
   })
 
   it("exposes the manager activity through an accessible Radix tooltip", async () => {
-    database.rows = [manager(minutesAgo(3))]
+    database.rows = [manager(minutesAgo(60))]
 
     render(<ManagerPresence />)
 
     const trigger = await screen.findByLabelText(
-      "Marco Rossi, Attivo 3 minuti fa",
+      "Marco Rossi, Attivo un'ora fa",
     )
     expect(trigger).not.toHaveAttribute("title")
 
     fireEvent.focus(trigger)
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
-      "Marco Rossi · Attivo 3 minuti fa",
+      "Marco Rossi · Attivo un'ora fa",
     )
   })
 

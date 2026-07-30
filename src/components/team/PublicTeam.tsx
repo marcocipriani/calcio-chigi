@@ -61,7 +61,12 @@ export function PublicTeam({
     () => new Map(stats.map((row) => [row.profile_id, row])),
     [stats],
   )
-  const players = members.filter(({ category }) => category === "PLAYER")
+  const confirmedPlayers = members.filter(
+    ({ category, status }) => category === "PLAYER" && status === "YES",
+  )
+  const maybePlayers = members.filter(
+    ({ category, status }) => category === "PLAYER" && status === "MAYBE",
+  )
   const staff = members.filter(({ category }) => category === "STAFF")
 
   return (
@@ -74,24 +79,49 @@ export function PublicTeam({
         </div>
       ) : (
         <>
-          <div
-            className="grid grid-cols-2 gap-1.5 min-[360px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
-            data-player-grid
-          >
-            {players.map((player) => {
-              const playerStats = statsByProfile.get(player.id)
-              return (
-                <PlayerRosterCard
-                  canViewProfile={canViewProfiles}
-                  key={player.id}
-                  player={player}
-                  stats={playerStats}
-                />
-              )
-            })}
-          </div>
+          <section aria-label="Squadra" className="space-y-2">
+            <h2 className="text-sm font-bold uppercase tracking-wider">
+              Squadra
+            </h2>
+            <div
+              className="grid grid-cols-2 gap-1.5 min-[360px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+              data-player-grid
+            >
+              {confirmedPlayers.map((player) => {
+                const playerStats = statsByProfile.get(player.id)
+                return (
+                  <PlayerRosterCard
+                    canViewProfile={canViewProfiles}
+                    key={player.id}
+                    player={player}
+                    stats={playerStats}
+                  />
+                )
+              })}
+            </div>
+          </section>
 
-          <div className="space-y-2 border-t pt-5">
+          <section aria-label="In forse" className="space-y-2 border-t pt-5">
+            <h2 className="text-sm font-bold uppercase tracking-wider">
+              In forse
+            </h2>
+            <div className="grid grid-cols-2 gap-1.5 min-[360px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {maybePlayers.map((player) => {
+                const playerStats = statsByProfile.get(player.id)
+                return (
+                  <PlayerRosterCard
+                    canViewProfile={canViewProfiles}
+                    key={player.id}
+                    muted
+                    player={player}
+                    stats={playerStats}
+                  />
+                )
+              })}
+            </div>
+          </section>
+
+          <section aria-label="Staff" className="space-y-2 border-t pt-5">
             <div className="flex items-center gap-2">
               <UsersRound
                 aria-hidden="true"
@@ -151,7 +181,7 @@ export function PublicTeam({
                 </p>
               )}
             </div>
-          </div>
+          </section>
         </>
       )}
     </section>

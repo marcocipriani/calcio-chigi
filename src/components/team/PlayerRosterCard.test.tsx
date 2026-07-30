@@ -31,9 +31,10 @@ describe("PlayerRosterCard", () => {
     expect(links).toHaveLength(1)
     expect(links[0]).toHaveAttribute("href", "/giocatore/player-1")
     expect(links[0]).toHaveClass("rounded-full")
+    expect(links[0]).toHaveClass("right-1", "top-1")
   })
 
-  it("orders name, surname, shirt number, role, and centered stats", () => {
+  it("keeps role and shirt number on one accessible row before centered stats", () => {
     render(
       <PlayerRosterCard
         player={player}
@@ -42,13 +43,12 @@ describe("PlayerRosterCard", () => {
     )
     const card = screen.getByRole("article", { name: "Elio Dorbolò" })
     const values = within(card).getAllByTestId(
-      /player-(first-name|surname|shirt|role|stats)/,
+      /player-(first-name|surname|role-row|stats)/,
     )
     expect(values.map((element) => element.dataset.testid)).toEqual([
       "player-first-name",
       "player-surname",
-      "player-shirt",
-      "player-role",
+      "player-role-row",
       "player-stats",
     ])
     expect(within(card).getByLabelText("Numero 8")).toBeVisible()
@@ -56,8 +56,17 @@ describe("PlayerRosterCard", () => {
   })
 
   it("keeps maybe status visible without replacing player data", () => {
-    render(<PlayerRosterCard player={{ ...player, status: "MAYBE" }} />)
+    render(
+      <PlayerRosterCard muted player={{ ...player, status: "MAYBE" }} />,
+    )
     expect(screen.getByText("Forse")).toBeVisible()
     expect(screen.getByText("Dorbolò")).toBeVisible()
+    expect(screen.getByRole("article", { name: "Elio Dorbolò" })).toHaveClass(
+      "opacity-40",
+      "grayscale",
+    )
+    expect(
+      screen.queryByRole("link", { name: /profilo di/i }),
+    ).not.toBeInTheDocument()
   })
 })

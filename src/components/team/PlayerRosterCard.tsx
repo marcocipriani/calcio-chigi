@@ -3,9 +3,11 @@ import { Info, Shirt, Sparkles } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 type PlayerRosterCardProps = {
   canViewProfile?: boolean
+  muted?: boolean
   player: {
     id: string
     nome: string
@@ -24,19 +26,23 @@ type PlayerRosterCardProps = {
 
 export function PlayerRosterCard({
   canViewProfile = false,
+  muted = false,
   player,
   stats,
 }: PlayerRosterCardProps) {
   return (
     <article
       aria-label={`${player.nome} ${player.cognome}`}
-      className="relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs"
+      className={cn(
+        "relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs",
+        muted && "opacity-40 grayscale",
+      )}
       data-player-card
     >
-      {canViewProfile && (
+      {canViewProfile && !muted && (
         <Link
           aria-label={`Profilo di ${player.nome} ${player.cognome}`}
-          className="absolute left-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           href={`/giocatore/${player.id}`}
         >
           <Info aria-hidden="true" className="size-3.5" />
@@ -64,24 +70,15 @@ export function PlayerRosterCard({
       >
         {player.cognome}
       </h2>
-      <span
-        aria-label={`Numero ${player.jersey_number ?? "non assegnato"}`}
-        className="relative mx-auto mt-0.5 block size-5 text-primary"
-        data-testid="player-shirt"
-      >
-        <Shirt
-          aria-hidden="true"
-          className="size-5 fill-current opacity-15"
-        />
-        <strong className="absolute inset-0 grid place-items-center text-[8px]">
-          {player.jersey_number ?? "—"}
-        </strong>
-      </span>
       <p
-        className="truncate text-center text-[8px] uppercase tracking-wide text-muted-foreground"
-        data-testid="player-role"
+        className="mt-0.5 flex items-center justify-center gap-1 truncate text-[8px] uppercase tracking-wide text-muted-foreground"
+        data-testid="player-role-row"
       >
-        {player.role ?? "Ruolo da definire"}
+        <span>{player.role ?? "Ruolo da definire"}</span>
+        <span aria-label={`Numero ${player.jersey_number ?? "non assegnato"}`}>
+          <Shirt aria-hidden="true" className="inline size-3" />
+          {player.jersey_number ?? "—"}
+        </span>
       </p>
       <div
         className="mt-1 flex justify-center gap-2 border-t pt-1 text-[9px] tabular-nums"

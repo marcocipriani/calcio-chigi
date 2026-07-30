@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   RegistrationStatus,
 } from "@/lib/domain"
+import type { AttendanceSummary } from "@/lib/management-attendance"
 import { romeDateKey } from "@/lib/season"
 
 export type ManagementPayment = {
@@ -57,6 +58,7 @@ export type ManagementPerson = {
   certificateVisitOn?: string | null
   certificateLaboratory?: string | null
   certificateDocumentPath?: string | null
+  attendance?: AttendanceSummary
 }
 
 export function effectiveCertificateStatus(
@@ -71,9 +73,6 @@ export function effectiveCertificateStatus(
 
 export type ManagementFilters = {
   query: string
-  category: MembershipCategory | "ALL"
-  status: MembershipStatus | "ALL"
-  tag: "EXT" | "AGG" | "TRAINING" | "ALL"
 }
 
 export function filterManagementRows(
@@ -89,7 +88,6 @@ export function filterManagementRows(
         person.nome,
         person.cognome,
         person.phone,
-        person.department,
         person.role,
         person.staffFunction,
       ]
@@ -101,15 +99,6 @@ export function filterManagementRows(
       return false
     }
 
-    if (filters.category !== "ALL" && person.category !== filters.category) {
-      return false
-    }
-    if (filters.status !== "ALL" && person.status !== filters.status) {
-      return false
-    }
-    if (filters.tag === "EXT" && !person.isExternal) return false
-    if (filters.tag === "AGG" && !person.isAggregated) return false
-    if (filters.tag === "TRAINING" && !person.trainingOnly) return false
     return true
   })
 }
@@ -117,9 +106,6 @@ export function filterManagementRows(
 export function managementKpis(people: ManagementPerson[]) {
   return {
     total: people.length,
-    confirmationsPending: people.filter(
-      ({ status }) => status === "PENDING" || status === "INTERESTED",
-    ).length,
     registrationsOpen: people.filter(
       ({ registrationStatus }) => registrationStatus !== "ACTIVE",
     ).length,

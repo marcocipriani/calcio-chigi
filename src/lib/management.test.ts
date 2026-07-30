@@ -58,15 +58,27 @@ const people: ManagementPerson[] = [
 ]
 
 describe("filterManagementRows", () => {
-  it("combines search, category and tags", () => {
+  it("searches name, phone and role", () => {
+    const searchablePeople: ManagementPerson[] = [
+      { ...people[0], phone: "333 1234567" },
+      { ...people[1], role: "Allenatore" },
+    ]
+
     expect(
-      filterManagementRows(people, {
-        query: "rossi",
-        category: "PLAYER",
-        status: "ALL",
-        tag: "EXT",
-      }).map((person) => person.profileId),
+      filterManagementRows(searchablePeople, { query: "rossi" }).map(
+        (person) => person.profileId,
+      ),
     ).toEqual(["profile-1"])
+    expect(
+      filterManagementRows(searchablePeople, { query: "1234567" }).map(
+        (person) => person.profileId,
+      ),
+    ).toEqual(["profile-1"])
+    expect(
+      filterManagementRows(searchablePeople, { query: "allenatore" }).map(
+        (person) => person.profileId,
+      ),
+    ).toEqual(["profile-2"])
   })
 })
 
@@ -74,7 +86,6 @@ describe("managementKpis", () => {
   it("counts operational work instead of only people", () => {
     expect(managementKpis(people)).toEqual({
       total: 2,
-      confirmationsPending: 1,
       registrationsOpen: 1,
       paymentsOpen: 1,
       certificatesOpen: 0,

@@ -77,6 +77,54 @@ async function expectNoSeriousA11yViolations(page: Page) {
   ).toEqual([])
 }
 
+async function expectSemanticThemeContrast(page: Page) {
+  await page.evaluate(() => {
+    const pairs = [
+      ["background", "var(--foreground)"],
+      ["card", "var(--card-foreground)"],
+      ["popover", "var(--popover-foreground)"],
+      ["primary", "var(--primary-foreground)"],
+      ["secondary", "var(--secondary-foreground)"],
+      ["muted", "var(--muted-foreground)"],
+      ["accent", "var(--accent-foreground)"],
+      [
+        "destructive",
+        "var(--destructive-foreground, var(--primary-foreground))",
+      ],
+      ["sidebar", "var(--sidebar-foreground)"],
+      ["sidebar-primary", "var(--sidebar-primary-foreground)"],
+      ["sidebar-accent", "var(--sidebar-accent-foreground)"],
+    ] as const
+    const audit = document.createElement("section")
+    audit.id = "semantic-color-audit"
+    audit.style.cssText =
+      "position:relative;z-index:9999;padding:20px;background:var(--background)"
+
+    for (const [background, foreground] of pairs) {
+      const sample = document.createElement("p")
+      sample.dataset.pair = `${background}/${foreground}`
+      sample.style.cssText = [
+        `background:var(--${background})`,
+        `color:${foreground}`,
+        "font-size:16px",
+        "font-weight:400",
+        "padding:12px",
+      ].join(";")
+      sample.textContent = `Test leggibilità ${background}`
+      audit.appendChild(sample)
+    }
+
+    document.body.appendChild(audit)
+  })
+
+  const result = await new AxeBuilder({ page })
+    .include("#semantic-color-audit")
+    .withRules(["color-contrast"])
+    .analyze()
+
+  expect(result.violations).toEqual([])
+}
+
 async function expectBottomNavClearance(page: Page) {
   const main = page.locator("#main-content")
   const navigation = page.getByRole("navigation")
@@ -417,6 +465,26 @@ test("viewport condiviso per tutte le pagine pubbliche desktop", async ({
     await page.goto(route)
     await expectSharedPageViewport(page)
     await expectNoHorizontalOverflow(page)
+  }
+})
+
+test("header mobile e temi mantengono titolo e contrasto AA", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+
+  for (const theme of ["light", "dark"]) {
+    await page.addInitScript(
+      (value) => window.localStorage.setItem("theme", value),
+      theme,
+    )
+    await page.goto("/login")
+    await expect(
+      page.getByText("Calcio Chigi", { exact: true }),
+    ).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+    await expectNoSeriousA11yViolations(page)
+    await expectSemanticThemeContrast(page)
   }
 })
 

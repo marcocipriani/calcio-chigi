@@ -18,9 +18,21 @@ describe("BottomNav", () => {
       container.querySelector(".lucide-chart-no-axes-combined"),
     ).toBeTruthy()
     expect(container.querySelector(".fill-current")).toBeNull()
+    expect(
+      [...container.querySelectorAll(".lucide")].every(
+        (icon) => icon.getAttribute("stroke-width") === "2",
+      ),
+    ).toBe(true)
+    expect(
+      [...container.querySelectorAll(".lucide")].every(
+        (icon) =>
+          icon.getAttribute("fill") === "none" &&
+          icon.classList.contains("size-5"),
+      ),
+    ).toBe(true)
   })
 
-  it("becomes a restrained floating pill on desktop with motion-safe feedback", () => {
+  it("distinguishes the active item from the desktop pill", () => {
     render(<BottomNav />)
 
     const navigation = screen.getByRole("navigation")
@@ -31,7 +43,12 @@ describe("BottomNav", () => {
     )
 
     const active = screen.getByRole("link", { name: "Squadra" })
-    expect(active).toHaveClass("text-violet-700")
+    expect(active).toHaveClass(
+      "rounded-xl",
+      "bg-violet-100/80",
+      "text-violet-800",
+    )
+    expect(active).not.toHaveClass("rounded-full")
     expect(active.querySelector("svg")?.parentElement).toHaveClass(
       "motion-safe:group-hover:-translate-y-0.5",
     )

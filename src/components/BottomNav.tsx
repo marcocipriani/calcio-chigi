@@ -34,9 +34,9 @@ export function BottomNav() {
               key={href} 
               href={href} 
               className={cn(
-                "group flex h-full w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full px-1 text-muted-foreground transition-[color,background-color,transform] duration-200 active:scale-95 md:w-24",
+                "group flex h-full w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-muted-foreground transition-[color,background-color,transform] duration-200 active:scale-95 md:w-24",
                 isActive
-                  ? "bg-violet-50 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300"
+                  ? "bg-violet-100/80 text-violet-800 dark:bg-violet-900/70 dark:text-violet-100"
                   : "hover:bg-accent hover:text-accent-foreground",
               )}
             >
@@ -48,8 +48,8 @@ export function BottomNav() {
               >
                 <Icon 
                   aria-hidden="true"
-                  className="size-5.5"
-                  strokeWidth={isActive ? 2.35 : 2}
+                  className="size-5"
+                  strokeWidth={2}
                 />
               </span>
               <span className="text-[10px] font-bold leading-none">

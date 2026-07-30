@@ -58,12 +58,25 @@ describe("SiteHeader", () => {
     expect(profileAvatar).not.toHaveClass("ring-violet-500")
   })
 
-  it("lets the brand label collapse before header actions overflow", () => {
+  it("keeps a compact app title visible on mobile", () => {
     render(<SiteHeader />)
 
-    expect(screen.getByText("Calcio Circolo Chigi")).toHaveClass(
-      "hidden",
-      "sm:inline",
+    expect(screen.getByText("Calcio Chigi", { exact: true })).toHaveClass(
+      "sm:hidden",
+    )
+    expect(screen.getByText("Calcio Circolo Chigi")).toHaveClass("sm:inline")
+  })
+
+  it("uses consistent mobile touch targets for header actions", () => {
+    render(<SiteHeader />)
+
+    expect(screen.getByRole("button", { name: "Cambia tema" })).toHaveClass(
+      "size-11",
+      "sm:size-9",
+    )
+    expect(screen.getByRole("link", { name: "Marco Rossi" })).toHaveClass(
+      "flex",
+      "size-11",
     )
   })
 })

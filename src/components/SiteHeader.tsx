@@ -26,10 +26,10 @@ export function SiteHeader() {
     <header className="fixed inset-x-0 top-0 z-50 h-16 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88">
       <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-2 px-2 sm:gap-3 sm:px-5">
         <Link
-          className="group flex min-w-0 items-center gap-2.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex min-w-0 items-center gap-1.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring sm:gap-2.5"
           href="/"
         >
-          <span className="relative size-9 shrink-0">
+          <span className="relative size-8 shrink-0 sm:size-9">
             <Image
               alt=""
               className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
@@ -38,6 +38,9 @@ export function SiteHeader() {
               sizes="36px"
               src="/icon.png"
             />
+          </span>
+          <span className="truncate text-[11px] font-black uppercase tracking-tight sm:hidden">
+            Calcio Chigi
           </span>
           <span className="hidden truncate text-sm font-black uppercase tracking-tight sm:inline sm:text-base">
             Calcio Circolo Chigi
@@ -68,7 +71,7 @@ export function SiteHeader() {
 
           <Button
             aria-label="Cambia tema"
-            className="relative rounded-full"
+            className="relative size-11 rounded-full sm:size-9"
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")
             }
@@ -87,7 +90,7 @@ export function SiteHeader() {
 
           <Link
             aria-label={displayName}
-            className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             href={profileLink}
           >
             {profile ? (

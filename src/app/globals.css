@@ -28,6 +28,7 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -85,6 +86,7 @@
   --accent-foreground: oklch(0.43 0.18 300);
   
   --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.55 0.22 300); /* Focus e selezioni seguono l'accento viola */
@@ -120,11 +122,11 @@
 
   /* BLU CHIGI (Dark Mode - Più luminoso) */
   --primary: oklch(0.65 0.20 260); 
-  --primary-foreground: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.15 0.05 260);
 
   /* ROSSO CHIGI (Dark Mode) */
   --secondary: oklch(0.65 0.20 27);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: oklch(0.15 0.05 260);
 
   /* AMBRA CHIGI (Dark Mode) */
   --amber-chigi: oklch(0.75 0.18 65);
@@ -136,6 +138,7 @@
   --accent-foreground: oklch(0.88 0.08 300);
   
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.15 0.05 260);
   --border: oklch(1 0 0 / 15%); /* Bordi sottili chiari */
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.72 0.18 300);
@@ -151,7 +154,7 @@
   --sidebar: oklch(0.20 0.05 260);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.65 0.20 260);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary-foreground: oklch(0.15 0.05 260);
   --sidebar-accent: oklch(0.25 0.04 260);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 15%);

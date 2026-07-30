@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { Moon, Settings2, Sun, UserCircle } from "lucide-react"
+import { Moon, Sun, UserCircle, UsersRound } from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -10,11 +10,6 @@ import { NotificationBell } from "@/components/notifications/NotificationBell"
 import { ManagerPresence } from "@/components/management/ManagerPresence"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 export function SiteHeader() {
@@ -51,29 +46,22 @@ export function SiteHeader() {
 
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
           {isManager && (
-            <>
+            <div className="flex items-center lg:rounded-full lg:border lg:bg-muted/35 lg:p-0.5">
               <ManagerPresence />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label="Gestione"
-                    asChild
-                    className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
-                    size="sm"
-                  >
-                    <Link href="/gestione">
-                      <Settings2 aria-hidden="true" />
-                      <span className="sr-only sm:not-sr-only">
-                        Gestione
-                      </span>
-                    </Link>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="sm:hidden">
-                  Gestione
-                </TooltipContent>
-              </Tooltip>
-            </>
+              <Button
+                asChild
+                className="size-11 rounded-full px-0 lg:ml-2 lg:h-8 lg:w-auto lg:px-3"
+                size="sm"
+                variant="ghost"
+              >
+                <Link aria-label="Gestione squadra" href="/gestione">
+                  <UsersRound aria-hidden="true" />
+                  <span className="sr-only lg:not-sr-only">
+                    Gestione squadra
+                  </span>
+                </Link>
+              </Button>
+            </div>
           )}
 
           <NotificationBell />

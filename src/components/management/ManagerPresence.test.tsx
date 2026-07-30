@@ -101,23 +101,24 @@ describe("ManagerPresence", () => {
   })
 
   it.each([
-    ["2:59", millisecondsAgo(2 * 60_000 + 59_000), "ONLINE", "Online", "bg-emerald-500"],
-    ["3:00", minutesAgo(3), "RECENT", "Attivo 3 minuti fa", "bg-amber-400"],
-    ["23:59", minutesAgo(23 * 60 + 59), "RECENT", "Attivo 24 ore fa", "bg-amber-400"],
-    ["24:00", minutesAgo(24 * 60), "RECENT", "Attivo un giorno fa", "bg-amber-400"],
-    ["24:01", minutesAgo(24 * 60 + 1), "STALE", "Attivo un giorno fa", "bg-slate-400"],
-    ["nessuna attività", null, "NEVER", "Mai attivo", "bg-slate-400"],
+    ["2:59", millisecondsAgo(2 * 60_000 + 59_000), "ONLINE", "Online", "ring-emerald-500"],
+    ["3:00", minutesAgo(3), "RECENT", "Attivo 3 minuti fa", "ring-amber-400"],
+    ["23:59", minutesAgo(23 * 60 + 59), "RECENT", "Attivo 24 ore fa", "ring-amber-400"],
+    ["24:00", minutesAgo(24 * 60), "RECENT", "Attivo un giorno fa", "ring-amber-400"],
+    ["24:01", minutesAgo(24 * 60 + 1), "STALE", "Attivo un giorno fa", "ring-slate-400"],
+    ["nessuna attività", null, "NEVER", "Mai attivo", "ring-slate-400"],
   ] as const)(
-    "reports %s activity with the correct state and color",
-    async (_, lastSeenAt, state, label, color) => {
+    "reports %s activity with the correct state and avatar ring",
+    async (_, lastSeenAt, state, label, ringColor) => {
       database.rows = [manager(lastSeenAt)]
 
       expect(presenceState(lastSeenAt, now).state).toBe(state)
 
       render(<ManagerPresence />)
 
-      const indicator = await screen.findByLabelText(`Marco Rossi, ${label}`)
-      expect(indicator.querySelector('[aria-hidden="true"]')).toHaveClass(color)
+      const trigger = await screen.findByLabelText(`Marco Rossi, ${label}`)
+      expect(trigger.querySelector('[data-slot="avatar"]')).toHaveClass(ringColor)
+      expect(trigger.querySelector("[data-presence-dot]")).toBeNull()
     },
   )
 
@@ -130,7 +131,7 @@ describe("ManagerPresence", () => {
     expect(presence).toMatchObject({
       state: "NEVER",
       label: "Mai attivo",
-      color: "bg-slate-400",
+      ringColor: "ring-slate-400",
     })
   })
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { SiteHeader } from "@/components/SiteHeader"
@@ -25,7 +25,7 @@ vi.mock("@/components/auth/AppSessionProvider", () => ({
 }))
 
 vi.mock("@/components/management/ManagerPresence", () => ({
-  ManagerPresence: () => null,
+  ManagerPresence: () => <div aria-label="Manager e stato attività" />,
 }))
 
 vi.mock("@/components/notifications/NotificationBell", () => ({
@@ -33,20 +33,17 @@ vi.mock("@/components/notifications/NotificationBell", () => ({
 }))
 
 describe("SiteHeader", () => {
-  it("offers management as a violet circular mobile action with one exact label", async () => {
+  it("groups the management action with manager presence", () => {
     render(<SiteHeader />)
 
     const managementLink = screen.getByRole("link", {
-      name: "Gestione",
+      name: "Gestione squadra",
     })
 
     expect(managementLink).toHaveAttribute("href", "/gestione")
-    expect(managementLink).toHaveClass("size-11", "bg-violet-600")
-    expect(screen.getByText("Gestione")).toHaveClass(
-      "sr-only",
-      "sm:not-sr-only",
-    )
-    fireEvent.focus(managementLink)
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Gestione")
+    expect(managementLink).not.toHaveClass("bg-violet-600")
+    expect(managementLink.querySelector(".lucide-users-round")).toBeTruthy()
+    expect(screen.getByLabelText("Manager e stato attività").parentElement)
+      .toContainElement(managementLink)
   })
 })

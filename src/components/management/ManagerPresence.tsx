@@ -63,22 +63,38 @@ export type PresenceState = "ONLINE" | "RECENT" | "STALE" | "NEVER"
 export function presenceState(
   lastSeenAt: string | null | undefined,
   now = new Date(),
-): { state: PresenceState; label: string; color: string } {
+): { state: PresenceState; label: string; ringColor: string } {
   if (!lastSeenAt) {
-    return { state: "NEVER", label: "Mai attivo", color: "bg-slate-400" }
+    return {
+      state: "NEVER",
+      label: "Mai attivo",
+      ringColor: "ring-slate-400",
+    }
   }
 
   const lastSeen = new Date(lastSeenAt)
   if (Number.isNaN(lastSeen.getTime())) {
-    return { state: "NEVER", label: "Mai attivo", color: "bg-slate-400" }
+    return {
+      state: "NEVER",
+      label: "Mai attivo",
+      ringColor: "ring-slate-400",
+    }
   }
 
   const elapsed = now.getTime() - lastSeen.getTime()
   if (elapsed < 0) {
-    return { state: "NEVER", label: "Mai attivo", color: "bg-slate-400" }
+    return {
+      state: "NEVER",
+      label: "Mai attivo",
+      ringColor: "ring-slate-400",
+    }
   }
   if (elapsed < 3 * 60_000) {
-    return { state: "ONLINE", label: "Online", color: "bg-emerald-500" }
+    return {
+      state: "ONLINE",
+      label: "Online",
+      ringColor: "ring-emerald-500",
+    }
   }
 
   const label = `Attivo ${formatDistanceStrict(lastSeen, now, {
@@ -86,10 +102,10 @@ export function presenceState(
     locale: it,
   })}`
   if (elapsed <= 24 * 60 * 60_000) {
-    return { state: "RECENT", label, color: "bg-amber-400" }
+    return { state: "RECENT", label, ringColor: "ring-amber-400" }
   }
 
-  return { state: "STALE", label, color: "bg-slate-400" }
+  return { state: "STALE", label, ringColor: "ring-slate-400" }
 }
 
 export function ManagerPresence() {
@@ -150,7 +166,12 @@ export function ManagerPresence() {
                 className="relative rounded-full"
                 tabIndex={0}
               >
-                <Avatar className="size-8 border-2 border-background ring-2 ring-violet-500">
+                <Avatar
+                  className={cn(
+                    "size-8 border-2 border-background ring-2",
+                    presence.ringColor,
+                  )}
+                >
                   <AvatarImage
                     alt=""
                     className="object-cover"
@@ -161,13 +182,6 @@ export function ManagerPresence() {
                     {manager.cognome[0]}
                   </AvatarFallback>
                 </Avatar>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-background",
-                    presence.color,
-                  )}
-                />
               </span>
             </TooltipTrigger>
             <TooltipContent>{`${name} · ${presence.label}`}</TooltipContent>

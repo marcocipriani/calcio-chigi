@@ -3,7 +3,6 @@ import {
   CircleUserRound,
   FileCheck2,
   HeartPulse,
-  UserRoundCheck,
   UsersRound,
 } from "lucide-react"
 
@@ -33,13 +32,6 @@ export function KpiStrip({
       value: kpis.total,
       icon: UsersRound,
       view: "ROSTER",
-    },
-    {
-      label: "Conferme",
-      value: kpis.confirmationsPending,
-      icon: UserRoundCheck,
-      view: "ROSTER",
-      alert: kpis.confirmationsPending > 0,
     },
     {
       label: "Tesseramenti",
@@ -72,7 +64,7 @@ export function KpiStrip({
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
       {items.map(({ label, value, icon: Icon, view, alert }) => (
         <button
           aria-pressed={activeView === view}

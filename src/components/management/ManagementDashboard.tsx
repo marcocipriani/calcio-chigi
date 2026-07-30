@@ -74,9 +74,6 @@ const views: { id: ManagementView; label: string }[] = [
 
 const emptyFilters: ManagementFilters = {
   query: "",
-  category: "ALL",
-  status: "ALL",
-  tag: "ALL",
 }
 
 type QuickDialog =
@@ -452,55 +449,6 @@ export function ManagementDashboard() {
                 value={filters.query}
               />
             </label>
-            <select
-              aria-label="Filtra categoria"
-              className={selectClass}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  category: event.target.value as ManagementFilters["category"],
-                }))
-              }
-              value={filters.category}
-            >
-              <option value="ALL">Tutte le categorie</option>
-              <option value="PLAYER">Giocatori</option>
-              <option value="STAFF">Staff</option>
-            </select>
-            <select
-              aria-label="Filtra conferma"
-              className={selectClass}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  status: event.target.value as ManagementFilters["status"],
-                }))
-              }
-              value={filters.status}
-            >
-              <option value="ALL">Tutte le conferme</option>
-              <option value="INTERESTED">Interessati</option>
-              <option value="PENDING">Da confermare</option>
-              <option value="YES">Sì</option>
-              <option value="MAYBE">Forse</option>
-              <option value="NO">No</option>
-            </select>
-            <select
-              aria-label="Filtra tag"
-              className={selectClass}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  tag: event.target.value as ManagementFilters["tag"],
-                }))
-              }
-              value={filters.tag}
-            >
-              <option value="ALL">Tutti i tag</option>
-              <option value="EXT">EXT</option>
-              <option value="AGG">AGG</option>
-              <option value="TRAINING">Solo allenamenti</option>
-            </select>
             <Button
               aria-label="Azzera filtri"
               onClick={() => setFilters(emptyFilters)}

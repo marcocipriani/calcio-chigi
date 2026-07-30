@@ -111,4 +111,25 @@ describe("ManagementTable", () => {
     expect(dataRowNames(table)[0]).toContain("Anna Rossi")
     expect(within(table).queryByText("Luca Verdi")).not.toBeInTheDocument()
   })
+
+  it("uses the signed passport photo URL for registration previews", () => {
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "passportPhoto"]}
+        passportPhotoUrls={new Map([["photos/anna.jpg", "https://signed.example/anna.jpg"]])}
+        people={[{ ...people[1], passportPhotoPath: "photos/anna.jpg" }]}
+        selected={new Set()}
+        view="REGISTRATIONS"
+      />,
+    )
+
+    const trigger = screen.getByRole("button", {
+      name: "Apri fototessera di Anna Rossi",
+    })
+    expect(within(trigger).getByRole("img")).toHaveAttribute(
+      "src",
+      "https://signed.example/anna.jpg",
+    )
+  })
 })

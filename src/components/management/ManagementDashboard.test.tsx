@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -21,6 +22,11 @@ const api = vi.hoisted(() => ({
   saveManagementColumnPreferences: vi.fn(),
 }))
 
+const storage = vi.hoisted(() => ({
+  createSignedUrls: vi.fn(),
+  from: vi.fn(),
+}))
+
 vi.mock("@/components/auth/AppSessionProvider", () => ({
   useAppSession: session.useAppSession,
 }))
@@ -32,6 +38,7 @@ vi.mock("@/lib/supabaseBrowser", () => ({
     from: vi.fn(),
     functions: { invoke: vi.fn() },
     rpc: vi.fn(),
+    storage,
   },
 }))
 
@@ -99,7 +106,7 @@ function person(
 
 const currentRoster = [
   person("luca", "Luca", "Verdi", "PLAYER"),
-  person("anna", "Anna", "Rossi", "STAFF"),
+  { ...person("anna", "Anna", "Rossi", "STAFF"), passportPhotoPath: "photos/anna.jpg" },
 ]
 
 function deferred<T>() {
@@ -125,6 +132,8 @@ describe("ManagementDashboard operational state", () => {
     api.fetchManagementColumnPreferences.mockResolvedValue(null)
     api.fetchManagementAttendance.mockResolvedValue(new Map())
     api.saveManagementColumnPreferences.mockResolvedValue(undefined)
+    storage.from.mockReturnValue(storage)
+    storage.createSignedUrls.mockResolvedValue({ data: [], error: null })
   })
 
   it("uses column-filtered rows for the result count and visible selection", async () => {
@@ -154,6 +163,81 @@ describe("ManagementDashboard operational state", () => {
     expect(
       within(table).queryByRole("checkbox", { name: "Seleziona Luca Verdi" }),
     ).not.toBeInTheDocument()
+  })
+
+  it("signs passport photos only when registrations are active", async () => {
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+
+    expect(storage.createSignedUrls).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+
+    await waitFor(() => {
+      expect(storage.from).toHaveBeenCalledWith("passport-photos")
+      expect(storage.createSignedUrls).toHaveBeenCalledWith(
+        ["photos/anna.jpg"],
+        300,
+      )
+    })
+  })
+
+  it("ignores a stale passport photo signature after changing views", async () => {
+    const stale = deferred<{
+      data: Array<{ path: string; signedUrl: string }>
+      error: null
+    }>()
+    const current = deferred<{
+      data: Array<{ path: string; signedUrl: string }>
+      error: null
+    }>()
+    storage.createSignedUrls
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(current.promise)
+
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+    await waitFor(() => expect(storage.createSignedUrls).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(screen.getByRole("tab", { name: /Persone/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /Tesseramenti/ }))
+    await waitFor(() => expect(storage.createSignedUrls).toHaveBeenCalledTimes(2))
+
+    current.resolve({
+      data: [
+        {
+          path: "photos/anna.jpg",
+          signedUrl: "https://signed.example/current.jpg",
+        },
+      ],
+      error: null,
+    })
+    const trigger = await screen.findByRole("button", {
+      name: "Apri fototessera di Anna Rossi",
+    })
+    expect(within(trigger).getByRole("img")).toHaveAttribute(
+      "src",
+      "https://signed.example/current.jpg",
+    )
+
+    await act(async () => {
+      stale.resolve({
+        data: [
+          {
+            path: "photos/anna.jpg",
+            signedUrl: "https://signed.example/stale.jpg",
+          },
+        ],
+        error: null,
+      })
+      await Promise.resolve()
+    })
+
+    expect(within(trigger).getByRole("img")).toHaveAttribute(
+      "src",
+      "https://signed.example/current.jpg",
+    )
   })
 
   it("waits for the roster of the selected season before loading attendance", async () => {

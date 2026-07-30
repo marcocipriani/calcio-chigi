@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { AttendanceStreak } from "@/components/management/AttendanceStreak"
+import { PassportPhotoPreview } from "@/components/management/PassportPhotoPreview"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -230,6 +231,7 @@ type ManagementColumn = {
   render: (
     person: ManagementPerson,
     actions: ManagementTableActions,
+    passportPhotoUrls: Map<string, string>,
   ) => ReactNode
 }
 
@@ -422,10 +424,14 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       label: "Fototessera",
       filterValue: (person) => (person.passportPhotoPath ? "PRESENT" : "MISSING"),
       sortValue: (person) => (person.passportPhotoPath ? 1 : 0),
-      render: (person) => (
-        <Dot
-          kind={person.passportPhotoPath ? "good" : "bad"}
-          label={person.passportPhotoPath ? "Presente" : "Mancante"}
+      render: (person, _actions, passportPhotoUrls) => (
+        <PassportPhotoPreview
+          personName={`${person.nome} ${person.cognome}`}
+          signedUrl={
+            person.passportPhotoPath
+              ? passportPhotoUrls.get(person.passportPhotoPath)
+              : undefined
+          }
         />
       ),
     },
@@ -734,6 +740,7 @@ export function ManagementTable({
   onAccountAction,
   onVerifyPayment,
   onReviewCertificate,
+  passportPhotoUrls = new Map(),
 }: {
   people: ManagementPerson[]
   view: ManagementView
@@ -745,6 +752,7 @@ export function ManagementTable({
   onAccountAction: ManagementTableActions["onAccountAction"]
   onVerifyPayment: ManagementTableActions["onVerifyPayment"]
   onReviewCertificate: ManagementTableActions["onReviewCertificate"]
+  passportPhotoUrls?: Map<string, string>
 }) {
   const [sort, setSort] = useState<TableSort>(null)
   const [filters, setFilters] = useState<Record<string, string>>({})
@@ -789,7 +797,8 @@ export function ManagementTable({
         id !== "person" &&
         id !== "paymentAction" &&
         id !== "certificateAction" &&
-        id !== "accountAction",
+        id !== "accountAction" &&
+        id !== "passportPhoto",
     )
     .slice(0, 2)
 
@@ -874,7 +883,7 @@ export function ManagementTable({
                 </TableCell>
                 {visibleColumns.map((column) => (
                   <TableCell key={column.id}>
-                    {column.render(person, actions)}
+                    {column.render(person, actions, passportPhotoUrls)}
                   </TableCell>
                 ))}
                 <TableCell>
@@ -935,7 +944,7 @@ export function ManagementTable({
                       <span className="text-muted-foreground">
                         {column.label}:
                       </span>
-                      {column.render(person, actions)}
+                      {column.render(person, actions, passportPhotoUrls)}
                     </span>
                   ))}
                 </span>

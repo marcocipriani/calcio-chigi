@@ -145,6 +145,9 @@ export function ManagementDashboard() {
   const [attendanceBySeason, setAttendanceBySeason] = useState<
     Record<string, AttendanceLoadState>
   >({})
+  const [passportPhotoUrls, setPassportPhotoUrls] = useState<Map<string, string>>(
+    new Map(),
+  )
   const [visibleTableState, setVisibleTableState] =
     useState<VisibleTableState | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -161,6 +164,7 @@ export function ManagementDashboard() {
   const [actionBusy, setActionBusy] = useState(false)
   const rosterLoadGeneration = useRef(0)
   const attendanceRequestId = useRef(0)
+  const passportPhotoRequestId = useRef(0)
   const preferencesLoadGeneration = useRef(0)
   const columnPreferencesRef = useRef(columnPreferences)
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve())
@@ -312,6 +316,45 @@ export function ManagementDashboard() {
       attendance: attendanceState.summaries.get(person.profileId),
     }))
   }, [attendanceState, people])
+
+  useEffect(() => {
+    const requestId = ++passportPhotoRequestId.current
+    if (
+      view !== "REGISTRATIONS" ||
+      loading ||
+      loadedSeasonSlug !== seasonSlug
+    ) {
+      setPassportPhotoUrls(new Map())
+      return
+    }
+
+    const paths = people.flatMap(({ passportPhotoPath }) =>
+      passportPhotoPath ? [passportPhotoPath] : [],
+    )
+
+    void (async () => {
+      const { data, error } = paths.length
+        ? await supabaseBrowser.storage
+            .from("passport-photos")
+            .createSignedUrls(paths, 300)
+        : { data: [], error: null }
+      if (requestId !== passportPhotoRequestId.current) return
+      if (error) {
+        toast.error("Anteprime fototessera non disponibili")
+        setPassportPhotoUrls(new Map())
+        return
+      }
+      setPassportPhotoUrls(
+        new Map(
+          (data ?? []).flatMap((item) =>
+            item.path && item.signedUrl
+              ? [[item.path, item.signedUrl] as const]
+              : [],
+          ),
+        ),
+      )
+    })()
+  }, [loadedSeasonSlug, loading, people, seasonSlug, view])
 
   const tablePeople = useMemo(
     () =>
@@ -771,6 +814,7 @@ export function ManagementDashboard() {
           onSelect={toggleSelection}
           onVerifyPayment={verifyPayment}
           onVisiblePeopleChange={handleVisiblePeopleChange}
+          passportPhotoUrls={passportPhotoUrls}
           people={filtered}
           selected={selected}
           view={view}

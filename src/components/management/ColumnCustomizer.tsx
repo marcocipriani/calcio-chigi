@@ -21,18 +21,20 @@ export function ColumnCustomizer({
   availableColumns,
   onChange,
   onReset,
+  disabled = false,
 }: {
   columns: string[]
   availableColumns: AvailableManagementColumn[]
   onChange: (columns: string[]) => void
   onReset: () => void
+  disabled?: boolean
 }) {
   const availableById = new Map(
     availableColumns.map((column) => [column.id, column]),
   )
 
   function toggle(column: AvailableManagementColumn) {
-    if (column.required) return
+    if (disabled || column.required) return
     onChange(
       columns.includes(column.id)
         ? columns.filter((id) => id !== column.id)
@@ -43,7 +45,7 @@ export function ColumnCustomizer({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button disabled={disabled} size="sm" variant="outline">
           <Columns3 aria-hidden="true" />
           Colonne
         </Button>
@@ -53,6 +55,7 @@ export function ColumnCustomizer({
           <strong className="text-sm">Colonne visibili</strong>
           <Button
             aria-label="Ripristina colonne"
+            disabled={disabled}
             onClick={onReset}
             size="icon-sm"
             variant="ghost"
@@ -75,7 +78,7 @@ export function ColumnCustomizer({
                     aria-label={column.label}
                     checked
                     className="size-4 accent-primary"
-                    disabled={column.required}
+                    disabled={disabled || column.required}
                     onChange={() => toggle(column)}
                     type="checkbox"
                   />
@@ -83,7 +86,7 @@ export function ColumnCustomizer({
                 </label>
                 <Button
                   aria-label={`Sposta ${column.label} in alto`}
-                  disabled={index === 0}
+                  disabled={disabled || index === 0}
                   onClick={() => onChange(moveColumn(columns, id, -1))}
                   size="icon-sm"
                   variant="ghost"
@@ -92,7 +95,7 @@ export function ColumnCustomizer({
                 </Button>
                 <Button
                   aria-label={`Sposta ${column.label} in basso`}
-                  disabled={index === columns.length - 1}
+                  disabled={disabled || index === columns.length - 1}
                   onClick={() => onChange(moveColumn(columns, id, 1))}
                   size="icon-sm"
                   variant="ghost"
@@ -113,6 +116,7 @@ export function ColumnCustomizer({
                   aria-label={column.label}
                   checked={false}
                   className="size-4 accent-primary"
+                  disabled={disabled}
                   onChange={() => toggle(column)}
                   type="checkbox"
                 />

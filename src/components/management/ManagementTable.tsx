@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Check,
   ChevronDown,
@@ -730,6 +730,7 @@ export function ManagementTable({
   selected,
   onSelect,
   onOpen,
+  onVisiblePeopleChange,
   onAccountAction,
   onVerifyPayment,
   onReviewCertificate,
@@ -740,6 +741,7 @@ export function ManagementTable({
   selected: Set<string>
   onSelect: (membershipId: string) => void
   onOpen: (person: ManagementPerson) => void
+  onVisiblePeopleChange?: (people: ManagementPerson[]) => void
   onAccountAction: ManagementTableActions["onAccountAction"]
   onVerifyPayment: ManagementTableActions["onVerifyPayment"]
   onReviewCertificate: ManagementTableActions["onReviewCertificate"]
@@ -790,6 +792,10 @@ export function ManagementTable({
         id !== "accountAction",
     )
     .slice(0, 2)
+
+  useEffect(() => {
+    onVisiblePeopleChange?.(rows)
+  }, [onVisiblePeopleChange, rows])
 
   return (
     <>

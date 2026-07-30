@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   BellPlus,
@@ -94,9 +94,32 @@ type QuickDialog =
   | { kind: "CERTIFICATE"; certificateId: string }
 
 type AttendanceLoadState =
-  | { status: "loading" }
-  | { status: "loaded"; summaries: Map<string, AttendanceSummary> }
-  | { status: "error"; message?: string }
+  | { status: "loading"; signature: string; requestId: number }
+  | {
+      status: "loaded"
+      signature: string
+      requestId: number
+      summaries: Map<string, AttendanceSummary>
+    }
+  | {
+      status: "error"
+      signature: string
+      requestId: number
+      message?: string
+    }
+
+type VisibleTableState = {
+  key: string
+  people: ManagementPerson[]
+}
+
+function attendanceRosterSignature(people: ManagementPerson[]) {
+  return people
+    .filter(({ category }) => category === "PLAYER")
+    .map(({ profileId, joinedOn }) => `${profileId}:${joinedOn ?? ""}`)
+    .sort()
+    .join("|")
+}
 
 export function ManagementDashboard() {
   const {
@@ -111,15 +134,19 @@ export function ManagementDashboard() {
     targetSeason?.slug ?? "2026-2027",
   )
   const [people, setPeople] = useState<ManagementPerson[]>([])
+  const [loadedSeasonSlug, setLoadedSeasonSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ManagementView>("PEOPLE")
   const [filters, setFilters] = useState(emptyFilters)
   const [columnPreferences, setColumnPreferences] = useState(() =>
     normalizeColumnPreferences(null),
   )
+  const [columnPreferencesReady, setColumnPreferencesReady] = useState(false)
   const [attendanceBySeason, setAttendanceBySeason] = useState<
     Record<string, AttendanceLoadState>
   >({})
+  const [visibleTableState, setVisibleTableState] =
+    useState<VisibleTableState | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openPerson, setOpenPerson] = useState<ManagementPerson | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -132,22 +159,41 @@ export function ManagementDashboard() {
   >("BANK_TRANSFER")
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const rosterLoadGeneration = useRef(0)
+  const attendanceRequestId = useRef(0)
+  const preferencesLoadGeneration = useRef(0)
+  const columnPreferencesRef = useRef(columnPreferences)
+  const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
-    if (targetSeason?.slug) setSeasonSlug(targetSeason.slug)
+    if (targetSeason?.slug) {
+      rosterLoadGeneration.current += 1
+      setLoading(true)
+      setSeasonSlug(targetSeason.slug)
+    }
   }, [targetSeason?.slug])
 
   const load = useCallback(async () => {
     if (!isManager) return
+    const generation = ++rosterLoadGeneration.current
     setLoading(true)
     try {
-      setPeople(await fetchManagementPeople(supabaseBrowser, seasonSlug))
+      const nextPeople = await fetchManagementPeople(
+        supabaseBrowser,
+        seasonSlug,
+      )
+      if (generation !== rosterLoadGeneration.current) return
+      setPeople(nextPeople)
+      setLoadedSeasonSlug(seasonSlug)
     } catch (error) {
+      if (generation !== rosterLoadGeneration.current) return
       toast.error("Dashboard non caricata", {
         description: error instanceof Error ? error.message : undefined,
       })
     } finally {
-      setLoading(false)
+      if (generation === rosterLoadGeneration.current) {
+        setLoading(false)
+      }
     }
   }, [isManager, seasonSlug])
 
@@ -157,7 +203,8 @@ export function ManagementDashboard() {
 
   useEffect(() => {
     if (!profile?.id) return
-    let active = true
+    const generation = ++preferencesLoadGeneration.current
+    setColumnPreferencesReady(false)
 
     void (async () => {
       try {
@@ -167,52 +214,96 @@ export function ManagementDashboard() {
             profile.id,
           ),
         )
-        if (active) setColumnPreferences(next)
+        if (generation !== preferencesLoadGeneration.current) return
+        columnPreferencesRef.current = next
+        setColumnPreferences(next)
       } catch {
-        if (active) {
-          setColumnPreferences(normalizeColumnPreferences(null))
+        if (generation !== preferencesLoadGeneration.current) return
+        const fallback = normalizeColumnPreferences(null)
+        columnPreferencesRef.current = fallback
+        setColumnPreferences(fallback)
+      } finally {
+        if (generation === preferencesLoadGeneration.current) {
+          setColumnPreferencesReady(true)
         }
       }
     })()
 
     return () => {
-      active = false
+      if (generation === preferencesLoadGeneration.current) {
+        preferencesLoadGeneration.current += 1
+      }
     }
   }, [profile?.id])
 
-  const attendanceState = attendanceBySeason[seasonSlug]
+  const rosterSignature = useMemo(
+    () => attendanceRosterSignature(people),
+    [people],
+  )
+  const cachedAttendanceState = attendanceBySeason[seasonSlug]
+  const attendanceState =
+    cachedAttendanceState?.signature === rosterSignature
+      ? cachedAttendanceState
+      : undefined
 
   useEffect(() => {
     if (
       view !== "ATTENDANCE" ||
       loading ||
-      attendanceBySeason[seasonSlug]
+      loadedSeasonSlug !== seasonSlug ||
+      cachedAttendanceState?.signature === rosterSignature
     ) {
       return
     }
 
+    const requestId = ++attendanceRequestId.current
     setAttendanceBySeason((current) => ({
       ...current,
-      [seasonSlug]: { status: "loading" },
+      [seasonSlug]: {
+        status: "loading",
+        signature: rosterSignature,
+        requestId,
+      },
     }))
 
     void fetchManagementAttendance(supabaseBrowser, seasonSlug, people)
       .then((summaries) => {
-        setAttendanceBySeason((current) => ({
-          ...current,
-          [seasonSlug]: { status: "loaded", summaries },
-        }))
+        setAttendanceBySeason((current) => {
+          if (current[seasonSlug]?.requestId !== requestId) return current
+          return {
+            ...current,
+            [seasonSlug]: {
+              status: "loaded",
+              signature: rosterSignature,
+              requestId,
+              summaries,
+            },
+          }
+        })
       })
       .catch((error) => {
-        setAttendanceBySeason((current) => ({
-          ...current,
-          [seasonSlug]: {
-            status: "error",
-            message: error instanceof Error ? error.message : undefined,
-          },
-        }))
+        setAttendanceBySeason((current) => {
+          if (current[seasonSlug]?.requestId !== requestId) return current
+          return {
+            ...current,
+            [seasonSlug]: {
+              status: "error",
+              signature: rosterSignature,
+              requestId,
+              message: error instanceof Error ? error.message : undefined,
+            },
+          }
+        })
       })
-  }, [attendanceBySeason, loading, people, seasonSlug, view])
+  }, [
+    cachedAttendanceState,
+    loadedSeasonSlug,
+    loading,
+    people,
+    rosterSignature,
+    seasonSlug,
+    view,
+  ])
 
   const peopleWithAttendance = useMemo(() => {
     if (attendanceState?.status !== "loaded") return people
@@ -233,6 +324,23 @@ export function ManagementDashboard() {
     () => filterManagementRows(tablePeople, filters),
     [filters, tablePeople],
   )
+  const tableInputKey = `${view}:${filtered
+    .map(({ id }) => id)
+    .sort()
+    .join(",")}`
+  const handleVisiblePeopleChange = useCallback(
+    (visiblePeople: ManagementPerson[]) => {
+      setVisibleTableState({
+        key: tableInputKey,
+        people: visiblePeople,
+      })
+    },
+    [tableInputKey],
+  )
+  const visiblePeople =
+    visibleTableState?.key === tableInputKey
+      ? visibleTableState.people
+      : filtered
   const selectedPeople = useMemo(
     () => people.filter(({ id }) => selected.has(id)),
     [people, selected],
@@ -251,22 +359,28 @@ export function ManagementDashboard() {
   }
   const availableColumns = getAvailableManagementColumns(view)
 
-  async function updateColumns(nextColumns: string[]) {
+  function updateColumns(nextColumns: string[]) {
     const next = {
-      ...columnPreferences,
+      ...columnPreferencesRef.current,
       [view]: nextColumns,
     }
+    columnPreferencesRef.current = next
     setColumnPreferences(next)
     if (!profile?.id) return
-    try {
-      await saveManagementColumnPreferences(
-        supabaseBrowser,
-        profile.id,
-        next,
-      )
-    } catch {
-      toast.error("Preferenze colonne non salvate")
-    }
+    const profileId = profile.id
+    preferenceSaveQueue.current = preferenceSaveQueue.current.then(
+      async () => {
+        try {
+          await saveManagementColumnPreferences(
+            supabaseBrowser,
+            profileId,
+            next,
+          )
+        } catch {
+          toast.error("Preferenze colonne non salvate")
+        }
+      },
+    )
   }
 
   if (sessionLoading) {
@@ -511,6 +625,8 @@ export function ManagementDashboard() {
             aria-label="Stagione"
             className={selectClass}
             onChange={(event) => {
+              rosterLoadGeneration.current += 1
+              setLoading(true)
               setSeasonSlug(event.target.value)
               setSelected(new Set())
             }}
@@ -576,20 +692,23 @@ export function ManagementDashboard() {
           <ColumnCustomizer
             availableColumns={availableColumns}
             columns={columnPreferences[view]}
-            onChange={(columns) => void updateColumns(columns)}
+            disabled={!columnPreferencesReady}
+            onChange={updateColumns}
             onReset={() =>
-              void updateColumns([...DEFAULT_COLUMNS[view]])
+              updateColumns([...DEFAULT_COLUMNS[view]])
             }
           />
         </div>
         <div className="mt-2 flex min-h-7 items-center justify-between border-t pt-2 text-xs text-muted-foreground">
           <span>
-            {filtered.length} risultati · {selected.size} selezionati
+            {visiblePeople.length} risultati · {selected.size} selezionati
           </span>
           <div className="flex items-center gap-2">
             <button
               className="min-h-7 underline-offset-4 hover:underline"
-              onClick={() => setSelected(new Set(filtered.map(({ id }) => id)))}
+              onClick={() =>
+                setSelected(new Set(visiblePeople.map(({ id }) => id)))
+              }
               type="button"
             >
               Seleziona visibili
@@ -651,6 +770,7 @@ export function ManagementDashboard() {
           onReviewCertificate={reviewCertificate}
           onSelect={toggleSelection}
           onVerifyPayment={verifyPayment}
+          onVisiblePeopleChange={handleVisiblePeopleChange}
           people={filtered}
           selected={selected}
           view={view}

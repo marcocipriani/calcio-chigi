@@ -7,17 +7,21 @@ const publicFormationSummaryMigrationPath =
   "supabase/migrations/20260728010000_public_formation_summaries.sql"
 const seasonStatsMigrationPath =
   "supabase/migrations/20260729010000_season_stats_player_access.sql"
+const profilePreferencesMigrationPath =
+  "supabase/migrations/20260730010000_profile_ui_preferences.sql"
 const schemaPath = "supabase/schema.sql"
 
 const [
   migration,
   publicFormationSummaryMigration,
   seasonStatsMigration,
+  profilePreferencesMigration,
   schema,
 ] = await Promise.all([
   readFile(migrationPath, "utf8"),
   readFile(publicFormationSummaryMigrationPath, "utf8"),
   readFile(seasonStatsMigrationPath, "utf8"),
+  readFile(profilePreferencesMigrationPath, "utf8"),
   readFile(schemaPath, "utf8"),
 ])
 
@@ -128,6 +132,20 @@ assert.match(
   schema,
   /function public\.import_historical_player_stats\(\s*p_season_slug text,\s*p_source_url text,\s*p_rows jsonb\s*\)/i,
   "schema snapshot missing historical player statistics importer",
+)
+assert.match(
+  profilePreferencesMigration,
+  /create table public\.profile_ui_preferences\b/i,
+)
+assert.match(
+  schema,
+  /create table public\.profile_ui_preferences\b/i,
+  "schema snapshot missing profile UI preferences",
+)
+assert.match(
+  profilePreferencesMigration,
+  /profile_id = public\.current_profile_id\(\)/i,
+  "profile UI preferences must remain self-scoped",
 )
 
 console.log(

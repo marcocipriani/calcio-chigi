@@ -22,6 +22,7 @@ const migrationPaths = [
   "supabase/migrations/20260725033000_roster_role_corrections.sql",
   "supabase/migrations/20260728010000_public_formation_summaries.sql",
   "supabase/migrations/20260729010000_season_stats_player_access.sql",
+  "supabase/migrations/20260730010000_profile_ui_preferences.sql",
 ]
 
 const current = await readFile(schemaPath, "utf8")

@@ -871,10 +871,9 @@ export function ManagementTable({
           <TableBody>
             {rows.map((person) => (
               <TableRow
-                className="h-11 cursor-pointer transition-colors"
+                className="h-11 transition-colors"
                 data-state={selected.has(person.id) ? "selected" : undefined}
                 key={person.id}
-                onClick={() => onOpen(person)}
               >
                 <TableCell>
                   <input
@@ -932,33 +931,35 @@ export function ManagementTable({
               onClick={(event) => event.stopPropagation()}
               type="checkbox"
             />
-            <button
-              aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
-              className="flex min-w-0 flex-1 items-center gap-2 text-left transition-transform active:scale-[0.99]"
-              onClick={() => onOpen(person)}
-              type="button"
-            >
-              <span className="min-w-0 flex-1">
-                <PersonIdentity accessibleJersey={false} person={person} />
-                <span className="mt-2 grid gap-1 pl-10">
-                  {mobileColumns.map((column) => (
-                    <span
-                      className="flex min-w-0 items-center gap-2 text-xs"
-                      key={column.id}
-                    >
-                      <span className="text-muted-foreground">
-                        {column.label}:
-                      </span>
-                      {column.render(person, actions, passportPhotoStates)}
-                    </span>
-                  ))}
+            <div className="min-w-0 flex-1">
+              <button
+                aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
+                className="flex w-full min-w-0 items-center gap-2 text-left transition-transform active:scale-[0.99]"
+                onClick={() => onOpen(person)}
+                type="button"
+              >
+                <span className="min-w-0 flex-1">
+                  <PersonIdentity accessibleJersey={false} person={person} />
                 </span>
-              </span>
-              <ChevronRight
-                aria-hidden="true"
-                className="size-4 text-muted-foreground"
-              />
-            </button>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-4 text-muted-foreground"
+                />
+              </button>
+              <div className="mt-2 grid gap-1 pl-10">
+                {mobileColumns.map((column) => (
+                  <div
+                    className="flex min-w-0 items-center gap-2 text-xs"
+                    key={column.id}
+                  >
+                    <span className="text-muted-foreground">
+                      {column.label}:
+                    </span>
+                    {column.render(person, actions, passportPhotoStates)}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ))}
       </div>

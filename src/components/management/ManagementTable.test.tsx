@@ -4,6 +4,15 @@ import { describe, expect, it, vi } from "vitest"
 import { ManagementTable } from "@/components/management/ManagementTable"
 import type { ManagementPerson } from "@/lib/management"
 
+vi.stubGlobal(
+  "ResizeObserver",
+  class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+)
+
 const people: ManagementPerson[] = [
   {
     id: "membership-1",
@@ -72,6 +81,34 @@ function dataRowNames(table: HTMLElement) {
     .getAllByRole("row")
     .slice(2)
     .map((row) => row.textContent)
+}
+
+function renderAttendanceTable(onOpen = vi.fn()) {
+  const player: ManagementPerson = {
+    ...people[0],
+    attendance: {
+      training: { present: 1, total: 1, percentage: 100 },
+      matches: { present: 0, total: 0, percentage: 0 },
+      recentTraining: [
+        {
+          eventId: "training-1",
+          startsAt: "2026-07-20T18:30:00.000Z",
+          status: "PRESENT",
+        },
+      ],
+    },
+  }
+  const result = render(
+    <ManagementTable
+      {...actions}
+      columns={["person", "trainingStreak", "trainingRate", "matchRate"]}
+      onOpen={onOpen}
+      people={[player]}
+      selected={new Set()}
+      view="ATTENDANCE"
+    />,
+  )
+  return { ...result, onOpen, player }
 }
 
 describe("ManagementTable", () => {
@@ -177,5 +214,45 @@ describe("ManagementTable", () => {
       screen.getByRole("dialog", { name: "Fototessera di Anna Rossi" }),
     ).toBeVisible()
     expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it("does not open the person drawer when attendance dots are focused or clicked", () => {
+    const { onOpen } = renderAttendanceTable()
+
+    for (const dot of screen.getAllByLabelText(
+      "Lunedì 20 luglio 2026: presente",
+    )) {
+      fireEvent.focus(dot)
+      fireEvent.click(dot)
+    }
+
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it("keeps attendance dot buttons outside the mobile profile control", () => {
+    const { container } = renderAttendanceTable()
+    const table = screen.getByRole("table")
+    const mobileOpenControl = screen
+      .getAllByRole("button", { name: "Apri scheda di Luca Verdi" })
+      .find((control) => !table.contains(control))
+
+    expect(mobileOpenControl).toBeDefined()
+    expect(mobileOpenControl!.querySelector("button")).toBeNull()
+    expect(container.querySelector("button button")).toBeNull()
+  })
+
+  it("opens the mobile profile only from its explicit control", () => {
+    const { onOpen, player } = renderAttendanceTable()
+    const table = screen.getByRole("table")
+    const mobileOpenControl = screen
+      .getAllByRole("button", { name: "Apri scheda di Luca Verdi" })
+      .find((control) => !table.contains(control))
+
+    fireEvent.click(screen.getByText("Ultimi allenamenti:"))
+    expect(onOpen).not.toHaveBeenCalled()
+
+    fireEvent.click(mobileOpenControl!)
+    expect(onOpen).toHaveBeenCalledOnce()
+    expect(onOpen).toHaveBeenCalledWith(player)
   })
 })

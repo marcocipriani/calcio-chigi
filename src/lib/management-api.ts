@@ -13,6 +13,8 @@ import {
   type ManagementPayment,
   type ManagementPerson,
 } from "@/lib/management"
+import { aggregateManagementAttendance } from "@/lib/management-attendance"
+import type { ColumnPreferences } from "@/lib/management-columns"
 
 type UnknownRow = Record<string, unknown>
 
@@ -191,6 +193,86 @@ export async function fetchManagementPeople(
         "it",
       ),
     )
+}
+
+export async function fetchManagementColumnPreferences(
+  client: SupabaseClient,
+  profileId: string,
+) {
+  const { data, error } = await client
+    .from("profile_ui_preferences")
+    .select("management_columns")
+    .eq("profile_id", profileId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.management_columns ?? null
+}
+
+export async function saveManagementColumnPreferences(
+  client: SupabaseClient,
+  profileId: string,
+  preferences: ColumnPreferences,
+) {
+  const { error } = await client.from("profile_ui_preferences").upsert(
+    { profile_id: profileId, management_columns: preferences },
+    { onConflict: "profile_id" },
+  )
+  if (error) throw error
+}
+
+export async function fetchManagementAttendance(
+  client: SupabaseClient,
+  seasonSlug: string,
+  people: ManagementPerson[],
+) {
+  const { data: season, error: seasonError } = await client
+    .from("seasons")
+    .select("id")
+    .eq("slug", seasonSlug)
+    .single()
+  if (seasonError) throw seasonError
+
+  const { data: events, error: eventsError } = await client
+    .from("events")
+    .select("id, tipo, data_ora")
+    .eq("season_id", season.id)
+    .lte("data_ora", new Date().toISOString())
+    .order("data_ora")
+  if (eventsError) throw eventsError
+
+  const eventIds = (events ?? []).map(({ id }) => id)
+  const { data: checkins, error: checkinsError } = eventIds.length
+    ? await client
+        .from("event_checkins")
+        .select("event_id, profile_id, status")
+        .in("event_id", eventIds)
+    : { data: [], error: null }
+  if (checkinsError) throw checkinsError
+
+  return aggregateManagementAttendance(
+    people
+      .filter(({ category }) => category === "PLAYER")
+      .map(({ profileId, joinedOn }) => ({
+        profileId,
+        joinedOn: joinedOn ?? null,
+      })),
+    (events ?? []).flatMap((event) =>
+      event.data_ora
+        ? [
+            {
+              id: event.id,
+              type: event.tipo,
+              startsAt: event.data_ora,
+            },
+          ]
+        : [],
+    ),
+    (checkins ?? []).map((row) => ({
+      eventId: row.event_id,
+      profileId: row.profile_id,
+      status: row.status,
+    })),
+  )
 }
 
 export async function createManagementPerson(

@@ -6,7 +6,6 @@ import {
   BellPlus,
   CalendarClock,
   CircleDollarSign,
-  FilterX,
   Plus,
   Search,
   UsersRound,
@@ -16,10 +15,10 @@ import { toast } from "sonner"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { AddPersonDialog } from "@/components/management/AddPersonDialog"
 import { BulkPaymentDialog } from "@/components/management/BulkPaymentDialog"
-import { KpiStrip } from "@/components/management/KpiStrip"
+import { ColumnCustomizer } from "@/components/management/ColumnCustomizer"
 import {
+  getAvailableManagementColumns,
   ManagementTable,
-  type ManagementView,
 } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
@@ -54,23 +53,36 @@ import {
 } from "@/components/ui/tooltip"
 import {
   filterManagementRows,
+  managementKpis,
   type ManagementFilters,
   type ManagementPerson,
 } from "@/lib/management"
-import { fetchManagementPeople } from "@/lib/management-api"
+import {
+  fetchManagementAttendance,
+  fetchManagementColumnPreferences,
+  fetchManagementPeople,
+  saveManagementColumnPreferences,
+} from "@/lib/management-api"
+import type { AttendanceSummary } from "@/lib/management-attendance"
+import {
+  DEFAULT_COLUMNS,
+  normalizeColumnPreferences,
+  type ManagementView,
+} from "@/lib/management-columns"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { cn } from "@/lib/utils"
 
 const selectClass =
   "h-9 rounded-md border bg-background px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
-const views: { id: ManagementView; label: string }[] = [
-  { id: "ROSTER", label: "Rosa" },
-  { id: "REGISTRATIONS", label: "Tesseramenti" },
+const views = [
+  { id: "PEOPLE", label: "Persone" },
+  { id: "ATTENDANCE", label: "Presenze" },
   { id: "PAYMENTS", label: "Quote" },
+  { id: "REGISTRATIONS", label: "Tesseramenti" },
   { id: "CERTIFICATES", label: "Certificati" },
   { id: "ACCOUNTS", label: "Account" },
-]
+] satisfies Array<{ id: ManagementView; label: string }>
 
 const emptyFilters: ManagementFilters = {
   query: "",
@@ -80,6 +92,11 @@ type QuickDialog =
   | { kind: "DEADLINE" }
   | { kind: "PAYMENT"; paymentId: string }
   | { kind: "CERTIFICATE"; certificateId: string }
+
+type AttendanceLoadState =
+  | { status: "loading" }
+  | { status: "loaded"; summaries: Map<string, AttendanceSummary> }
+  | { status: "error"; message?: string }
 
 export function ManagementDashboard() {
   const {
@@ -95,8 +112,14 @@ export function ManagementDashboard() {
   )
   const [people, setPeople] = useState<ManagementPerson[]>([])
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<ManagementView>("ROSTER")
+  const [view, setView] = useState<ManagementView>("PEOPLE")
   const [filters, setFilters] = useState(emptyFilters)
+  const [columnPreferences, setColumnPreferences] = useState(() =>
+    normalizeColumnPreferences(null),
+  )
+  const [attendanceBySeason, setAttendanceBySeason] = useState<
+    Record<string, AttendanceLoadState>
+  >({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openPerson, setOpenPerson] = useState<ManagementPerson | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -132,9 +155,83 @@ export function ManagementDashboard() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (!profile?.id) return
+    let active = true
+
+    void (async () => {
+      try {
+        const next = normalizeColumnPreferences(
+          await fetchManagementColumnPreferences(
+            supabaseBrowser,
+            profile.id,
+          ),
+        )
+        if (active) setColumnPreferences(next)
+      } catch {
+        if (active) {
+          setColumnPreferences(normalizeColumnPreferences(null))
+        }
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [profile?.id])
+
+  const attendanceState = attendanceBySeason[seasonSlug]
+
+  useEffect(() => {
+    if (
+      view !== "ATTENDANCE" ||
+      loading ||
+      attendanceBySeason[seasonSlug]
+    ) {
+      return
+    }
+
+    setAttendanceBySeason((current) => ({
+      ...current,
+      [seasonSlug]: { status: "loading" },
+    }))
+
+    void fetchManagementAttendance(supabaseBrowser, seasonSlug, people)
+      .then((summaries) => {
+        setAttendanceBySeason((current) => ({
+          ...current,
+          [seasonSlug]: { status: "loaded", summaries },
+        }))
+      })
+      .catch((error) => {
+        setAttendanceBySeason((current) => ({
+          ...current,
+          [seasonSlug]: {
+            status: "error",
+            message: error instanceof Error ? error.message : undefined,
+          },
+        }))
+      })
+  }, [attendanceBySeason, loading, people, seasonSlug, view])
+
+  const peopleWithAttendance = useMemo(() => {
+    if (attendanceState?.status !== "loaded") return people
+    return people.map((person) => ({
+      ...person,
+      attendance: attendanceState.summaries.get(person.profileId),
+    }))
+  }, [attendanceState, people])
+
+  const tablePeople = useMemo(
+    () =>
+      view === "ATTENDANCE"
+        ? peopleWithAttendance.filter(({ category }) => category === "PLAYER")
+        : peopleWithAttendance,
+    [peopleWithAttendance, view],
+  )
   const filtered = useMemo(
-    () => filterManagementRows(people, filters),
-    [filters, people],
+    () => filterManagementRows(tablePeople, filters),
+    [filters, tablePeople],
   )
   const selectedPeople = useMemo(
     () => people.filter(({ id }) => selected.has(id)),
@@ -143,6 +240,34 @@ export function ManagementDashboard() {
   const selectedUserIds = selectedPeople
     .map(({ userId }) => userId)
     .filter((id): id is string => Boolean(id))
+  const kpis = managementKpis(people)
+  const viewCounts: Record<ManagementView, number> = {
+    PEOPLE: kpis.total,
+    ATTENDANCE: people.filter(({ category }) => category === "PLAYER").length,
+    PAYMENTS: kpis.paymentsOpen,
+    REGISTRATIONS: kpis.registrationsOpen,
+    CERTIFICATES: kpis.certificatesOpen,
+    ACCOUNTS: kpis.accountsOpen,
+  }
+  const availableColumns = getAvailableManagementColumns(view)
+
+  async function updateColumns(nextColumns: string[]) {
+    const next = {
+      ...columnPreferences,
+      [view]: nextColumns,
+    }
+    setColumnPreferences(next)
+    if (!profile?.id) return
+    try {
+      await saveManagementColumnPreferences(
+        supabaseBrowser,
+        profile.id,
+        next,
+      )
+    } catch {
+      toast.error("Preferenze colonne non salvate")
+    }
+  }
 
   if (sessionLoading) {
     return (
@@ -399,65 +524,63 @@ export function ManagementDashboard() {
         title="Gestione"
       />
 
-      <KpiStrip
-        activeView={view}
-        onViewChange={setView}
-        people={people}
-      />
-
       <div className="sticky top-16 z-20 rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
-        <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-          <div
-            aria-label="Viste dashboard"
-            className="flex gap-1 overflow-x-auto"
-            role="tablist"
-          >
-            {views.map((item) => (
-              <button
-                aria-selected={view === item.id}
-                className={cn(
-                  "min-h-9 shrink-0 rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  view === item.id
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted",
-                )}
-                key={item.id}
-                onClick={() => setView(item.id)}
-                role="tab"
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <label className="relative min-w-48 flex-1 xl:w-64 xl:flex-none">
-              <span className="sr-only">Cerca persone</span>
-              <Search
-                aria-hidden="true"
-                className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                className="h-9 pl-8"
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    query: event.target.value,
-                  }))
-                }
-                placeholder="Cerca persona, telefono…"
-                value={filters.query}
-              />
-            </label>
-            <Button
-              aria-label="Azzera filtri"
-              onClick={() => setFilters(emptyFilters)}
-              size="icon"
-              variant="ghost"
+        <div
+          aria-label="Viste dashboard"
+          className="flex gap-1 overflow-x-auto"
+          role="tablist"
+        >
+          {views.map((item) => (
+            <button
+              aria-selected={view === item.id}
+              className={cn(
+                "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                view === item.id
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted",
+              )}
+              key={item.id}
+              onClick={() => setView(item.id)}
+              role="tab"
+              type="button"
             >
-              <FilterX aria-hidden="true" />
-            </Button>
-          </div>
+              {item.label}
+              <span
+                className={cn(
+                  "rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
+                  view === item.id &&
+                    "bg-primary-foreground/15 text-primary-foreground",
+                )}
+              >
+                {viewCounts[item.id]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t pt-2">
+          <label className="relative min-w-48 flex-1 xl:max-w-80">
+            <span className="sr-only">Cerca persone</span>
+            <Search
+              aria-hidden="true"
+              className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              className="h-9 pl-8"
+              onChange={(event) =>
+                setFilters({ query: event.target.value })
+              }
+              placeholder="Cerca persona, telefono…"
+              value={filters.query}
+            />
+          </label>
+          <ColumnCustomizer
+            availableColumns={availableColumns}
+            columns={columnPreferences[view]}
+            onChange={(columns) => void updateColumns(columns)}
+            onReset={() =>
+              void updateColumns([...DEFAULT_COLUMNS[view]])
+            }
+          />
         </div>
         <div className="mt-2 flex min-h-7 items-center justify-between border-t pt-2 text-xs text-muted-foreground">
           <span>
@@ -484,14 +607,45 @@ export function ManagementDashboard() {
         </div>
       </div>
 
-      {loading ? (
+      {loading ||
+      (view === "ATTENDANCE" &&
+        attendanceState?.status === "loading") ? (
         <div className="grid gap-2">
           {Array.from({ length: 7 }, (_, index) => (
             <Skeleton className="h-11 w-full" key={index} />
           ))}
         </div>
+      ) : view === "ATTENDANCE" &&
+        attendanceState?.status === "error" ? (
+        <div
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center"
+          role="alert"
+        >
+          <p className="text-sm font-semibold">Presenze non disponibili</p>
+          {attendanceState.message && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {attendanceState.message}
+            </p>
+          )}
+          <Button
+            className="mt-3"
+            onClick={() =>
+              setAttendanceBySeason((current) => {
+                const next = { ...current }
+                delete next[seasonSlug]
+                return next
+              })
+            }
+            size="sm"
+            variant="outline"
+          >
+            Riprova
+          </Button>
+        </div>
       ) : (
         <ManagementTable
+          columns={columnPreferences[view]}
+          key={view}
           onAccountAction={accountAction}
           onOpen={setOpenPerson}
           onReviewCertificate={reviewCertificate}

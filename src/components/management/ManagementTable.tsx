@@ -1,10 +1,22 @@
 "use client"
 
-import { Check, ChevronRight, ShieldCheck, X } from "lucide-react"
+import { useMemo, useState, type ReactNode } from "react"
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  ChevronsUpDown,
+  ShieldCheck,
+  Shirt,
+  X,
+} from "lucide-react"
 
+import { AttendanceStreak } from "@/components/management/AttendanceStreak"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -14,14 +26,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { ManagementPerson } from "@/lib/management"
+import {
+  applyTableState,
+  DEFAULT_COLUMNS,
+  type ManagementView,
+  type TableSort,
+} from "@/lib/management-columns"
 import { cn } from "@/lib/utils"
-
-export type ManagementView =
-  | "ROSTER"
-  | "REGISTRATIONS"
-  | "PAYMENTS"
-  | "CERTIFICATES"
-  | "ACCOUNTS"
 
 const statusLabel = {
   INTERESTED: "Interessato",
@@ -53,7 +64,18 @@ function Dot({
   )
 }
 
-function PersonIdentity({ person }: { person: ManagementPerson }) {
+function PersonIdentity({
+  person,
+  accessibleJersey = true,
+}: {
+  person: ManagementPerson
+  accessibleJersey?: boolean
+}) {
+  const role =
+    person.category === "PLAYER"
+      ? person.role ?? "Ruolo da assegnare"
+      : person.staffFunction ?? "Staff"
+
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       <Avatar className="size-8 shrink-0">
@@ -71,10 +93,21 @@ function PersonIdentity({ person }: { person: ManagementPerson }) {
         <span className="block truncate text-sm font-semibold">
           {person.nome} {person.cognome}
         </span>
-        <span className="block truncate text-[11px] text-muted-foreground">
-          {person.category === "PLAYER"
-            ? person.role ?? "Ruolo da assegnare"
-            : person.staffFunction ?? "Staff"}
+        <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+          {role}
+          {person.category === "PLAYER" && (
+            <span
+              aria-label={
+                accessibleJersey
+                  ? `Numero maglia ${person.jerseyNumber ?? "non assegnato"}`
+                  : undefined
+              }
+              className="inline-flex items-center gap-0.5"
+            >
+              <Shirt aria-hidden="true" className="size-3" />
+              {person.jerseyNumber ?? "—"}
+            </span>
+          )}
         </span>
       </span>
     </div>
@@ -130,10 +163,96 @@ function CertificateState({ person }: { person: ManagementPerson }) {
   )
 }
 
-function RosterCells({ person }: { person: ManagementPerson }) {
+function RegistrationState({ person }: { person: ManagementPerson }) {
+  const kind =
+    person.registrationStatus === "ACTIVE"
+      ? "good"
+      : person.registrationStatus === "SUBMITTED"
+        ? "warning"
+        : "bad"
   return (
-    <>
-      <TableCell>
+    <Dot
+      kind={kind}
+      label={
+        {
+          ACTIVE: "Tesserato",
+          SUBMITTED: "In verifica",
+          TODO: "Da fare",
+        }[person.registrationStatus]
+      }
+    />
+  )
+}
+
+function percentage(value: number | undefined) {
+  return `${Math.round(value ?? 0)}%`
+}
+
+function displayDate(value: string | null | undefined) {
+  return value
+    ? new Intl.DateTimeFormat("it").format(new Date(value))
+    : "—"
+}
+
+function nextPayment(person: ManagementPerson) {
+  return person.payments
+    .filter(({ status }) => status !== "PAID")
+    .sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"))[0]
+}
+
+export type ManagementTableActions = {
+  onAccountAction: (
+    requestId: string,
+    action: "APPROVE" | "REJECT",
+  ) => void
+  onVerifyPayment: (paymentId: string) => void
+  onReviewCertificate: (certificateId: string, approved: boolean) => void
+}
+
+type ManagementColumn = {
+  id: string
+  label: string
+  required?: boolean
+  filterValue: (
+    person: ManagementPerson,
+  ) => string | number | null | undefined
+  sortValue: (
+    person: ManagementPerson,
+  ) => string | number | null | undefined
+  filter?:
+    | "text"
+    | "category"
+    | "confirmation"
+    | "account"
+    | "payment"
+    | "registration"
+    | "certificate"
+  render: (
+    person: ManagementPerson,
+    actions: ManagementTableActions,
+  ) => ReactNode
+}
+
+const personColumn: ManagementColumn = {
+  id: "person",
+  label: "Persona",
+  required: true,
+  filter: "category",
+  filterValue: (person) => person.category,
+  sortValue: (person) => `${person.cognome} ${person.nome}`,
+  render: (person) => <PersonIdentity person={person} />,
+}
+
+const columnsByView: Record<ManagementView, ManagementColumn[]> = {
+  PEOPLE: [
+    personColumn,
+    {
+      id: "confirmation",
+      label: "Conferma",
+      filter: "confirmation",
+      filterValue: (person) => person.status,
+      sortValue: (person) => statusLabel[person.status],
+      render: (person) => (
         <Dot
           kind={
             person.status === "YES"
@@ -146,90 +265,115 @@ function RosterCells({ person }: { person: ManagementPerson }) {
           }
           label={statusLabel[person.status]}
         />
-      </TableCell>
-      <TableCell className="max-w-36 truncate text-xs">
-        {person.department ?? "—"}
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          {person.isExternal && <Badge variant="outline">EXT</Badge>}
-          {person.isAggregated && <Badge variant="outline">AGG</Badge>}
-          {person.trainingOnly && <Badge variant="secondary">ALL</Badge>}
-        </div>
-      </TableCell>
-      <TableCell className="text-xs">{person.phone ?? "—"}</TableCell>
-      <TableCell>
-        <AccountState person={person} />
-      </TableCell>
-    </>
-  )
-}
-
-function RegistrationCells({ person }: { person: ManagementPerson }) {
-  const kind =
-    person.registrationStatus === "ACTIVE"
-      ? "good"
-      : person.registrationStatus === "SUBMITTED"
-        ? "warning"
-        : "bad"
-  return (
-    <>
-      <TableCell>
-        <Dot
-          kind={kind}
-          label={
-            {
-              ACTIVE: "Tesserato",
-              SUBMITTED: "In verifica",
-              TODO: "Da fare",
-            }[person.registrationStatus]
-          }
-        />
-      </TableCell>
-      <TableCell className="font-mono text-xs">
-        {person.asiCardNumber ?? "—"}
-      </TableCell>
-      <TableCell>
-        <Dot
-          kind={person.passportPhotoPath ? "good" : "bad"}
-          label={person.passportPhotoPath ? "Presente" : "Mancante"}
-        />
-      </TableCell>
-      <TableCell className="text-xs">
-        {person.joinedOn
-          ? new Intl.DateTimeFormat("it").format(new Date(person.joinedOn))
-          : "—"}
-      </TableCell>
-      <TableCell className="text-xs">
-        {person.registrationCompletedOn ?? "—"}
-      </TableCell>
-    </>
-  )
-}
-
-function PaymentCells({
-  person,
-  onVerifyPayment,
-}: {
-  person: ManagementPerson
-  onVerifyPayment: (paymentId: string) => void
-}) {
-  const next = person.payments
-    .filter(({ status }) => status !== "PAID")
-    .sort((a, b) => (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999"))[0]
-  return (
-    <>
-      <TableCell>
-        <PaymentState person={person} />
-      </TableCell>
-      <TableCell className="text-xs">{next?.description ?? "—"}</TableCell>
-      <TableCell className="text-xs">{next?.dueOn ?? "—"}</TableCell>
-      <TableCell>
-        {next?.status === "PENDING_REVIEW" && next.id ? (
+      ),
+    },
+    {
+      id: "phone",
+      label: "Telefono",
+      filter: "text",
+      filterValue: (person) => person.phone,
+      sortValue: (person) => person.phone,
+      render: (person) => (
+        <span className="text-xs">{person.phone ?? "—"}</span>
+      ),
+    },
+    {
+      id: "account",
+      label: "Account",
+      filter: "account",
+      filterValue: (person) => person.accountStatus,
+      sortValue: (person) => person.accountStatus,
+      render: (person) => <AccountState person={person} />,
+    },
+  ],
+  ATTENDANCE: [
+    personColumn,
+    {
+      id: "trainingStreak",
+      label: "Ultimi allenamenti",
+      filterValue: () => "",
+      sortValue: (person) => person.attendance?.training.percentage,
+      render: (person) => (
+        <AttendanceStreak items={person.attendance?.recentTraining ?? []} />
+      ),
+    },
+    {
+      id: "trainingRate",
+      label: "Presenze allenamenti",
+      filterValue: (person) => person.attendance?.training.percentage,
+      sortValue: (person) => person.attendance?.training.percentage,
+      render: (person) => (
+        <span className="text-xs tabular-nums">
+          {percentage(person.attendance?.training.percentage)}
+          <span className="ml-1 text-muted-foreground">
+            ({person.attendance?.training.present ?? 0}/
+            {person.attendance?.training.total ?? 0})
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: "matchRate",
+      label: "Presenze partite",
+      filterValue: (person) => person.attendance?.matches.percentage,
+      sortValue: (person) => person.attendance?.matches.percentage,
+      render: (person) => (
+        <span className="text-xs tabular-nums">
+          {percentage(person.attendance?.matches.percentage)}
+          <span className="ml-1 text-muted-foreground">
+            ({person.attendance?.matches.present ?? 0}/
+            {person.attendance?.matches.total ?? 0})
+          </span>
+        </span>
+      ),
+    },
+  ],
+  PAYMENTS: [
+    personColumn,
+    {
+      id: "payments",
+      label: "Quote",
+      filter: "payment",
+      filterValue: (person) =>
+        person.payments.some(({ status }) => status !== "PAID")
+          ? "OPEN"
+          : "PAID",
+      sortValue: (person) =>
+        person.payments.filter(({ status }) => status !== "PAID").length,
+      render: (person) => <PaymentState person={person} />,
+    },
+    {
+      id: "nextPayment",
+      label: "Prossima quota",
+      filter: "text",
+      filterValue: (person) => nextPayment(person)?.description,
+      sortValue: (person) => nextPayment(person)?.description,
+      render: (person) => (
+        <span className="text-xs">{nextPayment(person)?.description ?? "—"}</span>
+      ),
+    },
+    {
+      id: "dueOn",
+      label: "Scadenza",
+      filter: "text",
+      filterValue: (person) => nextPayment(person)?.dueOn,
+      sortValue: (person) => nextPayment(person)?.dueOn,
+      render: (person) => (
+        <span className="text-xs">{displayDate(nextPayment(person)?.dueOn)}</span>
+      ),
+    },
+    {
+      id: "paymentAction",
+      label: "Azione",
+      filterValue: () => "",
+      sortValue: () => "",
+      render: (person, actions) => {
+        const next = nextPayment(person)
+        return next?.status === "PENDING_REVIEW" && next.id ? (
           <Button
             onClick={(event) => {
               event.stopPropagation()
-              onVerifyPayment(next.id!)
+              actions.onVerifyPayment(next.id!)
             }}
             size="sm"
             variant="outline"
@@ -239,46 +383,126 @@ function PaymentCells({
           </Button>
         ) : (
           "—"
-        )}
-      </TableCell>
-      <TableCell className="text-xs">{next?.method ?? "—"}</TableCell>
-    </>
-  )
-}
-
-function CertificateCells({
-  person,
-  onReviewCertificate,
-}: {
-  person: ManagementPerson
-  onReviewCertificate: (certificateId: string, approved: boolean) => void
-}) {
-  return (
-    <>
-      <TableCell>
-        {person.category === "PLAYER" ? (
+        )
+      },
+    },
+    {
+      id: "method",
+      label: "Metodo",
+      filter: "text",
+      filterValue: (person) => nextPayment(person)?.method,
+      sortValue: (person) => nextPayment(person)?.method,
+      render: (person) => (
+        <span className="text-xs">{nextPayment(person)?.method ?? "—"}</span>
+      ),
+    },
+  ],
+  REGISTRATIONS: [
+    personColumn,
+    {
+      id: "registration",
+      label: "Stato",
+      filter: "registration",
+      filterValue: (person) => person.registrationStatus,
+      sortValue: (person) => person.registrationStatus,
+      render: (person) => <RegistrationState person={person} />,
+    },
+    {
+      id: "asiCard",
+      label: "Tessera ASI",
+      filter: "text",
+      filterValue: (person) => person.asiCardNumber,
+      sortValue: (person) => person.asiCardNumber,
+      render: (person) => (
+        <span className="font-mono text-xs">{person.asiCardNumber ?? "—"}</span>
+      ),
+    },
+    {
+      id: "passportPhoto",
+      label: "Fototessera",
+      filterValue: (person) => (person.passportPhotoPath ? "PRESENT" : "MISSING"),
+      sortValue: (person) => (person.passportPhotoPath ? 1 : 0),
+      render: (person) => (
+        <Dot
+          kind={person.passportPhotoPath ? "good" : "bad"}
+          label={person.passportPhotoPath ? "Presente" : "Mancante"}
+        />
+      ),
+    },
+    {
+      id: "joinedOn",
+      label: "In squadra",
+      filter: "text",
+      filterValue: (person) => person.joinedOn,
+      sortValue: (person) => person.joinedOn,
+      render: (person) => (
+        <span className="text-xs">{displayDate(person.joinedOn)}</span>
+      ),
+    },
+    {
+      id: "completedOn",
+      label: "Completato il",
+      filter: "text",
+      filterValue: (person) => person.registrationCompletedOn,
+      sortValue: (person) => person.registrationCompletedOn,
+      render: (person) => (
+        <span className="text-xs">
+          {displayDate(person.registrationCompletedOn)}
+        </span>
+      ),
+    },
+  ],
+  CERTIFICATES: [
+    personColumn,
+    {
+      id: "certificate",
+      label: "Certificato",
+      filter: "certificate",
+      filterValue: (person) =>
+        person.category === "PLAYER" ? person.certificateStatus : "NOT_REQUIRED",
+      sortValue: (person) => person.certificateStatus,
+      render: (person) =>
+        person.category === "PLAYER" ? (
           <CertificateState person={person} />
         ) : (
           <span className="text-xs text-muted-foreground">Non richiesto</span>
-        )}
-      </TableCell>
-      <TableCell className="text-xs">
-        {person.certificateExpiresOn ?? "—"}
-      </TableCell>
-      <TableCell className="text-xs">
-        {person.certificateStatus === "PENDING_REVIEW"
-          ? "PDF caricato"
-          : "—"}
-      </TableCell>
-      <TableCell>
-        {person.certificateStatus === "PENDING_REVIEW" &&
+        ),
+    },
+    {
+      id: "expiresOn",
+      label: "Scadenza",
+      filter: "text",
+      filterValue: (person) => person.certificateExpiresOn,
+      sortValue: (person) => person.certificateExpiresOn,
+      render: (person) => (
+        <span className="text-xs">{displayDate(person.certificateExpiresOn)}</span>
+      ),
+    },
+    {
+      id: "document",
+      label: "Documento",
+      filterValue: (person) => person.certificateDocumentPath,
+      sortValue: (person) => person.certificateDocumentPath,
+      render: (person) => (
+        <span className="text-xs">
+          {person.certificateDocumentPath ? "PDF caricato" : "—"}
+        </span>
+      ),
+    },
+    {
+      id: "certificateAction",
+      label: "Azione",
+      filterValue: () => "",
+      sortValue: () => "",
+      render: (person, actions) =>
+        person.certificateStatus === "PENDING_REVIEW" &&
         person.certificateId ? (
           <div className="flex gap-1">
             <Button
               aria-label={`Approva certificato di ${person.nome} ${person.cognome}`}
               onClick={(event) => {
                 event.stopPropagation()
-                onReviewCertificate(person.certificateId!, true)
+                actions.onReviewCertificate(person.certificateId!, true)
               }}
               size="icon-sm"
               variant="outline"
@@ -289,7 +513,7 @@ function CertificateCells({
               aria-label={`Respingi certificato di ${person.nome} ${person.cognome}`}
               onClick={(event) => {
                 event.stopPropagation()
-                onReviewCertificate(person.certificateId!, false)
+                actions.onReviewCertificate(person.certificateId!, false)
               }}
               size="icon-sm"
               variant="outline"
@@ -299,36 +523,51 @@ function CertificateCells({
           </div>
         ) : (
           "—"
-        )}
-      </TableCell>
-      <TableCell />
-    </>
-  )
-}
-
-function AccountCells({
-  person,
-  onAccountAction,
-}: {
-  person: ManagementPerson
-  onAccountAction: (requestId: string, action: "APPROVE" | "REJECT") => void
-}) {
-  return (
-    <>
-      <TableCell>
-        <AccountState person={person} />
-      </TableCell>
-      <TableCell className="text-xs">
-        {person.operationalEmail ?? "—"}
-      </TableCell>
-      <TableCell className="text-xs">{person.phone ?? "—"}</TableCell>
-      <TableCell>
-        {person.associationRequestId ? (
+        ),
+    },
+  ],
+  ACCOUNTS: [
+    personColumn,
+    {
+      id: "account",
+      label: "Stato",
+      filter: "account",
+      filterValue: (person) => person.accountStatus,
+      sortValue: (person) => person.accountStatus,
+      render: (person) => <AccountState person={person} />,
+    },
+    {
+      id: "email",
+      label: "Email",
+      filter: "text",
+      filterValue: (person) => person.operationalEmail,
+      sortValue: (person) => person.operationalEmail,
+      render: (person) => (
+        <span className="text-xs">{person.operationalEmail ?? "—"}</span>
+      ),
+    },
+    {
+      id: "phone",
+      label: "Telefono",
+      filter: "text",
+      filterValue: (person) => person.phone,
+      sortValue: (person) => person.phone,
+      render: (person) => (
+        <span className="text-xs">{person.phone ?? "—"}</span>
+      ),
+    },
+    {
+      id: "accountAction",
+      label: "Azioni",
+      filterValue: () => "",
+      sortValue: () => "",
+      render: (person, actions) =>
+        person.associationRequestId ? (
           <div className="flex gap-1">
             <Button
               onClick={(event) => {
                 event.stopPropagation()
-                onAccountAction(person.associationRequestId!, "APPROVE")
+                actions.onAccountAction(person.associationRequestId!, "APPROVE")
               }}
               size="sm"
             >
@@ -337,7 +576,7 @@ function AccountCells({
             <Button
               onClick={(event) => {
                 event.stopPropagation()
-                onAccountAction(person.associationRequestId!, "REJECT")
+                actions.onAccountAction(person.associationRequestId!, "REJECT")
               }}
               size="sm"
               variant="outline"
@@ -347,26 +586,147 @@ function AccountCells({
           </div>
         ) : (
           "—"
-        )}
-      </TableCell>
-      <TableCell>
-        {person.isManager && <Badge className="bg-violet-600">Manager</Badge>}
-      </TableCell>
-    </>
+        ),
+    },
+    {
+      id: "permission",
+      label: "Permesso",
+      filterValue: (person) => (person.isManager ? "MANAGER" : ""),
+      sortValue: (person) => (person.isManager ? 1 : 0),
+      render: (person) =>
+        person.isManager ? (
+          <Badge className="bg-violet-600">Manager</Badge>
+        ) : (
+          "—"
+        ),
+    },
+  ],
+}
+
+export function getAvailableManagementColumns(view: ManagementView) {
+  return columnsByView[view].map(({ id, label, required }) => ({
+    id,
+    label,
+    required,
+  }))
+}
+
+const filterOptions = {
+  category: [
+    ["", "Tutti"],
+    ["PLAYER", "Giocatori"],
+    ["STAFF", "Staff"],
+  ],
+  confirmation: [
+    ["", "Tutte"],
+    ["INTERESTED", "Interessato"],
+    ["PENDING", "Da confermare"],
+    ["YES", "Sì"],
+    ["MAYBE", "Forse"],
+    ["NO", "No"],
+  ],
+  account: [
+    ["", "Tutti"],
+    ["ACTIVE", "Attivo"],
+    ["REQUESTED", "Da approvare"],
+    ["NONE", "Non registrato"],
+  ],
+  payment: [
+    ["", "Tutte"],
+    ["OPEN", "Aperte"],
+    ["PAID", "In regola"],
+  ],
+  registration: [
+    ["", "Tutti"],
+    ["TODO", "Da fare"],
+    ["SUBMITTED", "In verifica"],
+    ["ACTIVE", "Tesserato"],
+  ],
+  certificate: [
+    ["", "Tutti"],
+    ["VALID", "Valido"],
+    ["PENDING_REVIEW", "Da verificare"],
+    ["MISSING", "Mancante"],
+    ["REJECTED", "Respinto"],
+    ["EXPIRED", "Scaduto"],
+    ["NOT_REQUIRED", "Non richiesto"],
+  ],
+} satisfies Record<
+  Exclude<NonNullable<ManagementColumn["filter"]>, "text">,
+  Array<[string, string]>
+>
+
+function ColumnFilter({
+  column,
+  value,
+  onChange,
+}: {
+  column: ManagementColumn
+  value: string
+  onChange: (value: string) => void
+}) {
+  if (!column.filter) return null
+  const label = `Filtra ${column.label}`
+
+  if (column.filter === "text") {
+    return (
+      <Input
+        aria-label={label}
+        className="h-7 min-w-28 text-xs"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Filtra…"
+        value={value}
+      />
+    )
+  }
+
+  return (
+    <select
+      aria-label={label}
+      className="h-7 min-w-28 rounded-md border bg-background px-2 text-xs"
+      onChange={(event) => onChange(event.target.value)}
+      value={value}
+    >
+      {filterOptions[column.filter].map(([optionValue, optionLabel]) => (
+        <option key={optionValue} value={optionValue}>
+          {optionLabel}
+        </option>
+      ))}
+    </select>
   )
 }
 
-const headers: Record<ManagementView, string[]> = {
-  ROSTER: ["Conferma", "Dipartimento", "Tag", "Telefono", "Account"],
-  REGISTRATIONS: ["Stato", "Tessera ASI", "Fototessera", "In squadra", "Data"],
-  PAYMENTS: ["Quote", "Prossima quota", "Scadenza", "Azione", "Metodo"],
-  CERTIFICATES: ["Certificato", "Scadenza", "Documento", "Azione", ""],
-  ACCOUNTS: ["Stato", "Email", "Telefono", "Azioni", "Permesso"],
+function nextSort(current: TableSort, columnId: string): TableSort {
+  if (!current || current.columnId !== columnId) {
+    return { columnId, direction: "asc" }
+  }
+  if (current.direction === "asc") {
+    return { columnId, direction: "desc" }
+  }
+  return null
+}
+
+function SortIcon({
+  sort,
+  columnId,
+}: {
+  sort: TableSort
+  columnId: string
+}) {
+  if (sort?.columnId !== columnId) {
+    return <ChevronsUpDown aria-hidden="true" className="size-3 opacity-50" />
+  }
+  return sort.direction === "asc" ? (
+    <ChevronUp aria-hidden="true" className="size-3" />
+  ) : (
+    <ChevronDown aria-hidden="true" className="size-3" />
+  )
 }
 
 export function ManagementTable({
   people,
   view,
+  columns = DEFAULT_COLUMNS[view],
   selected,
   onSelect,
   onOpen,
@@ -376,16 +736,61 @@ export function ManagementTable({
 }: {
   people: ManagementPerson[]
   view: ManagementView
+  columns?: string[]
   selected: Set<string>
   onSelect: (membershipId: string) => void
   onOpen: (person: ManagementPerson) => void
-  onAccountAction: (
-    requestId: string,
-    action: "APPROVE" | "REJECT",
-  ) => void
-  onVerifyPayment: (paymentId: string) => void
-  onReviewCertificate: (certificateId: string, approved: boolean) => void
+  onAccountAction: ManagementTableActions["onAccountAction"]
+  onVerifyPayment: ManagementTableActions["onVerifyPayment"]
+  onReviewCertificate: ManagementTableActions["onReviewCertificate"]
 }) {
+  const [sort, setSort] = useState<TableSort>(null)
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const visibleColumns = useMemo(() => {
+    const byId = new Map(columnsByView[view].map((column) => [column.id, column]))
+    return columns
+      .map((id) => byId.get(id))
+      .filter((column): column is ManagementColumn => Boolean(column))
+  }, [columns, view])
+  const accessors = useMemo(
+    () =>
+      Object.fromEntries(
+        columnsByView[view].map((column) => [
+          column.id,
+          {
+            filterValue: column.filterValue,
+            sortValue: column.sortValue,
+          },
+        ]),
+      ),
+    [view],
+  )
+  const rows = useMemo(
+    () =>
+      applyTableState(
+        people,
+        accessors,
+        Object.fromEntries(
+          visibleColumns.map(({ id }) => [id, filters[id] ?? ""]),
+        ),
+        sort,
+      ),
+    [accessors, filters, people, sort, visibleColumns],
+  )
+  const actions = useMemo(
+    () => ({ onAccountAction, onReviewCertificate, onVerifyPayment }),
+    [onAccountAction, onReviewCertificate, onVerifyPayment],
+  )
+  const mobileColumns = visibleColumns
+    .filter(
+      ({ id }) =>
+        id !== "person" &&
+        id !== "paymentAction" &&
+        id !== "certificateAction" &&
+        id !== "accountAction",
+    )
+    .slice(0, 2)
+
   return (
     <>
       <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
@@ -395,17 +800,56 @@ export function ManagementTable({
               <TableHead className="w-10">
                 <span className="sr-only">Selezione</span>
               </TableHead>
-              <TableHead className="min-w-56">Persona</TableHead>
-              {headers[view].map((header, index) => (
-                <TableHead className="whitespace-nowrap" key={`${header}-${index}`}>
-                  {header}
+              {visibleColumns.map((column) => (
+                <TableHead
+                  aria-sort={
+                    sort?.columnId === column.id
+                      ? sort.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className={cn(
+                    "whitespace-nowrap",
+                    column.id === "person" && "min-w-56",
+                  )}
+                  key={column.id}
+                >
+                  <button
+                    className="inline-flex min-h-8 items-center gap-1 font-medium"
+                    onClick={() =>
+                      setSort((current) => nextSort(current, column.id))
+                    }
+                    type="button"
+                  >
+                    {column.label}
+                    <SortIcon columnId={column.id} sort={sort} />
+                  </button>
                 </TableHead>
               ))}
               <TableHead className="w-10" />
             </TableRow>
+            <TableRow>
+              <TableHead />
+              {visibleColumns.map((column) => (
+                <TableHead className="pb-2 align-top" key={column.id}>
+                  <ColumnFilter
+                    column={column}
+                    onChange={(value) =>
+                      setFilters((current) => ({
+                        ...current,
+                        [column.id]: value,
+                      }))
+                    }
+                    value={filters[column.id] ?? ""}
+                  />
+                </TableHead>
+              ))}
+              <TableHead />
+            </TableRow>
           </TableHeader>
           <TableBody>
-            {people.map((person) => (
+            {rows.map((person) => (
               <TableRow
                 className="h-11 cursor-pointer transition-colors"
                 data-state={selected.has(person.id) ? "selected" : undefined}
@@ -422,31 +866,11 @@ export function ManagementTable({
                     type="checkbox"
                   />
                 </TableCell>
-                <TableCell>
-                  <PersonIdentity person={person} />
-                </TableCell>
-                {view === "ROSTER" && <RosterCells person={person} />}
-                {view === "REGISTRATIONS" && (
-                  <RegistrationCells person={person} />
-                )}
-                {view === "PAYMENTS" && (
-                  <PaymentCells
-                    onVerifyPayment={onVerifyPayment}
-                    person={person}
-                  />
-                )}
-                {view === "CERTIFICATES" && (
-                  <CertificateCells
-                    onReviewCertificate={onReviewCertificate}
-                    person={person}
-                  />
-                )}
-                {view === "ACCOUNTS" && (
-                  <AccountCells
-                    onAccountAction={onAccountAction}
-                    person={person}
-                  />
-                )}
+                {visibleColumns.map((column) => (
+                  <TableCell key={column.id}>
+                    {column.render(person, actions)}
+                  </TableCell>
+                ))}
                 <TableCell>
                   <Button
                     aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
@@ -467,7 +891,7 @@ export function ManagementTable({
             ))}
           </TableBody>
         </Table>
-        {people.length === 0 && (
+        {rows.length === 0 && (
           <p className="py-12 text-center text-sm text-muted-foreground">
             Nessuna persona corrisponde ai filtri.
           </p>
@@ -475,7 +899,7 @@ export function ManagementTable({
       </div>
 
       <div className="grid gap-2 md:hidden">
-        {people.map((person) => (
+        {rows.map((person) => (
           <div
             className="flex min-h-20 items-center gap-3 rounded-lg border bg-card p-3 shadow-xs"
             key={person.id}
@@ -495,14 +919,20 @@ export function ManagementTable({
               type="button"
             >
               <span className="min-w-0 flex-1">
-              <PersonIdentity person={person} />
-              <span className="mt-2 flex flex-wrap gap-2 pl-10">
-                <Dot
-                  kind={person.status === "YES" ? "good" : "warning"}
-                  label={statusLabel[person.status]}
-                />
-                <AccountState person={person} />
-              </span>
+                <PersonIdentity accessibleJersey={false} person={person} />
+                <span className="mt-2 grid gap-1 pl-10">
+                  {mobileColumns.map((column) => (
+                    <span
+                      className="flex min-w-0 items-center gap-2 text-xs"
+                      key={column.id}
+                    >
+                      <span className="text-muted-foreground">
+                        {column.label}:
+                      </span>
+                      {column.render(person, actions)}
+                    </span>
+                  ))}
+                </span>
               </span>
               <ChevronRight
                 aria-hidden="true"
@@ -515,3 +945,5 @@ export function ManagementTable({
     </>
   )
 }
+
+export type { ManagementView } from "@/lib/management-columns"

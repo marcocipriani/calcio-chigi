@@ -684,7 +684,7 @@ export function FormationBuilder({
                             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-t-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-b-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-15 pointer-events-none">
-                                <Image src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" alt="" width={128} height={128} className="w-32 h-32 grayscale brightness-200" />
+                                <Image src="/logo-circolo-chigi-mark.webp" alt="Logo Circolo Chigi" width={128} height={128} className="h-32 w-32 object-contain" />
                             </div>
 
                             {(FORMATIONS[module] as FormationSlotDef[]).map((slot) => (

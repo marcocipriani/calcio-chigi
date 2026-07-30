@@ -32,7 +32,7 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 }))
 
 describe("Calendar page", () => {
-  it("keeps one desktop title action and one mobile FAB for managers", async () => {
+  it("keeps one responsive add action in the titlebar", async () => {
     render(<Home />)
 
     await waitFor(() => {
@@ -41,29 +41,27 @@ describe("Calendar page", () => {
       ).toBeVisible()
     })
 
-    const addActions = screen.getAllByRole("button", {
+    const addAction = screen.getByRole("button", {
       name: "Aggiungi evento",
     })
-    expect(addActions).toHaveLength(2)
-    expect(
-      addActions.find((action) => action.classList.contains("sm:inline-flex")),
-    ).toHaveClass("hidden", "sm:inline-flex")
-    expect(
-      addActions.find((action) => action.classList.contains("sm:hidden")),
-    ).toHaveClass("sm:hidden", "fixed", "size-14")
+    expect(addAction).toHaveClass(
+      "size-11",
+      "rounded-full",
+      "sm:h-8",
+      "sm:w-auto",
+      "sm:rounded-md",
+    )
+    expect(addAction).not.toHaveClass("fixed", "bottom-24", "sm:hidden")
+    expect(screen.getByLabelText("Azioni pagina")).toContainElement(addAction)
   })
 
-  it("explains the icon-only mobile add action on hover", async () => {
+  it("explains the icon-only title action on mobile", async () => {
     render(<Home />)
 
-    const mobileAddAction = await waitFor(() => {
-      const action = screen
-        .getAllByRole("button", { name: "Aggiungi evento" })
-        .find((button) => button.classList.contains("sm:hidden"))
-      expect(action).toBeDefined()
-      return action!
+    const addAction = await screen.findByRole("button", {
+      name: "Aggiungi evento",
     })
-    fireEvent.pointerMove(mobileAddAction)
+    fireEvent.pointerMove(addAction)
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Aggiungi evento",
@@ -73,12 +71,10 @@ describe("Calendar page", () => {
   it("uses violet for calendar actions and selected tools", async () => {
     render(<Home />)
 
-    const addActions = await screen.findAllByRole("button", {
+    const addAction = await screen.findByRole("button", {
       name: "Aggiungi evento",
     })
-    for (const action of addActions) {
-      expect(action).toHaveClass("bg-violet-600", "hover:bg-violet-700")
-    }
+    expect(addAction).toHaveClass("bg-violet-600", "hover:bg-violet-700")
 
     const matches = screen.getByRole("button", { name: "Partite" })
     expect(matches.querySelector("svg")).toHaveClass(

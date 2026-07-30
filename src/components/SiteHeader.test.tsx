@@ -61,6 +61,10 @@ describe("SiteHeader", () => {
   it("keeps a compact app title visible on mobile", () => {
     render(<SiteHeader />)
 
+    expect(screen.getByRole("img", { name: "Logo Circolo Chigi" })).toHaveAttribute(
+      "src",
+      expect.stringContaining("logo-circolo-chigi-mark"),
+    )
     expect(screen.getByText("Calcio Chigi", { exact: true })).toHaveClass(
       "sm:hidden",
     )

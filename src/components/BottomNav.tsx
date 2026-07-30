@@ -22,8 +22,8 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-safe shadow-sm backdrop-blur-md md:inset-x-auto md:right-auto md:bottom-4 md:left-1/2 md:-translate-x-1/2 md:rounded-full md:border md:p-1 md:pb-1 md:shadow-md">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around md:h-14 md:max-w-none">
+    <nav className="bottom-nav-safe fixed inset-x-2 z-40 rounded-full border border-border bg-background/95 p-1 shadow-md backdrop-blur-md md:inset-x-auto md:right-auto md:bottom-4 md:left-1/2 md:-translate-x-1/2">
+      <div className="mx-auto flex h-14 max-w-lg items-center justify-around md:max-w-none">
         {links.map(({ href, label, icon: Icon }) => {
           // Logica attiva: Home esatta oppure sottopagina (es. /torneo/classifica)
           const isActive = href === '/' ? pathname === '/' : pathname?.startsWith(href);
@@ -34,10 +34,10 @@ export function BottomNav() {
               key={href} 
               href={href} 
               className={cn(
-                "group flex h-full w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-muted-foreground transition-[color,background-color,transform] duration-200 active:scale-95 md:w-24",
+                "group flex h-full min-w-0 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full px-1 text-muted-foreground transition-[color,background-color,box-shadow,transform] duration-200 active:scale-95 md:w-24",
                 isActive
-                  ? "bg-violet-100/80 text-violet-800 dark:bg-violet-900/70 dark:text-violet-100"
-                  : "hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
+                  : "hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50 dark:hover:text-violet-200",
               )}
             >
               <span

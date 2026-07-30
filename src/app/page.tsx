@@ -495,15 +495,20 @@ export default function Home() {
       <div className="flex flex-col gap-2">
           <PageTitleBar
             actions={isManager ? (
-              <Button
-                aria-label="Aggiungi evento"
-                className="hidden gap-1.5 bg-violet-600 text-white hover:bg-violet-700 sm:inline-flex"
-                onClick={handleCreateNew}
-                size="sm"
-              >
-                <Plus aria-hidden="true" />
-                Aggiungi evento
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="Aggiungi evento"
+                    className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                    onClick={handleCreateNew}
+                    size="sm"
+                  >
+                    <Plus aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only">Aggiungi evento</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Aggiungi evento</TooltipContent>
+              </Tooltip>
             ) : null}
             context={nextMatch ? (
               <div className="flex justify-end">
@@ -694,21 +699,6 @@ export default function Home() {
                 {renderDesktopCalendar()}
             </div>
         </>
-      )}
-
-      {isManager && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="Aggiungi evento"
-                className="fixed right-4 bottom-24 z-50 size-14 rounded-full bg-violet-600 text-white shadow-lg transition-transform hover:scale-105 hover:bg-violet-700 active:scale-95 sm:hidden"
-                onClick={handleCreateNew}
-              >
-              <Plus className="size-8" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="sm:hidden">Aggiungi evento</TooltipContent>
-          </Tooltip>
       )}
 
       <EventDialog 

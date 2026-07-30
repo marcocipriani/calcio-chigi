@@ -1,4 +1,4 @@
-const CACHE_NAME = "real-chigi-cache-v3";
+const CACHE_NAME = "real-chigi-cache-v4";
 
 const STATIC_ASSETS = [
   "/manifest.json",
@@ -6,6 +6,8 @@ const STATIC_ASSETS = [
   "/icon-192x192.png",
   "/icon-512x512.png",
   "/icon.png",
+  "/logo-circolo-chigi.webp",
+  "/logo-circolo-chigi-mark.webp",
 ];
 
 self.addEventListener("install", (event) => {

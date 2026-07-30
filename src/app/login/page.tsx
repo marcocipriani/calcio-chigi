@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Mail } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { PageContainer } from "@/components/layout/PageContainer"
@@ -89,15 +89,15 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-xl border-t-4 border-t-primary animate-in fade-in zoom-in-95 duration-300">
         <CardHeader className="flex flex-col items-center gap-4 pb-2">
 
-          <div className="relative h-24 w-24 rounded-full bg-white shadow-md flex items-center justify-center p-1 border-2 border-slate-100">
-             <Avatar className="h-full w-full">
-                <AvatarImage 
-                    src="https://cdn.enjore.com/source/img/team/badge/q/1068461sZGTQo021pdfMG4.png" 
-                    className="object-contain"
-                    alt="Logo Circolo Chigi"
-                />
-                <AvatarFallback>CC</AvatarFallback>
-             </Avatar>
+          <div className="relative h-32 w-28 overflow-hidden rounded-2xl bg-slate-950 shadow-md ring-1 ring-slate-800">
+            <Image
+              alt="Logo Circolo Chigi"
+              className="object-contain p-2"
+              fill
+              priority
+              sizes="112px"
+              src="/logo-circolo-chigi.webp"
+            />
           </div>
 
           <div className="text-center space-y-1">

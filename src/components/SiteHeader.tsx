@@ -31,12 +31,12 @@ export function SiteHeader() {
         >
           <span className="relative size-8 shrink-0 sm:size-9">
             <Image
-              alt=""
+              alt="Logo Circolo Chigi"
               className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
               fill
               priority
               sizes="36px"
-              src="/icon.png"
+              src="/logo-circolo-chigi-mark.webp"
             />
           </span>
           <span className="truncate text-[11px] font-black uppercase tracking-tight sm:hidden">

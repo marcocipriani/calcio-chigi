@@ -1,7 +1,8 @@
-import { differenceInYears, format, subMinutes } from "date-fns"
+import { format, subMinutes } from "date-fns"
 import { it } from "date-fns/locale"
 
 import { FORMATIONS } from "@/lib/constants"
+import { isU35At } from "@/lib/utils"
 
 type FormationEvent = {
   data_ora: string | null
@@ -33,10 +34,7 @@ export function isUnderPlayer(
   birthDate: string | null | undefined,
   matchDate: Date,
 ) {
-  return Boolean(
-    birthDate &&
-      differenceInYears(matchDate, new Date(birthDate)) < 35,
-  )
+  return isU35At(birthDate, matchDate)
 }
 
 function opponent(event: FormationEvent) {

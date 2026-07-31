@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { differenceInYears } from "date-fns"
+import { differenceInYears, isAfter, isValid, parseISO } from "date-fns"
 import { Event, Team, StandingRow } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
@@ -8,7 +8,27 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const getAge = (dob?: string | null) => dob ? differenceInYears(new Date(), new Date(dob)) : null;
-export const isU35 = (dob?: string | null) => { const age = getAge(dob); return age !== null && age < 35; };
+
+export function ageGroupAt(
+  birthDate: string | null | undefined,
+  referenceDate: Date,
+): "U35" | "OVER_35" | null {
+  if (!birthDate || !isValid(referenceDate)) return null
+  const parsedBirthDate = parseISO(birthDate)
+  if (!isValid(parsedBirthDate) || isAfter(parsedBirthDate, referenceDate)) {
+    return null
+  }
+  return differenceInYears(referenceDate, parsedBirthDate) < 35
+    ? "U35"
+    : "OVER_35"
+}
+
+export const isU35At = (
+  birthDate: string | null | undefined,
+  referenceDate: Date,
+) => ageGroupAt(birthDate, referenceDate) === "U35"
+
+export const isU35 = (dob?: string | null) => isU35At(dob, new Date())
 
 // Team names arrive UPPERCASE from the sync script but teams.nome may be stored in any case:
 // normalize both sides so the standings/form never silently drop matches on a casing mismatch.

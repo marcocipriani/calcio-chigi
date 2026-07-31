@@ -216,7 +216,10 @@ export default function Home() {
       const weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
       return (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 select-none">
+          <div
+              className="animate-in fade-in slide-in-from-bottom-2 duration-300 select-none"
+              data-calendar-layout="mobile"
+          >
               <div className="flex items-center justify-between mb-4 px-2">
                   <Button aria-label="Mese precedente" variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
                       <ChevronLeft className="h-5 w-5" />
@@ -239,55 +242,73 @@ export default function Home() {
 
               <div className="grid grid-cols-7 gap-1 lg:gap-2">
                   {days.map((day, i) => {
-                      const dayEvents = filteredEvents.filter(e => e.data_ora && isSameDay(new Date(e.data_ora), day));
+                      const allDayEvents = filteredEvents.filter(
+                          (event) => event.data_ora && isSameDay(new Date(event.data_ora), day)
+                      );
+                      const dayEvents = allDayEvents.slice(0, 2);
+                      const remaining = allDayEvents.length - dayEvents.length;
                       const isCurrentMonth = isSameMonth(day, monthStart);
                       const isDayToday = isToday(day);
 
                       return (
-                          <div 
-                            key={i} 
-                            className={`min-h-[80px] lg:min-h-[100px] rounded-xl border flex flex-col items-center justify-start pt-1.5 relative transition-colors
+                          <div
+                            key={i}
+                            data-calendar-date={format(day, 'yyyy-MM-dd')}
+                            className={`flex h-[72px] flex-col items-center justify-start overflow-hidden rounded-xl border px-0.5 pt-1 transition-colors
                                 ${isCurrentMonth ? 'bg-card' : 'bg-muted/20 opacity-50'}
-                                ${isDayToday ? 'border-primary ring-1 ring-primary/20 bg-primary/5' : 'border-border'}
+                                ${isDayToday ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border'}
                             `}
                           >
-                              <span className={`text-xs font-medium mb-1 ${isDayToday ? 'text-primary font-black' : 'text-muted-foreground'}`}>
+                              <span className={`mb-0.5 text-[10px] font-medium leading-none ${isDayToday ? 'text-primary font-black' : 'text-muted-foreground'}`}>
                                   {format(day, dateFormat)}
                               </span>
 
-                              <div className="flex flex-wrap justify-center gap-1.5 w-full px-1">
+                              <div className="flex w-full justify-center gap-0.5 px-0.5">
                                   {dayEvents.map((evt) => {
                                       const isMatch = evt.tipo === 'PARTITA';
                                       const isCancelled = evt.cancellato;
                                       const opponentLogo = isMatch ? getLogo(evt.avversario) : null;
+                                      const accessibleLabel = `${isCancelled ? 'Annullato: ' : ''}${
+                                          isMatch ? `Partita contro ${evt.avversario ?? 'avversario'}` : 'Allenamento'
+                                      }, ${format(new Date(evt.data_ora!), 'd MMMM yyyy, HH:mm', { locale: it })}`;
                                       
                                       return (
                                         <TooltipProvider key={evt.id}>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Link href={`/evento/${evt.id}`}>
-                                                        <div 
-                                                            className={`h-7 w-7 flex items-center justify-center rounded-full shadow-sm cursor-pointer hover:scale-110 transition-transform overflow-hidden
-                                                                ${isCancelled 
-                                                                    ? 'bg-slate-200 text-slate-500' 
-                                                                    : (isMatch 
-                                                                        ? 'bg-white border border-blue-600' 
-                                                                        : 'bg-orange-500 text-white border border-transparent')
-                                                                }
-                                                            `}
-                                                        >
-                                                            {isCancelled ? (
-                                                                <X className="h-4 w-4" /> 
-                                                            ) : (isMatch ? (
-                                                                opponentLogo ? (
-                                                                    <Image src={opponentLogo} alt={`Logo ${evt.avversario ?? 'avversario'}`} width={28} height={28} className="h-full w-full object-cover" />
-                                                                ) : (
-                                                                    <Trophy className="h-3.5 w-3.5 text-blue-600" />
-                                                                )
+                                                    <Link
+                                                        href={`/evento/${evt.id}`}
+                                                        aria-label={accessibleLabel}
+                                                        data-calendar-event
+                                                        data-event-type={evt.tipo}
+                                                        className={`flex h-7 w-5 shrink-0 flex-col items-center justify-center gap-0.5 rounded border transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                                            isCancelled
+                                                                ? 'border-border bg-muted text-muted-foreground line-through opacity-70'
+                                                                : isMatch
+                                                                    ? 'border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200'
+                                                                    : 'border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-200'
+                                                        }`}
+                                                    >
+                                                        {isCancelled ? (
+                                                            <X className="size-4" aria-hidden="true" />
+                                                        ) : isMatch ? (
+                                                            opponentLogo ? (
+                                                                <Image
+                                                                    src={opponentLogo}
+                                                                    alt=""
+                                                                    width={16}
+                                                                    height={16}
+                                                                    className="size-4 object-contain"
+                                                                />
                                                             ) : (
-                                                                <Dumbbell className="h-3.5 w-3.5" />
-                                                            ))}
-                                                        </div>
+                                                                <Trophy className="size-4 text-blue-600" aria-hidden="true" />
+                                                            )
+                                                        ) : (
+                                                            <Dumbbell className="size-4" aria-hidden="true" />
+                                                        )}
+                                                        <span className="text-[7px] font-black leading-none">
+                                                            {format(new Date(evt.data_ora!), 'HH:mm')}
+                                                        </span>
                                                     </Link>
                                                 </TooltipTrigger>
                                                 <TooltipContent className="text-xs bg-slate-900 text-white border-slate-800 p-2">
@@ -308,6 +329,11 @@ export default function Home() {
                                       );
                                   })}
                               </div>
+                              {remaining > 0 && (
+                                  <span className="mt-0.5 text-[7px] font-black leading-none text-muted-foreground">
+                                      +{remaining}
+                                  </span>
+                              )}
                           </div>
                       );
                   })}

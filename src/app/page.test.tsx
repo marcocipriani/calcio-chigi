@@ -1,9 +1,21 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { format } from "date-fns"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import Home from "@/app/page"
+import type { Event } from "@/lib/types"
 
-const { removeChannel } = vi.hoisted(() => ({ removeChannel: vi.fn() }))
+const {
+  fetchCalendarEvents,
+  fetchTeams,
+  getUserContext,
+  removeChannel,
+} = vi.hoisted(() => ({
+  fetchCalendarEvents: vi.fn(),
+  fetchTeams: vi.fn(),
+  getUserContext: vi.fn(),
+  removeChannel: vi.fn(),
+}))
 
 class TestResizeObserver {
   observe() {}
@@ -14,12 +26,9 @@ class TestResizeObserver {
 vi.stubGlobal("ResizeObserver", TestResizeObserver)
 
 vi.mock("@/lib/api", () => ({
-  fetchCalendarEvents: vi.fn().mockResolvedValue([]),
-  fetchTeams: vi.fn().mockResolvedValue([]),
-  getUserContext: vi.fn().mockResolvedValue({
-    isManager: true,
-    defaultView: "ACTIVITY",
-  }),
+  fetchCalendarEvents,
+  fetchTeams,
+  getUserContext,
 }))
 
 vi.mock("@/lib/supabaseBrowser", () => ({
@@ -30,6 +39,102 @@ vi.mock("@/lib/supabaseBrowser", () => ({
     removeChannel,
   },
 }))
+
+beforeEach(() => {
+  fetchCalendarEvents.mockReset().mockResolvedValue([])
+  fetchTeams.mockReset().mockResolvedValue([])
+  getUserContext.mockReset().mockResolvedValue({
+    isManager: true,
+    defaultView: "ACTIVITY",
+  })
+  removeChannel.mockClear()
+})
+
+function dateInCurrentMonth(day: number, hour: number, minute = 0) {
+  const date = new Date()
+  date.setDate(day)
+  date.setHours(hour, minute, 0, 0)
+  return date
+}
+
+function calendarEvent(
+  values: Pick<Event, "id" | "tipo" | "data_ora"> & Partial<Event>,
+): Event {
+  return {
+    created_at: "2026-07-31T00:00:00.000Z",
+    season_id: "season-calendar-test",
+    luogo: "Campo Circolo Chigi",
+    giocata: false,
+    cancellato: false,
+    ...values,
+  }
+}
+
+function seedCalendarFixtures() {
+  const dates = {
+    empty: dateInCurrentMonth(9, 12),
+    single: dateInCurrentMonth(10, 20, 30),
+    double: dateInCurrentMonth(11, 19),
+    overflow: dateInCurrentMonth(12, 18),
+    cancelled: dateInCurrentMonth(13, 18),
+  }
+
+  fetchCalendarEvents.mockResolvedValue([
+    calendarEvent({
+      id: "match-logo",
+      tipo: "PARTITA",
+      data_ora: dates.single.toISOString(),
+      avversario: "PSICOLOGOL",
+      luogo: "Vigor Perconti",
+    }),
+    calendarEvent({
+      id: "match-fallback",
+      tipo: "PARTITA",
+      data_ora: dates.double.toISOString(),
+      avversario: "Associazione Sportiva Avversaria dal Nome Molto Lungo",
+    }),
+    calendarEvent({
+      id: "training-double",
+      tipo: "ALLENAMENTO",
+      data_ora: dateInCurrentMonth(11, 21).toISOString(),
+    }),
+    calendarEvent({
+      id: "overflow-one",
+      tipo: "ALLENAMENTO",
+      data_ora: dates.overflow.toISOString(),
+    }),
+    calendarEvent({
+      id: "overflow-two",
+      tipo: "PARTITA",
+      data_ora: dateInCurrentMonth(12, 19).toISOString(),
+      avversario: "Veterinari",
+    }),
+    calendarEvent({
+      id: "overflow-three",
+      tipo: "ALLENAMENTO",
+      data_ora: dateInCurrentMonth(12, 20).toISOString(),
+    }),
+    calendarEvent({
+      id: "cancelled-training",
+      tipo: "ALLENAMENTO",
+      data_ora: dates.cancelled.toISOString(),
+      cancellato: true,
+    }),
+  ])
+  fetchTeams.mockResolvedValue([
+    {
+      id: "team-psicologol",
+      nome: "PSICOLOGOL",
+      logo_url: "/teams/psicologi.png",
+    },
+  ])
+  getUserContext.mockResolvedValue({
+    isManager: true,
+    defaultView: "CALENDAR",
+  })
+
+  return dates
+}
 
 describe("Calendar page", () => {
   it("keeps one responsive add action in the titlebar", async () => {
@@ -108,5 +213,75 @@ describe("Calendar page", () => {
       "bg-foreground",
       "text-background",
     )
+  })
+
+  it("renders zero, one, two, overflow, logo, fallback, and cancelled states on mobile", async () => {
+    const dates = seedCalendarFixtures()
+    const { container } = render(<Home />)
+
+    await screen.findAllByRole("link", {
+      name: /Partita contro PSICOLOGOL, .*20:30/i,
+    })
+
+    const mobile = container.querySelector<HTMLElement>(
+      '[data-calendar-layout="mobile"]',
+    )
+    expect(mobile).not.toBeNull()
+
+    const cell = (date: Date) =>
+      mobile!.querySelector<HTMLElement>(
+        `[data-calendar-date="${format(date, "yyyy-MM-dd")}"]`,
+      )!
+
+    expect(
+      cell(dates.empty).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(0)
+    expect(
+      cell(dates.single).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(1)
+    const doubleEvents = cell(dates.double).querySelectorAll(
+      "[data-calendar-event]",
+    )
+    expect(doubleEvents).toHaveLength(2)
+    expect(doubleEvents[0].parentElement).toHaveClass(
+      "flex",
+      "justify-center",
+      "gap-0.5",
+    )
+    expect(doubleEvents[0]).toHaveClass("w-5")
+    expect(doubleEvents[1]).toHaveClass("w-5")
+    expect(
+      cell(dates.overflow).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(2)
+    expect(cell(dates.overflow)).toHaveTextContent("+1")
+
+    const logoMatch = mobile!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/match-logo"]',
+    )!
+    expect(logoMatch).toHaveClass("bg-blue-50")
+    expect(logoMatch.querySelector("img")).toHaveAttribute("alt", "")
+    expect(logoMatch.querySelector("img")).toHaveClass(
+      "size-4",
+      "object-contain",
+    )
+
+    const fallbackMatch = mobile!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/match-fallback"]',
+    )!
+    expect(fallbackMatch.querySelector("img")).toBeNull()
+    expect(fallbackMatch.querySelector("svg")).not.toBeNull()
+
+    const training = mobile!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/training-double"]',
+    )!
+    expect(training).toHaveClass("bg-orange-50")
+    expect(training).toHaveAttribute("data-event-type", "ALLENAMENTO")
+
+    const cancelled = mobile!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/cancelled-training"]',
+    )!
+    expect(cancelled).toHaveClass("bg-muted", "line-through")
+    expect(cancelled).not.toHaveClass("bg-orange-50", "bg-blue-50")
+    expect(cancelled).toHaveAccessibleName(/Annullato: Allenamento, .*18:00/i)
   })
 })

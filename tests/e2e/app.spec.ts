@@ -518,7 +518,70 @@ test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Calendario" })).toBeVisible()
   await expect(page.getByText("Vista mensile")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Prossimi impegni" })).toBeVisible()
-  await expect(page.locator("aside").getByText("PSICOLOGOL")).toBeVisible()
+  const calendar = page.locator('[data-calendar-layout="desktop"]')
+  const match = calendar.getByRole("link", {
+    name: /Partita contro PSICOLOGOL, 30 luglio 2026, 21:15/i,
+  })
+  await expect(match).toBeVisible()
+  await expect(match).toHaveClass(/bg-blue-50/)
+  await expect(match).toContainText("PSICOLOGOL")
+  await expect(match).toContainText("21:15 · Vigor Perconti")
+  await expect(match.locator("img")).toBeVisible()
+  await expect(match.locator("img")).toHaveClass(/object-contain/)
+
+  const today = calendar.locator('[data-calendar-date="2026-07-31"]')
+  await expect(today.locator('[aria-current="date"]')).toBeVisible()
+  await expect(
+    calendar.locator('[data-calendar-date="2026-06-29"]'),
+  ).toHaveClass(/bg-muted\/15/)
+
+  const cell = match.locator("xpath=ancestor::*[@data-calendar-date][1]")
+  const box = await cell.boundingBox()
+  expect(box?.height).toBeCloseTo(112, 0)
+
+  await expectNoHorizontalOverflow(page)
+  await expectNoSeriousA11yViolations(page)
+
+  await page.getByRole("button", { name: "Cambia tema" }).click()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(match).toBeVisible()
+  await expectNoHorizontalOverflow(page)
+  await expectNoSeriousA11yViolations(page)
+})
+
+test("calendario mensile compatto mobile", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  await page.goto("/")
+  await expect(page.getByRole("tab", { name: "Prossimi" })).toBeVisible()
+  await page.getByRole("button", { name: "Vista calendario" }).click()
+
+  const calendar = page.locator('[data-calendar-layout="mobile"]')
+  const match = calendar.getByRole("link", {
+    name: /Partita contro PSICOLOGOL, 30 luglio 2026, 21:15/i,
+  })
+  await expect(match).toBeVisible()
+  await expect(match).toHaveClass(/bg-blue-50/)
+  await expect(match.locator("img")).toBeVisible()
+  await expect(match.locator("img")).toHaveClass(/object-contain/)
+
+  await expect(
+    calendar.locator('[data-calendar-date="2026-07-31"]'),
+  ).toHaveClass(/border-primary/)
+  await expect(
+    calendar.locator('[data-calendar-date="2026-06-29"]'),
+  ).toHaveClass(/opacity-50/)
+
+  const cell = match.locator("xpath=ancestor::*[@data-calendar-date][1]")
+  const box = await cell.boundingBox()
+  expect(box?.height).toBeCloseTo(72, 0)
+
+  await expectNoHorizontalOverflow(page)
+  await expectNoSeriousA11yViolations(page)
+
+  await page.getByRole("button", { name: "Cambia tema" }).click()
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  await expect(match).toBeVisible()
+  await expectNoHorizontalOverflow(page)
   await expectNoSeriousA11yViolations(page)
 })
 

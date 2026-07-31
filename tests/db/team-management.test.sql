@@ -1,6 +1,6 @@
 begin;
 
-select plan(58);
+select plan(60);
 
 select has_table('public'::name, 'seasons'::name);
 select has_table('public'::name, 'season_memberships'::name);
@@ -9,6 +9,21 @@ select has_table('public'::name, 'payments'::name);
 select has_table('public'::name, 'medical_certificates'::name);
 select has_table('public'::name, 'event_checkins'::name);
 select has_view('public'::name, 'public_active_roster'::name);
+select has_column(
+  'public'::name,
+  'public_active_roster'::name,
+  'is_u35'::name,
+  'public roster exposes only derived U35 eligibility'
+);
+select results_eq(
+  $$select count(*)::bigint
+      from information_schema.columns
+     where table_schema = 'public'
+       and table_name = 'public_active_roster'
+       and column_name = 'data_nascita'$$,
+  array[0::bigint],
+  'public roster does not expose birth dates'
+);
 select has_view('public'::name, 'public_published_formation_summaries'::name);
 select has_function('public', 'is_current_user_manager', array[]::text[]);
 select has_function('public', 'import_roster_plan', array['jsonb']);

@@ -10,6 +10,7 @@ const player = {
   avatar_url: null,
   role: "CENTROCAMPISTA",
   jersey_number: 8,
+  is_u35: true,
   status: "YES" as const,
 }
 
@@ -53,6 +54,10 @@ describe("PlayerRosterCard", () => {
     ])
     expect(within(card).getByLabelText("Numero 8")).toBeVisible()
     expect(within(card).getByText("CENTROCAMPISTA")).toBeVisible()
+    expect(within(card).getByText("U35")).toHaveClass(
+      "bg-sky-100",
+      "text-sky-700",
+    )
   })
 
   it("keeps maybe status visible without replacing player data", () => {

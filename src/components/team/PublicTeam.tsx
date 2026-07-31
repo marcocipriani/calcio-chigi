@@ -19,6 +19,7 @@ type PublicMember = {
   role: string | null
   staff_function: string | null
   jersey_number: number | null
+  is_u35: boolean
   status: "YES" | "MAYBE"
 }
 

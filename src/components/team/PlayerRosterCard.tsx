@@ -15,6 +15,7 @@ type PlayerRosterCardProps = {
     avatar_url: string | null
     role: string | null
     jersey_number: number | null
+    is_u35: boolean
     status: "YES" | "MAYBE"
   }
   stats?: {
@@ -75,6 +76,11 @@ export function PlayerRosterCard({
         data-testid="player-role-row"
       >
         <span>{player.role ?? "Ruolo da definire"}</span>
+        {player.is_u35 && (
+          <Badge className="h-4 border-0 bg-sky-100 px-1 text-[8px] text-sky-700 hover:bg-sky-100">
+            U35
+          </Badge>
+        )}
         <span aria-label={`Numero ${player.jersey_number ?? "non assegnato"}`}>
           <Shirt aria-hidden="true" className="inline size-3" />
           {player.jersey_number ?? "—"}

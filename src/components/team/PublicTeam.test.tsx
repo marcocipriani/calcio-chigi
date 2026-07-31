@@ -12,6 +12,7 @@ const database = vi.hoisted(() => {
       role: "DIFENSORE",
       staff_function: null,
       jersey_number: 4,
+      is_u35: true,
       status: "YES",
     },
     {
@@ -23,6 +24,7 @@ const database = vi.hoisted(() => {
       role: "ATTACCANTE",
       staff_function: null,
       jersey_number: 9,
+      is_u35: false,
       status: "MAYBE",
     },
     {
@@ -34,6 +36,7 @@ const database = vi.hoisted(() => {
       role: null,
       staff_function: "Allenatrice",
       jersey_number: null,
+      is_u35: false,
       status: "YES",
     },
   ]
@@ -71,7 +74,9 @@ describe("PublicTeam", () => {
     const confirmed = screen.getByRole("region", { name: "Squadra" })
     const maybe = screen.getByRole("region", { name: "In forse" })
     expect(within(confirmed).getByText("Confermato")).toBeVisible()
+    expect(within(confirmed).getByText("U35")).toBeVisible()
     expect(within(maybe).getByText("Incerto")).toBeVisible()
+    expect(within(maybe).queryByText("U35")).not.toBeInTheDocument()
     expect(
       within(maybe).queryByRole("link", { name: /profilo di/i }),
     ).not.toBeInTheDocument()

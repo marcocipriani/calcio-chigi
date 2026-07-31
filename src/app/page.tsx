@@ -535,8 +535,8 @@ export default function Home() {
                     onClick={() => setFilter('ALL')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALL' 
-                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
-                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >
                      Tutti
@@ -548,8 +548,8 @@ export default function Home() {
                     onClick={() => setFilter('PARTITA')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'PARTITA' 
-                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
-                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >
                     <Trophy className="hidden size-3.5 min-[360px]:block" /> Partite
@@ -561,8 +561,8 @@ export default function Home() {
                     onClick={() => setFilter('ALLENAMENTO')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALLENAMENTO' 
-                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
-                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >
                     <Dumbbell className="hidden size-3.5 min-[360px]:block" /> Allenamenti
@@ -576,8 +576,8 @@ export default function Home() {
                     aria-label="Vista lista"
                     className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'ACTIVITY' 
-                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
-                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                     onClick={() => setViewMode('ACTIVITY')}
                   >
@@ -589,8 +589,8 @@ export default function Home() {
                     aria-label="Vista calendario"
                     className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'CALENDAR' 
-                            ? 'bg-violet-600 text-white shadow-sm hover:bg-violet-700'
-                            : 'text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                     onClick={() => setViewMode('CALENDAR')}
                   >

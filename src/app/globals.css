@@ -82,14 +82,14 @@
   /* Neutri */
   --muted: oklch(0.96 0.005 285);
   --muted-foreground: oklch(0.48 0.02 285);
-  --accent: oklch(0.96 0.035 300);
-  --accent-foreground: oklch(0.43 0.18 300);
+  --accent: oklch(0.96 0.005 285);
+  --accent-foreground: oklch(0.21 0.01 285);
   
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.55 0.22 300); /* Focus e selezioni seguono l'accento viola */
+  --ring: oklch(0.55 0.22 260); /* Ring segue il primario */
 
   /* Charts standard */
   --chart-1: oklch(0.646 0.222 41.116);
@@ -134,14 +134,14 @@
   /* Neutri Scuri */
   --muted: oklch(0.25 0.04 260);
   --muted-foreground: oklch(0.70 0.04 260);
-  --accent: oklch(0.27 0.07 300);
-  --accent-foreground: oklch(0.88 0.08 300);
+  --accent: oklch(0.25 0.04 260);
+  --accent-foreground: oklch(0.985 0 0);
   
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.15 0.05 260);
   --border: oklch(1 0 0 / 15%); /* Bordi sottili chiari */
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.18 300);
+  --ring: oklch(0.65 0.20 260);
 
   /* Charts */
   --chart-1: oklch(0.488 0.243 264.376);

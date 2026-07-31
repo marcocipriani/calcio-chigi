@@ -68,7 +68,7 @@ describe("Calendar page", () => {
     )
   })
 
-  it("uses violet for calendar actions and selected tools", async () => {
+  it("reserves violet for the manager action and keeps calendar tools neutral", async () => {
     render(<Home />)
 
     const addAction = await screen.findByRole("button", {
@@ -85,11 +85,12 @@ describe("Calendar page", () => {
       screen.getByRole("button", { name: "Allenamenti" }).querySelector("svg"),
     ).toHaveClass("hidden", "min-[360px]:block")
     fireEvent.click(matches)
-    expect(matches).toHaveClass("bg-violet-600", "text-white")
+    expect(matches).toHaveClass("bg-foreground", "text-background")
+    expect(matches).not.toHaveClass("bg-violet-600", "text-violet-700")
 
     expect(screen.getByRole("button", { name: "Vista lista" })).toHaveClass(
-      "bg-violet-600",
-      "text-white",
+      "bg-foreground",
+      "text-background",
     )
   })
 })

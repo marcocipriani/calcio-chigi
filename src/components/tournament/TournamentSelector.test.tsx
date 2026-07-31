@@ -86,6 +86,14 @@ describe("TournamentSelector", () => {
     expect(screen.getByRole("combobox", { name: "Fase" })).toHaveTextContent(
       "Tutte le fasi",
     )
+    expect(screen.getByRole("combobox", { name: "Torneo" })).not.toHaveClass(
+      "border-violet-200",
+      "focus-visible:border-violet-400",
+    )
+    expect(screen.getByRole("combobox", { name: "Fase" })).not.toHaveClass(
+      "border-violet-200",
+      "focus-visible:border-violet-400",
+    )
     expect(screen.getByText("Torneo").parentElement?.parentElement).toContainElement(
       screen.getByText("Fase").parentElement!,
     )
@@ -188,21 +196,42 @@ describe("TournamentSelector", () => {
     expect(action).toHaveAttribute("title", "Modifica risultati")
   })
 
-  it("keeps the communications action labelled on desktop and circular on mobile", () => {
+  it("keeps the communications action neutral, labelled, and responsive", () => {
     render(<CommunicationsAction />)
 
     const action = screen.getByRole("button", { name: "Comunicati" })
-    expect(action).toHaveClass(
-      "border-violet-300",
-      "text-violet-700",
-      "sm:h-9",
-      "sm:px-3",
-      "sm:rounded-md",
-    )
+    expect(action).toHaveClass("sm:h-9", "sm:px-3", "sm:rounded-md")
+    expect(action).not.toHaveClass("border-violet-300", "text-violet-700")
     expect(action).toHaveAttribute(
       "title",
       "Comunicati",
     )
+  })
+
+  it("keeps public tournament navigation neutral", async () => {
+    render(<TorneoPage />)
+
+    const standings = await screen.findByRole("tab", { name: "Classifica" })
+    expect(standings).toHaveClass(
+      "data-[state=active]:bg-background",
+      "data-[state=active]:text-foreground",
+    )
+    expect(standings).not.toHaveClass(
+      "data-[state=active]:bg-violet-50",
+      "data-[state=active]:text-violet-700",
+    )
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Calendario" }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    const day = await screen.findByRole("button", { name: "Giornata 1" })
+    expect(day).toHaveClass(
+      "border-foreground",
+      "bg-foreground",
+      "text-background",
+    )
+    expect(day).not.toHaveClass("border-violet-600", "bg-violet-600")
   })
 
   it("does not query or render aggregate standings for all phases", () => {

@@ -606,7 +606,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                                     <div className="flex items-center gap-2">
                                         <p className="font-bold text-sm leading-none flex items-center gap-1">
                                             {p.cognome} {p.nome}
-                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-purple-600" />}
+                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-muted-foreground" />}
                                         </p>
                                         {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
                                         {p.ruolo === 'PORTIERE' && <Badge className="text-[8px] h-4 px-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">POR</Badge>}

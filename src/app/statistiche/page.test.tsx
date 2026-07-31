@@ -291,6 +291,14 @@ describe("StatisticsPage seasonal rankings", () => {
     expect(within(season).getByRole("option", { name: "2026/27" })).toBeVisible()
     expect(within(season).getByRole("option", { name: "2025/26" })).toBeVisible()
     expect(season).not.toHaveTextContent(/ASI|Over/i)
+    expect(season).not.toHaveClass(
+      "border-violet-200",
+      "focus-visible:border-violet-400",
+    )
+    expect(screen.getByRole("combobox", { name: "Fase" })).not.toHaveClass(
+      "border-violet-200",
+      "focus-visible:border-violet-400",
+    )
   })
 
   it("adds the selected season to every associated player link and loads current attendance", async () => {

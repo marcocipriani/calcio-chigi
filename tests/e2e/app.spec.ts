@@ -392,6 +392,7 @@ async function seedPublishedOfficialFormation() {
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-07-29T12:00:00+02:00"))
   await page.emulateMedia({ reducedMotion: "reduce" })
   if (
     testInfo.project.name === "desktop" &&
@@ -595,7 +596,7 @@ test("rosa pubblica mobile separa lo staff ed esclude i no", async ({
     page.getByRole("heading", { level: 1, name: "Squadra" }),
   ).toBeVisible()
   await expect(page.getByRole("heading", { name: "Player" })).toBeVisible()
-  await expect(page.getByRole("heading", { name: "Forse" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Forse", exact: true })).toBeVisible()
   await expect(page.getByText("Sara Massaggiatrice")).toBeVisible()
   await expect(page.getByText("Nino Escluso")).toHaveCount(0)
   await expect(
@@ -1049,7 +1050,7 @@ test("dashboard manager densa con azioni rapide", async ({
   await page.goto("/gestione")
 
   await expect(page.getByRole("heading", { name: "Gestione" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Persona" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Aggiungi persona" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Tesseramenti" })).toBeVisible()
   await expect(
     page.getByRole("table").getByText("Piero Player", { exact: true }),
@@ -1070,7 +1071,7 @@ test("dashboard manager densa con azioni rapide", async ({
   await expect(personDialog.getByText(/80,00/)).toBeVisible()
   await expectNoSeriousA11yViolations(page)
   await page.getByRole("button", { name: "Chiudi" }).click()
-  await page.getByRole("button", { name: "Persona" }).click()
+  await page.getByRole("button", { name: "Aggiungi persona" }).click()
   await expect(page.getByRole("dialog")).toContainText("Aggiungi persona")
   await expectNoSeriousA11yViolations(page)
 })

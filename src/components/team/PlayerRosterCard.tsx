@@ -36,7 +36,7 @@ export function PlayerRosterCard({
       aria-label={`${player.nome} ${player.cognome}`}
       className={cn(
         "relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs",
-        muted && "opacity-40 grayscale",
+        muted && "border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20",
       )}
       data-player-card
     >

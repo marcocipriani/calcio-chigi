@@ -67,8 +67,8 @@ describe("PlayerRosterCard", () => {
     expect(screen.getByText("Forse")).toBeVisible()
     expect(screen.getByText("Dorbolò")).toBeVisible()
     expect(screen.getByRole("article", { name: "Elio Dorbolò" })).toHaveClass(
-      "opacity-40",
-      "grayscale",
+      "border-dashed",
+      "border-amber-300",
     )
     expect(
       screen.queryByRole("link", { name: /profilo di/i }),

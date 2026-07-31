@@ -36,7 +36,7 @@ import {
   type ManagementView,
   type TableSort,
 } from "@/lib/management-columns"
-import { cn } from "@/lib/utils"
+import { ageGroupAt, cn } from "@/lib/utils"
 
 const statusLabel = {
   INTERESTED: "Interessato",
@@ -100,17 +100,24 @@ function PersonIdentity({
         <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
           {role}
           {person.category === "PLAYER" && (
-            <span
-              aria-label={
-                accessibleJersey
-                  ? `Numero maglia ${person.jerseyNumber ?? "non assegnato"}`
-                  : undefined
-              }
-              className="inline-flex items-center gap-0.5"
-            >
-              <Shirt aria-hidden="true" className="size-3" />
-              {person.jerseyNumber ?? "—"}
-            </span>
+            <>
+              {ageGroupAt(person.birthDate, new Date()) === "U35" && (
+                <Badge className="h-4 border-0 bg-sky-100 px-1 text-[8px] text-sky-700 hover:bg-sky-100">
+                  U35
+                </Badge>
+              )}
+              <span
+                aria-label={
+                  accessibleJersey
+                    ? `Numero maglia ${person.jerseyNumber ?? "non assegnato"}`
+                    : undefined
+                }
+                className="inline-flex items-center gap-0.5"
+              >
+                <Shirt aria-hidden="true" className="size-3" />
+                {person.jerseyNumber ?? "—"}
+              </span>
+            </>
           )}
         </span>
       </span>
@@ -225,7 +232,7 @@ type ManagementColumn = {
   ) => string | number | null | undefined
   filter?:
     | "text"
-    | "category"
+    | "ageGroup"
     | "confirmation"
     | "account"
     | "payment"
@@ -242,8 +249,11 @@ const personColumn: ManagementColumn = {
   id: "person",
   label: "Persona",
   required: true,
-  filter: "category",
-  filterValue: (person) => person.category,
+  filter: "ageGroup",
+  filterValue: (person) =>
+    person.category === "PLAYER"
+      ? (ageGroupAt(person.birthDate, new Date()) ?? "")
+      : "",
   sortValue: (person) => `${person.cognome} ${person.nome}`,
   render: (person) => <PersonIdentity person={person} />,
 }
@@ -623,10 +633,10 @@ export function getAvailableManagementColumns(view: ManagementView) {
 }
 
 const filterOptions = {
-  category: [
+  ageGroup: [
     ["", "Tutti"],
-    ["PLAYER", "Giocatori"],
-    ["STAFF", "Staff"],
+    ["U35", "U35"],
+    ["OVER_35", "Over 35"],
   ],
   confirmation: [
     ["", "Tutte"],

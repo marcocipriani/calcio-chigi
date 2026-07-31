@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { ManagementTable } from "@/components/management/ManagementTable"
 import type { ManagementPerson } from "@/lib/management"
@@ -12,6 +12,8 @@ vi.stubGlobal(
     disconnect() {}
   },
 )
+
+afterEach(() => vi.useRealTimers())
 
 const people: ManagementPerson[] = [
   {
@@ -137,16 +139,55 @@ describe("ManagementTable", () => {
     expect(dataRowNames(table)[0]).toContain("Luca Verdi")
   })
 
-  it("filters rows from the column-specific control", () => {
-    const table = renderPeopleTable()
+  it("filters players by current U35 group and leaves unknown dates in all", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-07-31T12:00:00+02:00"))
+    const agePeople: ManagementPerson[] = [
+      { ...people[0], id: "u35", birthDate: "1991-08-01" },
+      {
+        ...people[0],
+        id: "over-35",
+        profileId: "profile-over-35",
+        nome: "Paolo",
+        cognome: "Over",
+        birthDate: "1991-07-31",
+      },
+      {
+        ...people[0],
+        id: "unknown-age",
+        profileId: "profile-unknown-age",
+        nome: "Mario",
+        cognome: "Senza Data",
+        birthDate: null,
+      },
+      people[1],
+    ]
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person"]}
+        people={agePeople}
+        selected={new Set()}
+        view="PEOPLE"
+      />,
+    )
+    const table = screen.getByRole("table")
+    const filter = screen.getByRole("combobox", { name: "Filtra Persona" })
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Filtra Persona" }), {
-      target: { value: "STAFF" },
-    })
+    expect(dataRowNames(table)).toHaveLength(4)
+    const u35Badge = within(table)
+      .getAllByText("U35")
+      .find((element) => element.dataset.slot === "badge")
+    expect(u35Badge).toHaveClass("bg-sky-100", "text-sky-700")
 
+    fireEvent.change(filter, { target: { value: "U35" } })
     expect(dataRowNames(table)).toHaveLength(1)
-    expect(dataRowNames(table)[0]).toContain("Anna Rossi")
-    expect(within(table).queryByText("Luca Verdi")).not.toBeInTheDocument()
+    expect(dataRowNames(table)[0]).toContain("Luca Verdi")
+
+    fireEvent.change(filter, { target: { value: "OVER_35" } })
+    expect(dataRowNames(table)).toHaveLength(1)
+    expect(dataRowNames(table)[0]).toContain("Paolo Over")
+
   })
 
   it("uses the signed passport photo URL for registration previews", () => {

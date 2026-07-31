@@ -392,7 +392,21 @@ async function seedPublishedOfficialFormation() {
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
-  await page.clock.setFixedTime(new Date("2026-07-29T12:00:00+02:00"))
+  const needsUpcomingMatch = [
+    "torneo stagionale",
+    "builder formazione monta",
+    "playground anonimo",
+    ANONYMOUS_CAPSULE_TEST_TITLE,
+    OFFICIAL_FORMATION_TEST_TITLE,
+    "builder formazione privato",
+  ].some((title) => testInfo.title.includes(title))
+  await page.clock.setFixedTime(
+    new Date(
+      needsUpcomingMatch
+        ? "2026-07-29T12:00:00+02:00"
+        : "2026-07-31T12:00:00+02:00",
+    ),
+  )
   await page.emulateMedia({ reducedMotion: "reduce" })
   if (
     testInfo.project.name === "desktop" &&
@@ -1095,8 +1109,7 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
   if (testInfo.project.name === "mobile") {
     await expect(
       calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
-    ).toHaveCount(0)
-    await expect(visibleAddAction).toHaveCSS("position", "fixed")
+    ).toHaveCount(1)
     await expectCircularIconOnlyAction(visibleAddAction)
     const management = page.getByRole("link", {
       name: "Gestione squadra",

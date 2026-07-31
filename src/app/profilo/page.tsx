@@ -534,6 +534,7 @@ export default function ProfilePage() {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
+              style={{ height: 1, left: 0, top: 0, width: 1 }}
               disabled={uploadingAvatar}
               onChange={uploadAvatar}
             />
@@ -807,6 +808,7 @@ export default function ProfilePage() {
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
+                style={{ height: 1, left: 0, top: 0, width: 1 }}
                 disabled={!passportEditable || uploadingPassport}
                 onChange={uploadPassportPhoto}
               />

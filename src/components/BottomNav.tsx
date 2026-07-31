@@ -36,8 +36,8 @@ export function BottomNav() {
               className={cn(
                 "group flex h-full min-w-0 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-full px-1 text-muted-foreground transition-[color,background-color,box-shadow,transform] duration-200 active:scale-95 md:w-24",
                 isActive
-                  ? "bg-violet-600 text-white shadow-sm hover:bg-violet-700"
-                  : "hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50 dark:hover:text-violet-200",
+                  ? "bg-foreground text-background shadow-sm hover:bg-foreground/90"
+                  : "hover:bg-accent hover:text-accent-foreground",
               )}
             >
               <span

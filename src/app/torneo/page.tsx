@@ -423,8 +423,8 @@ export default function TorneoPage() {
                             className={`
                                 flex h-14 w-14 flex-shrink-0 flex-col items-center justify-center rounded-xl border transition-[color,background-color,border-color,box-shadow,transform] font-black
                                 ${selectedGiornata === g 
-                                    ? 'border-violet-600 bg-violet-600 text-white shadow-sm scale-105'
-                                    : 'border-border bg-card text-muted-foreground hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50'
+                                    ? 'border-foreground bg-foreground text-background shadow-sm scale-105'
+                                    : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                                 }
                             `}
                         >

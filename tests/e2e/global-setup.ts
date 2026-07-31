@@ -336,11 +336,18 @@ export default async function globalSetup() {
       seededTeam
         ? await client
             .from("teams")
-            .update({ nome: "PSICOLOGOL" })
+            .update({
+              nome: "PSICOLOGOL",
+              logo_url: "/teams/psicologi.png",
+            })
             .eq("id", seededTeam.id)
         : await client
             .from("teams")
-            .insert({ nome: "PSICOLOGOL", slug: "psicologol" })
+            .insert({
+              nome: "PSICOLOGOL",
+              slug: "psicologol",
+              logo_url: "/teams/psicologi.png",
+            })
     ).error,
   )
   failOnError(

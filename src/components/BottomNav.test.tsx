@@ -32,7 +32,7 @@ describe("BottomNav", () => {
     ).toBe(true)
   })
 
-  it("uses the calendar pill pattern on mobile and desktop", () => {
+  it("uses a neutral active state on mobile and desktop", () => {
     render(<BottomNav />)
 
     const navigation = screen.getByRole("navigation")
@@ -48,17 +48,18 @@ describe("BottomNav", () => {
     const active = screen.getByRole("link", { name: "Squadra" })
     expect(active).toHaveClass(
       "rounded-full",
-      "bg-violet-600",
-      "text-white",
-      "hover:bg-violet-700",
+      "bg-foreground",
+      "text-background",
+      "hover:bg-foreground/90",
     )
-    expect(active).not.toHaveClass("bg-violet-100/80")
+    expect(active).not.toHaveClass("bg-violet-600", "text-violet-700")
 
     const inactive = screen.getByRole("link", { name: "Calendario" })
     expect(inactive).toHaveClass(
-      "hover:bg-violet-50",
-      "hover:text-violet-700",
+      "hover:bg-accent",
+      "hover:text-accent-foreground",
     )
+    expect(inactive).not.toHaveClass("hover:bg-violet-50", "hover:text-violet-700")
     expect(active.querySelector("svg")?.parentElement).toHaveClass(
       "motion-safe:group-hover:-translate-y-0.5",
     )

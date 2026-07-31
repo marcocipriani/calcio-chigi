@@ -439,7 +439,7 @@ opening tag for every day cell:
   key={i}
   data-calendar-date={format(day, 'yyyy-MM-dd')}
   className={`flex h-[72px] flex-col items-center justify-start overflow-hidden rounded-xl border px-0.5 pt-1 transition-colors
-    ${isCurrentMonth ? 'bg-card' : 'bg-muted/20 opacity-50'}
+    ${isCurrentMonth ? 'bg-card' : 'bg-muted/20'}
     ${isDayToday ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border'}
   `}
 >
@@ -846,7 +846,7 @@ test("calendario mensile compatto mobile", async ({ page }, testInfo) => {
   ).toHaveClass(/border-primary/)
   await expect(
     calendar.locator('[data-calendar-date="2026-06-29"]'),
-  ).toHaveClass(/opacity-50/)
+  ).toHaveClass(/bg-muted\/20/)
 
   const cell = match.locator("xpath=ancestor::*[@data-calendar-date][1]")
   const box = await cell.boundingBox()

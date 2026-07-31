@@ -569,7 +569,7 @@ test("calendario mensile compatto mobile", async ({ page }, testInfo) => {
   ).toHaveClass(/border-primary/)
   await expect(
     calendar.locator('[data-calendar-date="2026-06-29"]'),
-  ).toHaveClass(/opacity-50/)
+  ).toHaveClass(/bg-muted\/20/)
 
   const cell = match.locator("xpath=ancestor::*[@data-calendar-date][1]")
   const box = await cell.boundingBox()

@@ -1,6 +1,6 @@
 begin;
 
-select plan(57);
+select plan(61);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -745,6 +745,119 @@ select results_eq(
       '10000000-0000-0000-0000-000000000002'$$,
   $$values ('FASE_1'::text, 5, 3, 1, 4, 1)$$,
   'legacy null match phases aggregate as FASE_1'
+);
+
+insert into public.profiles (
+  id, nome, cognome, data_nascita, ruolo, numero_maglia, is_manager, is_staff
+)
+select
+  ('11000000-0000-0000-0000-' || lpad(number::text, 12, '0'))::uuid,
+  'Under',
+  format('Test %s', number),
+  '2000-01-01',
+  case when number = 6 then 'PORTIERE' else 'DIFENSORE' end,
+  number,
+  false,
+  false
+from generate_series(1, 6) as number;
+
+insert into public.season_memberships (
+  profile_id, season_id, category, role, jersey_number, status
+)
+select
+  profile.id,
+  season.id,
+  'PLAYER',
+  profile.ruolo,
+  profile.numero_maglia,
+  'YES'
+from public.profiles profile
+cross join public.seasons season
+where profile.id::text like '11000000-0000-0000-0000-%'
+  and (now() at time zone 'Europe/Rome')::date
+      between season.starts_on and season.ends_on;
+
+select lives_ok(
+  $$select public.publish_official_formation(
+    '20000000-0000-0000-0000-000000000002',
+    '4-4-2',
+    'BLU',
+    '10000000-0000-0000-0000-000000000001',
+    null,
+    '{}'::jsonb,
+    '[
+      {"profile_id":"11000000-0000-0000-0000-000000000001","player_snapshot":{},"is_starter":true,"position_key":"DC1","sort_order":1},
+      {"profile_id":"11000000-0000-0000-0000-000000000002","player_snapshot":{},"is_starter":true,"position_key":"DC2","sort_order":2},
+      {"profile_id":"11000000-0000-0000-0000-000000000003","player_snapshot":{},"is_starter":true,"position_key":"CC1","sort_order":3},
+      {"profile_id":"11000000-0000-0000-0000-000000000004","player_snapshot":{},"is_starter":false,"position_key":"P1","sort_order":4},
+      {"profile_id":"11000000-0000-0000-0000-000000000006","player_snapshot":{},"is_starter":true,"position_key":"POR","sort_order":5}
+    ]'::jsonb
+  )$$,
+  'manager can publish with three U35 on field and four called up'
+);
+select throws_ok(
+  $$select public.publish_official_formation(
+    '20000000-0000-0000-0000-000000000002',
+    '4-4-2',
+    'BLU',
+    '10000000-0000-0000-0000-000000000001',
+    null,
+    '{}'::jsonb,
+    '[
+      {"profile_id":"11000000-0000-0000-0000-000000000001","player_snapshot":{},"is_starter":true,"position_key":"DC1","sort_order":1},
+      {"profile_id":"11000000-0000-0000-0000-000000000002","player_snapshot":{},"is_starter":true,"position_key":"DC2","sort_order":2},
+      {"profile_id":"11000000-0000-0000-0000-000000000003","player_snapshot":{},"is_starter":true,"position_key":"CC1","sort_order":3},
+      {"profile_id":"11000000-0000-0000-0000-000000000004","player_snapshot":{},"is_starter":true,"position_key":"ATT1","sort_order":4}
+    ]'::jsonb
+  )$$,
+  'P0001',
+  'U35 quota exceeded: maximum 3 on field and 4 called up',
+  'four U35 field players cannot be published'
+);
+select throws_ok(
+  $$select public.publish_official_formation(
+    '20000000-0000-0000-0000-000000000002',
+    '4-4-2',
+    'BLU',
+    '10000000-0000-0000-0000-000000000001',
+    null,
+    '{}'::jsonb,
+    '[
+      {"profile_id":"11000000-0000-0000-0000-000000000001","player_snapshot":{},"is_starter":true,"position_key":"DC1","sort_order":1},
+      {"profile_id":"11000000-0000-0000-0000-000000000002","player_snapshot":{},"is_starter":true,"position_key":"DC2","sort_order":2},
+      {"profile_id":"11000000-0000-0000-0000-000000000003","player_snapshot":{},"is_starter":true,"position_key":"CC1","sort_order":3},
+      {"profile_id":"11000000-0000-0000-0000-000000000004","player_snapshot":{},"is_starter":false,"position_key":"P1","sort_order":4},
+      {"profile_id":"11000000-0000-0000-0000-000000000005","player_snapshot":{},"is_starter":false,"position_key":"P2","sort_order":5}
+    ]'::jsonb
+  )$$,
+  'P0001',
+  'U35 quota exceeded: maximum 3 on field and 4 called up',
+  'five U35 called up players cannot be published'
+);
+select throws_ok(
+  $$select public.publish_official_formation(
+    '20000000-0000-0000-0000-000000000002',
+    '4-4-2',
+    'BLU',
+    '10000000-0000-0000-0000-000000000001',
+    null,
+    '{}'::jsonb,
+    '[
+      {"profile_id":"11000000-0000-0000-0000-999999999999","player_snapshot":{},"is_starter":true,"position_key":"DC1","sort_order":1}
+    ]'::jsonb
+  )$$,
+  'P0001',
+  'Player is not eligible for this match formation',
+  'formation cannot include a profile outside the event roster'
+);
+set local role service_role;
+delete from public.notifications
+where type = 'OFFICIAL_FORMATION_PUBLISHED';
+set local role authenticated;
+select set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-0000-0000-000000000001',
+  true
 );
 reset role;
 

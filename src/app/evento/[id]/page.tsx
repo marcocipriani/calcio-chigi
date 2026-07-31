@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
 import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
-import { isU35 } from '@/lib/utils';
+import { ageGroupAt, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
 import { CheckinStatsPanel } from '@/components/management/CheckinStatsPanel';
@@ -317,13 +317,14 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const isMatch = event.tipo === 'PARTITA';
   const isCancelled = event.cancellato;
+  const eventDate = event.data_ora ? new Date(event.data_ora) : new Date('invalid');
 
   const presentPlayers = roster.filter(p => p.status === 'PRESENTE');
   const spectatorPlayers = roster.filter(p => p.status === 'INFORTUNATO_PRESENTE');
   const absentPlayers = roster.filter(p => p.status === 'ASSENTE');
 
-  const countOver35 = presentPlayers.filter(p => !isU35(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
-  const countU35 = presentPlayers.filter(p => isU35(p.data_nascita ?? '') && p.ruolo !== 'PORTIERE').length;
+  const countOver35 = presentPlayers.filter(p => ageGroupAt(p.data_nascita, eventDate) === 'OVER_35' && p.ruolo !== 'PORTIERE').length;
+  const countU35 = presentPlayers.filter(p => isU35At(p.data_nascita, eventDate) && p.ruolo !== 'PORTIERE').length;
   const countGoalies = presentPlayers.filter(p => p.ruolo === 'PORTIERE').length;
   const countSpectators = spectatorPlayers.length;
   const countAbsents = absentPlayers.length;
@@ -589,7 +590,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         }
                     }
 
-                    const isU35Player = isU35(p.data_nascita ?? '');
+                    const isU35Player = isU35At(p.data_nascita, eventDate);
                     const voteTime = p.vote_time ? format(new Date(p.vote_time), 'dd/MM HH:mm') : '';
                     
                     const isManagerEdit = p.modified_by && p.modified_by !== p.id;

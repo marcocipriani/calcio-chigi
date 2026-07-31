@@ -1,5 +1,6 @@
-import { format, subMinutes, differenceInYears, isToday, isTomorrow } from 'date-fns';
+import { format, subMinutes, isToday, isTomorrow } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { isU35At } from '@/lib/utils';
 
 type WhatsAppEvent = {
     data_ora: string | null;
@@ -72,12 +73,8 @@ export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendan
         if (profilo.ruolo?.toUpperCase() === 'PORTIERE') {
             portieri.push(nomeCompleto);
         } else {
-            let isUnder = false;
-            if (profilo.data_nascita) {
-                const eta = differenceInYears(new Date(), new Date(profilo.data_nascita));
-                if (eta < 35) isUnder = true;
-            }
-            
+            const isUnder = isU35At(profilo.data_nascita, dataEvento);
+
             if (isUnder) under35.push(nomeCompleto);
             else over35.push(nomeCompleto);
         }

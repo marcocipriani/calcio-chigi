@@ -284,4 +284,72 @@ describe("Calendar page", () => {
     expect(cancelled).not.toHaveClass("bg-orange-50", "bg-blue-50")
     expect(cancelled).toHaveAccessibleName(/Annullato: Allenamento, .*18:00/i)
   })
+
+  it("renders compact detailed match and training cards on desktop", async () => {
+    const dates = seedCalendarFixtures()
+    const { container } = render(<Home />)
+
+    await screen.findAllByRole("link", {
+      name: /Partita contro PSICOLOGOL, .*20:30/i,
+    })
+
+    const desktop = container.querySelector<HTMLElement>(
+      '[data-calendar-layout="desktop"]',
+    )
+    expect(desktop).not.toBeNull()
+
+    const cell = (date: Date) =>
+      desktop!.querySelector<HTMLElement>(
+        `[data-calendar-date="${format(date, "yyyy-MM-dd")}"]`,
+      )!
+
+    expect(
+      cell(dates.empty).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(0)
+    expect(
+      cell(dates.single).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(1)
+    expect(
+      cell(dates.double).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(2)
+    expect(
+      cell(dates.overflow).querySelectorAll("[data-calendar-event]"),
+    ).toHaveLength(2)
+    expect(cell(dates.overflow)).toHaveTextContent("+1 altro")
+    expect(cell(dates.single)).toHaveClass("h-[112px]", "overflow-hidden")
+
+    const logoMatch = desktop!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/match-logo"]',
+    )!
+    expect(logoMatch).toHaveClass("bg-blue-50")
+    expect(logoMatch).toHaveTextContent("PSICOLOGOL")
+    expect(logoMatch).toHaveTextContent("20:30 · Vigor Perconti")
+    expect(logoMatch.querySelector("img")).toHaveClass(
+      "size-6",
+      "object-contain",
+    )
+    expect(logoMatch.querySelector("img")).toHaveAttribute("alt", "")
+
+    const longNameMatch = desktop!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/match-fallback"]',
+    )!
+    expect(longNameMatch.querySelector("img")).toBeNull()
+    expect(longNameMatch.querySelector("svg")).not.toBeNull()
+    expect(longNameMatch.querySelector(".truncate")).toHaveTextContent(
+      "Associazione Sportiva Avversaria dal Nome Molto Lungo",
+    )
+
+    const training = desktop!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/training-double"]',
+    )!
+    expect(training).toHaveClass("bg-orange-50")
+    expect(training).toHaveTextContent("Allenamento")
+    expect(training).toHaveTextContent("21:00 · Campo Circolo Chigi")
+
+    const cancelled = desktop!.querySelector<HTMLAnchorElement>(
+      'a[href="/evento/cancelled-training"]',
+    )!
+    expect(cancelled).toHaveClass("bg-muted", "line-through")
+    expect(cancelled).not.toHaveClass("bg-orange-50", "bg-blue-50")
+  })
 })

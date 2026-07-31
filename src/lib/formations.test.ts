@@ -5,6 +5,7 @@ import {
   buildPersonalFormationMessage,
   isFormationBenchSlot,
   isUnderPlayer,
+  u35Quota,
 } from "@/lib/formations"
 
 describe("isFormationBenchSlot", () => {
@@ -24,6 +25,60 @@ describe("isUnderPlayer", () => {
     expect(
       isUnderPlayer("1991-06-23", new Date("2026-06-23T21:15:00+02:00")),
     ).toBe(false)
+  })
+})
+
+describe("u35Quota", () => {
+  const matchDate = new Date("2026-09-01T21:00:00+02:00")
+  const under = (positionKey: string, role = "DIFENSORE") => ({
+    birthDate: "2000-01-01",
+    positionKey,
+    role,
+  })
+
+  it("allows three U35 on field and four called up", () => {
+    expect(
+      u35Quota(
+        [under("DC1"), under("DC2"), under("CC1"), under("P1")],
+        matchDate,
+      ),
+    ).toEqual({
+      field: 3,
+      total: 4,
+      fieldExceeded: false,
+      totalExceeded: false,
+      exceeded: false,
+    })
+  })
+
+  it("reports field and total limits independently", () => {
+    expect(
+      u35Quota(
+        [under("DC1"), under("DC2"), under("CC1"), under("ATT1")],
+        matchDate,
+      ),
+    ).toMatchObject({ field: 4, total: 4, fieldExceeded: true, totalExceeded: false })
+    expect(
+      u35Quota(
+        [under("DC1"), under("DC2"), under("CC1"), under("P1"), under("P2")],
+        matchDate,
+      ),
+    ).toMatchObject({ field: 3, total: 5, fieldExceeded: false, totalExceeded: true })
+  })
+
+  it("does not count U35 goalkeepers", () => {
+    expect(
+      u35Quota(
+        [
+          under("POR", "PORTIERE"),
+          under("DC1"),
+          under("DC2"),
+          under("CC1"),
+          under("P1"),
+        ],
+        matchDate,
+      ),
+    ).toMatchObject({ field: 3, total: 4, exceeded: false })
   })
 })
 

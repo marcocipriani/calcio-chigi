@@ -26,8 +26,36 @@ export type PersonalFormationEntry = {
   positionKey: string
 }
 
+type U35QuotaEntry = {
+  birthDate?: string | null
+  positionKey: string
+  role?: string | null
+}
+
 export function isFormationBenchSlot(positionKey: string): boolean {
   return /^P[1-9]$/.test(positionKey)
+}
+
+export function u35Quota(entries: U35QuotaEntry[], matchDate: Date) {
+  const eligible = entries.filter(
+    ({ birthDate, positionKey, role }) =>
+      positionKey !== "POR" &&
+      role?.toUpperCase() !== "PORTIERE" &&
+      isU35At(birthDate, matchDate),
+  )
+  const field = eligible.filter(
+    ({ positionKey }) => !isFormationBenchSlot(positionKey),
+  ).length
+  const total = eligible.length
+  const fieldExceeded = field > 3
+  const totalExceeded = total > 4
+  return {
+    field,
+    total,
+    fieldExceeded,
+    totalExceeded,
+    exceeded: fieldExceeded || totalExceeded,
+  }
 }
 
 export function isUnderPlayer(

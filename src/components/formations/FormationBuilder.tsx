@@ -39,8 +39,8 @@ import { Event, FullProfile } from "@/lib/types"
 import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
-import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot } from "@/lib/formations"
-import { getAge, isU35 } from "@/lib/utils"
+import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot, u35Quota } from "@/lib/formations"
+import { getAge, isU35At } from "@/lib/utils"
 
 type Player = FullProfile & { training_only?: boolean }
 
@@ -50,8 +50,8 @@ const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
 const FORMATION_IMAGE_PLACEHOLDER =
     "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
-function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole, showOfficialControls }: {
-    player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, showOfficialControls: boolean
+function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptainId, onSetRole, referenceDate, showOfficialControls }: {
+    player: Player, isSelected: boolean, isMobile: boolean, captainId: string | null, viceCaptainId: string | null, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, referenceDate: Date, showOfficialControls: boolean
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `list-${player.id}`,
@@ -64,7 +64,7 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
         zIndex: 9999,
     } : undefined;
 
-    const under35 = isU35(player.data_nascita ?? '');
+    const under35 = isU35At(player.data_nascita, referenceDate);
     const isInjured = player.note_mediche && player.note_mediche !== 'OK';
     const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : 'N.D.';
     const isCaptain = captainId === player.id;
@@ -141,10 +141,10 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
     );
 }
 
-function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor }: { player: Player, slotId: string, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string }) {
+function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, referenceDate }: { player: Player, slotId: string, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, referenceDate: Date }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `field-token-${slotId}`, data: { player, source: 'field', fromSlotId: slotId, isBench }, disabled: isMobile });
     const style = transform ? { transform: CSS.Translate.toString(transform), zIndex: 9999 } : undefined;
-    const under35 = isU35(player.data_nascita ?? '');
+    const under35 = isU35At(player.data_nascita, referenceDate);
     const isCaptain = captainId === player.id;
     const isVice = viceCaptainId === player.id;
     const isGk = player.ruolo === 'PORTIERE';
@@ -168,7 +168,7 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
     )
 }
 
-function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole, showOfficialControls }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, showOfficialControls: boolean }) {
+function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = false, isMobile = false, captainId, viceCaptainId, jerseyColor, onSetRole, referenceDate, showOfficialControls }: { slot: FormationSlotDef, playerInSlot: Player | null, onRemove: () => void, onMobileClick: () => void, isBench?: boolean, isMobile?: boolean, captainId: string | null, viceCaptainId: string | null, jerseyColor: string, onSetRole: (role: 'K' | 'VK' | null, id: string) => void, referenceDate: Date, showOfficialControls: boolean }) {
     const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.id}`, data: { slotId: slot.id } });
     const baseStyle = isBench ? "relative w-12 h-16 rounded-lg bg-black/5 border border-dashed border-slate-300 flex flex-col items-center justify-center shrink-0" : "absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center transition-[transform,border-color,background-color] duration-200 z-10";
     const displayRole = slot.id.replace(/[0-9]/g, '');
@@ -180,7 +180,7 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                     <Popover>
                         <PopoverTrigger asChild>
                             <div className="cursor-pointer">
-                                <DraggableFieldToken player={playerInSlot} slotId={slot.id} isBench={isBench} isMobile={isMobile} captainId={captainId} viceCaptainId={viceCaptainId} jerseyColor={jerseyColor} />
+                                <DraggableFieldToken player={playerInSlot} slotId={slot.id} isBench={isBench} isMobile={isMobile} captainId={captainId} viceCaptainId={viceCaptainId} jerseyColor={jerseyColor} referenceDate={referenceDate} />
                             </div>
                         </PopoverTrigger>
                         <PopoverContent className="w-40 p-2">
@@ -246,6 +246,7 @@ export function FormationBuilder({
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 10 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }));
     const fieldRef = useRef<HTMLDivElement>(null)
     const officialRoleRequirementId = useId()
+    const officialQuotaRequirementId = useId()
 
     const loadFormationContext = useCallback(async function loadFormationContext() {
         setLoading(true)
@@ -334,7 +335,7 @@ export function FormationBuilder({
                 if (p.id === captainId) row.getCell(4).value = 'K';
                 if (p.id === viceCaptainId) row.getCell(4).value = 'VK';
                 row.getCell(5).value = index < titolari.length ? 'T' : 'R';
-                if (isU35(p.data_nascita ?? '')) row.getCell(7).value = 'X';
+                if (isU35At(p.data_nascita, referenceDate)) row.getCell(7).value = 'X';
                 const dob = p.data_nascita ? format(new Date(p.data_nascita), 'dd/MM/yyyy') : '';
                 row.getCell(8).value = `${p.tessera_asi || ''} ${dob}`;
             });
@@ -360,11 +361,15 @@ export function FormationBuilder({
         else { if (captainId === playerId) setCaptainId(null); if (viceCaptainId === playerId) setViceCaptainId(null); }
     }
 
-    const u35FieldCount = Object.keys(lineup).filter(slotId => !isFormationBenchSlot(slotId) && slotId !== 'POR').reduce((acc, slotId) => acc + (isU35(lineup[slotId].data_nascita ?? '') ? 1 : 0), 0);
-    const u35TotalCount = Object.values(lineup).filter((p) => p.ruolo !== 'PORTIERE').reduce((acc, p) => acc + (isU35(p.data_nascita ?? '') ? 1 : 0), 0);
-    const isFieldU35LimitExceeded = u35FieldCount > 2;
-    const isTotalU35LimitExceeded = u35TotalCount > 4;
-    const isU35Warning = isFieldU35LimitExceeded || isTotalU35LimitExceeded;
+    const referenceDate = nextMatch?.data_ora ? new Date(nextMatch.data_ora) : new Date()
+    const quota = u35Quota(
+        Object.entries(lineup).map(([positionKey, player]) => ({
+            birthDate: player.data_nascita,
+            positionKey,
+            role: player.ruolo,
+        })),
+        referenceDate,
+    )
 
     const handleModuleChange = (newModule: string) => {
         const oldLineup = { ...lineup };
@@ -507,6 +512,10 @@ export function FormationBuilder({
             toast.error("Seleziona almeno un capitano o un vice capitano")
             return
         }
+        if (quota.exceeded) {
+            toast.error("Formazione oltre quota U35: massimo 3 in campo e 4 convocati.")
+            return
+        }
         const { error } = await supabaseBrowser.rpc('publish_official_formation', {
             p_event_id: nextMatch.id,
             p_formation_module: module,
@@ -638,12 +647,16 @@ export function FormationBuilder({
                                             <Copy aria-hidden="true" className="h-4 w-4" />
                                         </Button>
                                         <Button
-                                            aria-describedby={!captainId && !viceCaptainId ? officialRoleRequirementId : undefined}
+                                            aria-describedby={[
+                                                !captainId && !viceCaptainId ? officialRoleRequirementId : null,
+                                                quota.exceeded ? officialQuotaRequirementId : null,
+                                            ].filter(Boolean).join(' ') || undefined}
                                             aria-label="Pubblica formazione ufficiale"
                                             className="h-9 w-9 bg-violet-600 hover:bg-violet-700"
+                                            disabled={quota.exceeded}
                                             onClick={publishOfficialFormation}
                                             size="icon"
-                                            title="Pubblica formazione ufficiale"
+                                            title={quota.exceeded ? "Quota U35 superata" : "Pubblica formazione ufficiale"}
                                         >
                                             <Send aria-hidden="true" className="h-4 w-4" />
                                         </Button>
@@ -659,18 +672,24 @@ export function FormationBuilder({
                         </p>
                     )}
 
-                    <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${isU35Warning ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
+                    {showOfficialControls && quota.exceeded && (
+                        <p className="text-xs font-medium text-red-700 dark:text-red-400" id={officialQuotaRequirementId}>
+                            Pubblicazione bloccata: massimo 3 U35 in campo e 4 convocati
+                        </p>
+                    )}
+
+                    <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${quota.exceeded ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
                         <div className="flex items-center gap-2">
-                            <Users className={`h-4 w-4 ${isU35Warning ? 'text-red-500' : 'text-primary'}`} />
+                            <Users className={`h-4 w-4 ${quota.exceeded ? 'text-red-500' : 'text-primary'}`} />
                             <span className="text-xs font-bold uppercase tracking-wider text-foreground">Quota Under 35</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs font-medium">
-                            <div className={isFieldU35LimitExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
-                                Campo: <span className="text-foreground font-bold">{u35FieldCount}</span>/2
+                            <div className={quota.fieldExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
+                                Campo: <span className="text-foreground font-bold">{quota.field}</span>/3
                             </div>
                             <div className="w-px h-3 bg-border" />
-                            <div className={isTotalU35LimitExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
-                                Totale: <span className="text-foreground font-bold">{u35TotalCount}</span>/4
+                            <div className={quota.totalExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
+                                Convocati: <span className="text-foreground font-bold">{quota.total}</span>/4
                             </div>
                         </div>
                     </div>
@@ -699,6 +718,7 @@ export function FormationBuilder({
                                     viceCaptainId={viceCaptainId}
                                     jerseyColor={jerseyColor}
                                     onSetRole={handleSetRole}
+                                    referenceDate={referenceDate}
                                     showOfficialControls={showOfficialControls}
                                 />
                             ))}
@@ -719,6 +739,7 @@ export function FormationBuilder({
                                     viceCaptainId={viceCaptainId}
                                     jerseyColor={jerseyColor}
                                     onSetRole={handleSetRole}
+                                    referenceDate={referenceDate}
                                     showOfficialControls={showOfficialControls}
                                 />
                             ))}
@@ -750,6 +771,7 @@ export function FormationBuilder({
                                     captainId={captainId}
                                     viceCaptainId={viceCaptainId}
                                     onSetRole={handleSetRole}
+                                    referenceDate={referenceDate}
                                     showOfficialControls={showOfficialControls}
                                 />
                             </div>
@@ -763,7 +785,7 @@ export function FormationBuilder({
                         <div className="overflow-y-auto pr-2 custom-scrollbar space-y-2 flex-1">
                             {sortedForMobile.map(p => {
                                 const isSelected = isPlayerSelected(p.id);
-                                const under35 = isU35(p.data_nascita ?? '');
+                                const under35 = isU35At(p.data_nascita, referenceDate);
                                 const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
                                     <button disabled={isSelected} key={p.id} onClick={() => handleMobilePlayerSelect(p)} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${isSelected ? 'cursor-not-allowed bg-muted opacity-50' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`} type="button">

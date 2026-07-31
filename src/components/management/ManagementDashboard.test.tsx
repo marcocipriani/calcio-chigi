@@ -105,7 +105,7 @@ function person(
 }
 
 const currentRoster = [
-  person("luca", "Luca", "Verdi", "PLAYER"),
+  { ...person("luca", "Luca", "Verdi", "PLAYER"), birthDate: "2000-01-01" },
   { ...person("anna", "Anna", "Rossi", "STAFF"), passportPhotoPath: "photos/anna.jpg" },
 ]
 
@@ -160,7 +160,7 @@ describe("ManagementDashboard operational state", () => {
     const table = await screen.findByRole("table")
     fireEvent.change(
       within(table).getByRole("combobox", { name: "Filtra Persona" }),
-      { target: { value: "STAFF" } },
+      { target: { value: "U35" } },
     )
 
     await waitFor(() => {
@@ -176,10 +176,10 @@ describe("ManagementDashboard operational state", () => {
       ).toBeInTheDocument()
     })
     expect(
-      within(table).getByRole("checkbox", { name: "Seleziona Anna Rossi" }),
+      within(table).getByRole("checkbox", { name: "Seleziona Luca Verdi" }),
     ).toBeChecked()
     expect(
-      within(table).queryByRole("checkbox", { name: "Seleziona Luca Verdi" }),
+      within(table).queryByRole("checkbox", { name: "Seleziona Anna Rossi" }),
     ).not.toBeInTheDocument()
   })
 

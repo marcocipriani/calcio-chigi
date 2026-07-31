@@ -68,7 +68,7 @@ describe("Calendar page", () => {
     )
   })
 
-  it("reserves violet for the manager action and keeps calendar tools neutral", async () => {
+  it("reserves violet for the manager action and uses calendar semantic colors", async () => {
     render(<Home />)
 
     const addAction = await screen.findByRole("button", {
@@ -76,17 +76,33 @@ describe("Calendar page", () => {
     })
     expect(addAction).toHaveClass("bg-violet-600", "hover:bg-violet-700")
 
+    const all = screen.getByRole("button", { name: "Tutti" })
     const matches = screen.getByRole("button", { name: "Partite" })
+    const trainings = screen.getByRole("button", { name: "Allenamenti" })
     expect(matches.querySelector("svg")).toHaveClass(
       "hidden",
       "min-[360px]:block",
     )
-    expect(
-      screen.getByRole("button", { name: "Allenamenti" }).querySelector("svg"),
-    ).toHaveClass("hidden", "min-[360px]:block")
+    expect(trainings.querySelector("svg")).toHaveClass(
+      "hidden",
+      "min-[360px]:block",
+    )
+
+    expect(all).toHaveClass("bg-foreground", "text-background")
+
     fireEvent.click(matches)
-    expect(matches).toHaveClass("bg-foreground", "text-background")
+    expect(matches).toHaveAttribute("aria-pressed", "true")
+    expect(matches).toHaveClass("bg-blue-600", "text-white")
     expect(matches).not.toHaveClass("bg-violet-600", "text-violet-700")
+
+    fireEvent.click(trainings)
+    expect(trainings).toHaveAttribute("aria-pressed", "true")
+    expect(trainings).toHaveClass("bg-orange-500", "text-white")
+    expect(trainings).not.toHaveClass("bg-violet-600", "text-violet-700")
+
+    fireEvent.click(all)
+    expect(all).toHaveAttribute("aria-pressed", "true")
+    expect(all).toHaveClass("bg-foreground", "text-background")
 
     expect(screen.getByRole("button", { name: "Vista lista" })).toHaveClass(
       "bg-foreground",

@@ -548,7 +548,7 @@ export default function Home() {
                     onClick={() => setFilter('PARTITA')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'PARTITA' 
-                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >
@@ -561,7 +561,7 @@ export default function Home() {
                     onClick={() => setFilter('ALLENAMENTO')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALLENAMENTO' 
-                            ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
+                            ? 'bg-orange-500 text-white shadow-sm hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-400'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >

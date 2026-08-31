@@ -1,8 +1,4 @@
-import type {
-  MembershipStatus,
-  Season,
-  SeasonMembership,
-} from "@/lib/domain"
+import type { Season, SeasonMembership } from "@/lib/domain"
 
 export const SEASONS = [
   {
@@ -82,21 +78,7 @@ export function canJoinMatchFormation(
 ) {
   return (
     membership.category === "PLAYER" &&
-    (membership.status === "YES" || membership.status === "MAYBE") &&
+    membership.status === "YES" &&
     !membership.training_only
   )
-}
-
-export function shouldPromptForSeasonConfirmation(
-  status: MembershipStatus,
-  lastRequestedAt: string | null | undefined,
-  now = new Date(),
-) {
-  if (status !== "PENDING") return false
-  if (!lastRequestedAt) return true
-
-  const lastRequested = new Date(lastRequestedAt)
-  if (Number.isNaN(lastRequested.getTime())) return true
-
-  return romeDateKey(lastRequested) !== romeDateKey(now)
 }

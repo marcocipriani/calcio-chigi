@@ -1,6 +1,5 @@
 export type AttendanceEvent = {
   id: string
-  type: "ALLENAMENTO" | "PARTITA"
   startsAt: string
 }
 
@@ -8,6 +7,12 @@ export type AttendanceCheckin = {
   eventId: string
   profileId: string
   status: "PRESENT" | "ABSENT"
+}
+
+/** Allenamento in cui il giocatore si è dichiarato KO: esce dal conteggio. */
+export type AttendanceInjury = {
+  eventId: string
+  profileId: string
 }
 
 export type AttendanceRate = {
@@ -18,7 +23,6 @@ export type AttendanceRate = {
 
 export type AttendanceSummary = {
   training: AttendanceRate
-  matches: AttendanceRate
   recentTraining: Array<{
     eventId: string
     startsAt: string
@@ -31,59 +35,50 @@ type AttendancePerson = {
   joinedOn: string | null
 }
 
-function attendanceRate(
-  events: AttendanceEvent[],
-  profileId: string,
-  checkinByKey: Map<string, AttendanceCheckin["status"]>,
-): AttendanceRate {
-  const recorded = events
-    .map((event) => checkinByKey.get(`${profileId}:${event.id}`))
-    .filter((status): status is AttendanceCheckin["status"] => Boolean(status))
-  const present = recorded.filter((status) => status === "PRESENT").length
-  const total = recorded.length
-  return { present, total, percentage: total ? (present / total) * 100 : 0 }
-}
-
+/**
+ * Presenze ufficiali: numeratore = check-in PRESENT del manager, denominatore =
+ * tutti gli allenamenti della stagione (già filtrati a non annullati) dopo
+ * l'ingresso in rosa, esclusi quelli in cui il giocatore si era dichiarato KO.
+ * Le partite non entrano nel conteggio.
+ */
 export function aggregateManagementAttendance(
   people: AttendancePerson[],
-  events: AttendanceEvent[],
+  trainings: AttendanceEvent[],
   checkins: AttendanceCheckin[],
+  injuries: AttendanceInjury[] = [],
 ) {
   const checkinByKey = new Map(
     checkins.map((row) => [`${row.profileId}:${row.eventId}`, row.status]),
   )
-  const trainingByDate = events
-    .filter(({ type }) => type === "ALLENAMENTO")
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  const injuredKeys = new Set(
+    injuries.map(({ profileId, eventId }) => `${profileId}:${eventId}`),
+  )
+  const sortedTrainings = [...trainings].sort((a, b) =>
+    a.startsAt.localeCompare(b.startsAt),
+  )
 
   return new Map(
     people.map((person) => {
-      const eligible = events.filter(
-        ({ startsAt }) =>
-          !person.joinedOn || startsAt.slice(0, 10) >= person.joinedOn,
+      const eligible = sortedTrainings.filter(
+        ({ id, startsAt }) =>
+          (!person.joinedOn || startsAt.slice(0, 10) >= person.joinedOn) &&
+          !injuredKeys.has(`${person.profileId}:${id}`),
       )
-      const latestTraining = trainingByDate
-        .filter(
-          ({ startsAt }) =>
-            !person.joinedOn || startsAt.slice(0, 10) >= person.joinedOn,
-        )
-        .slice(-8)
+      const present = eligible.filter(
+        ({ id }) => checkinByKey.get(`${person.profileId}:${id}`) === "PRESENT",
+      ).length
 
       const summary: AttendanceSummary = {
-        training: attendanceRate(
-          eligible.filter(({ type }) => type === "ALLENAMENTO"),
-          person.profileId,
-          checkinByKey,
-        ),
-        matches: attendanceRate(
-          eligible.filter(({ type }) => type === "PARTITA"),
-          person.profileId,
-          checkinByKey,
-        ),
-        recentTraining: latestTraining.map((event) => ({
+        training: {
+          present,
+          total: eligible.length,
+          percentage: eligible.length ? (present / eligible.length) * 100 : 0,
+        },
+        recentTraining: eligible.slice(-8).map((event) => ({
           eventId: event.id,
           startsAt: event.startsAt,
-          status: checkinByKey.get(`${person.profileId}:${event.id}`) ?? "MISSING",
+          status:
+            checkinByKey.get(`${person.profileId}:${event.id}`) ?? "MISSING",
         })),
       }
 

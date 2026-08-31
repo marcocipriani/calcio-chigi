@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
+  Archive,
+  ArchiveRestore,
   BellPlus,
   CalendarClock,
   CircleDollarSign,
@@ -45,6 +47,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import {
@@ -87,6 +90,7 @@ const views = [
 
 const emptyFilters: ManagementFilters = {
   query: "",
+  archived: false,
 }
 
 type QuickDialog =
@@ -435,8 +439,9 @@ export function ManagementDashboard() {
   const kpis = managementKpis(currentPeople)
   const viewCounts: Record<ManagementView, number> = {
     PEOPLE: kpis.total,
-    ATTENDANCE: currentPeople.filter(({ category }) => category === "PLAYER")
-      .length,
+    ATTENDANCE: currentPeople.filter(
+      ({ category, status }) => category === "PLAYER" && status !== "NO",
+    ).length,
     PAYMENTS: kpis.paymentsOpen,
     REGISTRATIONS: kpis.registrationsOpen,
     CERTIFICATES: kpis.certificatesOpen,
@@ -546,6 +551,33 @@ export function ManagementDashboard() {
     }
     toast.success("Scadenza aggiornata")
     setQuickDialog(null)
+    await load()
+  }
+
+  async function setArchived(archived: boolean) {
+    if (!currentRosterLoaded || !selectedMembershipIds.length) {
+      toast.error("Seleziona almeno una persona")
+      return
+    }
+    setActionBusy(true)
+    const { error } = await supabaseBrowser
+      .from("season_memberships")
+      .update({ status: archived ? "NO" : "YES", updated_by: profile?.id })
+      .in("id", selectedMembershipIds)
+    setActionBusy(false)
+    if (error) {
+      toast.error(
+        archived ? "Archiviazione non riuscita" : "Ripristino non riuscito",
+        { description: error.message },
+      )
+      return
+    }
+    toast.success(
+      archived
+        ? `${selectedMembershipIds.length} archiviati`
+        : `${selectedMembershipIds.length} rimessi in rosa`,
+    )
+    setSelected(new Set())
     await load()
   }
 
@@ -696,6 +728,34 @@ export function ManagementDashboard() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  aria-label={
+                    filters.archived ? "Rimetti in rosa" : "Archivia"
+                  }
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  disabled={!currentRosterLoaded || actionBusy}
+                  onClick={() => void setArchived(!filters.archived)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {filters.archived ? (
+                    <ArchiveRestore aria-hidden="true" />
+                  ) : (
+                    <Archive aria-hidden="true" />
+                  )}
+                  <span className="sr-only sm:not-sr-only">
+                    {filters.archived ? "In rosa" : "Archivia"}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">
+                {filters.archived
+                  ? "Rimetti in rosa i selezionati"
+                  : "Archivia i selezionati"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
                   aria-label="Invia notifica"
                   className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                   disabled={!currentRosterLoaded}
@@ -784,11 +844,28 @@ export function ManagementDashboard() {
             <Input
               className="h-8 pl-8"
               onChange={(event) =>
-                setFilters({ query: event.target.value })
+                setFilters((current) => ({
+                  ...current,
+                  query: event.target.value,
+                }))
               }
               placeholder="Cerca persona, telefono…"
               value={filters.query}
             />
+          </label>
+          <label className="flex min-h-8 items-center gap-2 rounded-md border px-2 text-xs font-semibold">
+            <Switch
+              aria-label="Mostra archiviati"
+              checked={Boolean(filters.archived)}
+              onCheckedChange={(archived) => {
+                setSelected(new Set())
+                setFilters((current) => ({ ...current, archived }))
+              }}
+            />
+            Archiviati
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              {kpis.archived}
+            </span>
           </label>
           <ColumnCustomizer
             availableColumns={availableColumns}

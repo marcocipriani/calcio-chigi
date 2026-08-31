@@ -1158,7 +1158,7 @@ test("manager salva goal assist MVP ammonizioni ed espulsioni ufficiali", async 
   await page.goto(`/evento/${E2E_MATCH_ID}`)
 
   await expect(
-    page.getByRole("heading", { name: "Check-in ufficiale" }),
+    page.getByRole("heading", { name: "Rosa e check-in" }),
   ).toBeVisible()
   await page.getByLabel("Goal di Piero Player").fill("3")
   await page.getByLabel("Assist di Piero Player").fill("2")
@@ -1166,7 +1166,7 @@ test("manager salva goal assist MVP ammonizioni ed espulsioni ufficiali", async 
   await page.getByLabel("Espulsioni di Piero Player").fill("1")
   await page.getByLabel("MVP").selectOption(E2E_PLAYER_ID)
   await page.getByRole("button", { name: "Salva statistiche" }).click()
-  await expect(page.getByText("Check-in e statistiche salvati")).toBeVisible()
+  await expect(page.getByText("Statistiche salvate")).toBeVisible()
 
   const serviceClient = createClient(
     process.env.E2E_SUPABASE_URL!,

@@ -60,18 +60,4 @@ describe("PlayerRosterCard", () => {
     )
   })
 
-  it("keeps maybe status visible without replacing player data", () => {
-    render(
-      <PlayerRosterCard muted player={{ ...player, status: "MAYBE" }} />,
-    )
-    expect(screen.getByText("Forse")).toBeVisible()
-    expect(screen.getByText("Dorbolò")).toBeVisible()
-    expect(screen.getByRole("article", { name: "Elio Dorbolò" })).toHaveClass(
-      "border-dashed",
-      "border-amber-300",
-    )
-    expect(
-      screen.queryByRole("link", { name: /profilo di/i }),
-    ).not.toBeInTheDocument()
-  })
 })

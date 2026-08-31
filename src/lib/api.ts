@@ -316,7 +316,7 @@ type PublicFormationRosterRow = {
     avatar_url: string | null
     role: string | null
     jersey_number: number | null
-    status: "YES" | "MAYBE"
+    status: "YES"
 }
 
 /**
@@ -329,7 +329,7 @@ export async function fetchPublicFormationRoster(
     const { data, error } = await supabase
         .from("public_active_roster")
         .select("id,nome,cognome,avatar_url,role,jersey_number,status")
-        .in("status", ["YES", "MAYBE"])
+        .eq("status", "YES")
         .eq("category", "PLAYER")
         .order("cognome")
 

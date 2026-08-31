@@ -43,7 +43,7 @@ const people: ManagementPerson[] = [
     nome: "Luca",
     cognome: "Verdi",
     category: "STAFF",
-    status: "INTERESTED",
+    status: "YES",
     isExternal: false,
     isAggregated: true,
     trainingOnly: true,
@@ -82,6 +82,30 @@ describe("filterManagementRows", () => {
   })
 })
 
+describe("archived people", () => {
+  const archived: ManagementPerson[] = [
+    people[0],
+    { ...people[1], status: "NO" },
+  ]
+
+  it("keeps archived people out of the roster list and the KPIs", () => {
+    expect(
+      filterManagementRows(archived, { query: "" }).map(
+        ({ profileId }) => profileId,
+      ),
+    ).toEqual(["profile-1"])
+    expect(
+      filterManagementRows(archived, { query: "", archived: true }).map(
+        ({ profileId }) => profileId,
+      ),
+    ).toEqual(["profile-2"])
+    expect(managementKpis(archived)).toMatchObject({
+      total: 1,
+      archived: 1,
+    })
+  })
+})
+
 describe("managementKpis", () => {
   it("counts operational work instead of only people", () => {
     expect(managementKpis(people)).toEqual({
@@ -90,6 +114,7 @@ describe("managementKpis", () => {
       paymentsOpen: 1,
       certificatesOpen: 0,
       accountsOpen: 1,
+      archived: 0,
     })
   })
 })

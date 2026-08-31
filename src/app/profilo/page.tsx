@@ -70,7 +70,7 @@ type Membership = {
   uniform_size: string | null
   asi_card_number: string | null
   department: string | null
-  status: "INTERESTED" | "PENDING" | "YES" | "MAYBE" | "NO"
+  status: "YES" | "NO"
   registration_status: RegistrationStatus
   registration_completed_on: string | null
   passport_photo_path: string | null
@@ -128,7 +128,7 @@ function statusTone(status: string) {
   if (status === "PAID" || status === "VALID" || status === "ACTIVE" || status === "YES") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
   }
-  if (status === "PENDING_REVIEW" || status === "SUBMITTED" || status === "MAYBE") {
+  if (status === "PENDING_REVIEW" || status === "SUBMITTED") {
     return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
   }
   return "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
@@ -562,7 +562,7 @@ export default function ProfilePage() {
               {season && <Badge variant="outline">{season.name}</Badge>}
               {membership && (
                 <Badge variant="outline" className={statusTone(membership.status)}>
-                  Conferma {membership.status}
+                  {membership.status === "YES" ? "In rosa" : "Archiviato"}
                 </Badge>
               )}
               {membership && (

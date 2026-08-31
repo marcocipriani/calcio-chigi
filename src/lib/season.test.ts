@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  activeSeasonAt,
-  ageBand,
-  canJoinMatchFormation,
-  shouldPromptForSeasonConfirmation,
-} from "@/lib/season"
+import { activeSeasonAt, ageBand, canJoinMatchFormation } from "@/lib/season"
 
 describe("activeSeasonAt", () => {
   it("keeps 2025-2026 active through 31 July in Rome", () => {
@@ -44,39 +39,9 @@ describe("canJoinMatchFormation", () => {
 
   it.each([
     { category: "STAFF", status: "YES", training_only: false },
-    { category: "PLAYER", status: "INTERESTED", training_only: false },
-    { category: "PLAYER", status: "PENDING", training_only: false },
     { category: "PLAYER", status: "NO", training_only: false },
     { category: "PLAYER", status: "YES", training_only: true },
   ] as const)("rejects $category/$status/training=$training_only", (membership) => {
     expect(canJoinMatchFormation(membership)).toBe(false)
-  })
-})
-
-describe("shouldPromptForSeasonConfirmation", () => {
-  it("prompts pending members once per Europe/Rome day", () => {
-    const now = new Date("2026-07-25T08:00:00+02:00")
-
-    expect(shouldPromptForSeasonConfirmation("PENDING", null, now)).toBe(true)
-    expect(
-      shouldPromptForSeasonConfirmation(
-        "PENDING",
-        "2026-07-24T23:00:00+02:00",
-        now,
-      ),
-    ).toBe(true)
-    expect(
-      shouldPromptForSeasonConfirmation(
-        "PENDING",
-        "2026-07-25T00:01:00+02:00",
-        now,
-      ),
-    ).toBe(false)
-  })
-
-  it("does not prompt after a final response", () => {
-    expect(
-      shouldPromptForSeasonConfirmation("YES", null, new Date("2026-07-25")),
-    ).toBe(false)
   })
 })

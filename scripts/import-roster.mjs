@@ -5,10 +5,7 @@ import ExcelJS from "exceljs"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
 
-const FINAL_YES = /\bOK\b|\bSI\b|\bSÌ\b/i
-const FINAL_MAYBE = /\bIN FORSE\b|\bFORSE\b/i
 const FINAL_NO = /\bNO\b/i
-const CONTACT_ONLY = /\bCHIESTO\b|\bDA RISENTIRE\b|\bSENTIR|\bRICONTATT|\bRISENTIAMO\b/i
 const DEPARTMENT_TAGS = new Set(["DPC", "SNA", "DIP"])
 const MEMBERSHIP_OVERRIDES = new Map([
   ["elio dorbolo", { category: "PLAYER" }],
@@ -48,17 +45,8 @@ export function mapExcelMembership({
   const isStaff = /\bDIRIGENTE\b/i.test(evidence)
   const trainingOnly = /\bSOLO ALLENAMENTI\b/i.test(evidence)
 
-  let status
-  if (FINAL_YES.test(adhesionText)) status = "YES"
-  else if (FINAL_MAYBE.test(evidence)) status = "MAYBE"
-  else if (FINAL_NO.test(adhesionText)) status = "NO"
-  else if (excelOnly || CONTACT_ONLY.test(evidence)) {
-    status = excelOnly ? "INTERESTED" : "PENDING"
-  } else {
-    status = "PENDING"
-  }
-
-  if (trainingOnly && excelOnly) status = "INTERESTED"
+  // Rosa binaria: dentro salvo un no esplicito, che vale archiviato.
+  const status = FINAL_NO.test(adhesionText) ? "NO" : "YES"
 
   return {
     status,
@@ -204,7 +192,7 @@ export function buildImportPlan(excelRows, dbProfiles) {
         category: profile.is_staff ? "STAFF" : "PLAYER",
         role: profile.is_staff ? null : profile.ruolo || null,
         staff_function: profile.is_staff ? "Staff" : null,
-        status: "PENDING",
+        status: "YES",
         training_only: false,
         is_external: false,
         is_aggregated: false,

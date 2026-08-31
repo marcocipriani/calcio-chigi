@@ -1,9 +1,5 @@
-export type MembershipStatus =
-  | "INTERESTED"
-  | "PENDING"
-  | "YES"
-  | "MAYBE"
-  | "NO"
+// 'YES' = in rosa, 'NO' = archiviato. Nessuno stato intermedio.
+export type MembershipStatus = "YES" | "NO"
 
 export type MembershipCategory = "PLAYER" | "STAFF"
 export type RegistrationStatus = "TODO" | "SUBMITTED" | "ACTIVE"
@@ -59,6 +55,6 @@ export interface PublicRosterMember {
   staff_function: string | null
   jersey_number: number | null
   category: MembershipCategory
-  status: Extract<MembershipStatus, "YES" | "MAYBE">
+  status: Extract<MembershipStatus, "YES">
   training_only: boolean
 }

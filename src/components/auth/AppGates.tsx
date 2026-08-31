@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import Link from "next/link"
-import { Check, Search, UserRoundCheck, WalletCards } from "lucide-react"
+import { Archive, Check, Search, UserRoundCheck, WalletCards } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
-import { shouldPromptForSeasonConfirmation } from "@/lib/season"
 import { cn } from "@/lib/utils"
 
 type ClaimableProfile = {
@@ -208,123 +207,58 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   )
 }
 
-function SeasonConfirmationPrompt({
-  client,
-  seasonSlug,
-  onFinished,
-}: {
-  client: SupabaseClient
-  seasonSlug: string
-  onFinished: () => void
-}) {
-  const { isAssociated, membership, refresh } = useAppSession()
-  const [open, setOpen] = useState(false)
+function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
+  const { isAssociated, membership } = useAppSession()
   const [busy, setBusy] = useState(false)
-  const prompted = useRef(false)
 
-  useEffect(() => {
-    if (
-      !isAssociated ||
-      !membership ||
-      !shouldPromptForSeasonConfirmation(
-        membership.status,
-        membership.last_confirmation_requested_at,
-      )
-    ) {
-      return
-    }
+  if (!isAssociated || membership?.status !== "NO") return null
 
-    setOpen(true)
-    if (prompted.current) return
-    prompted.current = true
-    void client.rpc("mark_season_confirmation_prompted", {
-      p_season_slug: seasonSlug,
-    })
-  }, [client, isAssociated, membership, seasonSlug])
-
-  async function respond(response: "YES" | "MAYBE" | "NO") {
+  async function logout() {
     setBusy(true)
-    const { error } = await client.rpc("respond_to_season_confirmation", {
-      p_season_slug: seasonSlug,
-      p_response: response,
-    })
-    setBusy(false)
-
-    if (error) {
-      toast.error("Conferma non salvata", {
-        description: "Riprova tra poco.",
-      })
-      return
-    }
-
-    setOpen(false)
-    onFinished()
-    toast.success("Disponibilità aggiornata")
-    await refresh()
+    await client.auth.signOut()
+    window.location.assign("/login")
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen)
-        if (!nextOpen) onFinished()
-      }}
-    >
-      <DialogContent className="gap-4 p-4 sm:max-w-md">
+    <Dialog open>
+      <DialogContent
+        className="gap-4 p-4 sm:max-w-sm"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        showCloseButton={false}
+      >
         <DialogHeader className="text-left">
-          <DialogTitle>Ci sei per la stagione 2026–2027?</DialogTitle>
+          <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+            <Archive aria-hidden="true" className="size-5" />
+          </div>
+          <DialogTitle>Posto in rosa archiviato</DialogTitle>
           <DialogDescription>
-            Puoi cambiare risposta in seguito. “No” ti esclude dalla rosa e
-            dalle formazioni della stagione.
+            Un manager ha archiviato il tuo posto in rosa: non puoi accedere
+            alle funzioni di squadra. Scrivi a un manager se pensi sia un
+            errore.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-3 gap-2">
-          <Button disabled={busy} onClick={() => respond("YES")}>
-            Sì
+        <DialogFooter>
+          <Button disabled={busy} onClick={logout} variant="outline">
+            Esci
           </Button>
-          <Button
-            disabled={busy}
-            onClick={() => respond("MAYBE")}
-            variant="secondary"
-          >
-            Forse
-          </Button>
-          <Button
-            disabled={busy}
-            onClick={() => respond("NO")}
-            variant="outline"
-          >
-            No
-          </Button>
-        </div>
-        <button
-          className="mx-auto min-h-11 px-3 text-sm text-muted-foreground underline-offset-4 hover:underline"
-          disabled={busy}
-          onClick={() => {
-            setOpen(false)
-            onFinished()
-          }}
-          type="button"
-        >
-          Decido più tardi
-        </button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-function OpenPaymentsPrompt({ enabled }: { enabled: boolean }) {
+function OpenPaymentsPrompt() {
   const { isAssociated, openPayments, targetSeason } = useAppSession()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    if (!enabled || !isAssociated || openPayments.count === 0) return
+    if (!isAssociated || openPayments.count === 0) return
     const today = new Date().toISOString().slice(0, 10)
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
     if (window.localStorage.getItem(key)) return
     setOpen(true)
-  }, [enabled, isAssociated, openPayments.count, targetSeason?.id])
+  }, [isAssociated, openPayments.count, targetSeason?.id])
 
   function dismiss() {
     const today = new Date().toISOString().slice(0, 10)
@@ -374,41 +308,15 @@ function OpenPaymentsPrompt({ enabled }: { enabled: boolean }) {
 
 export function AppGates({
   client = supabaseBrowser,
-  seasonSlug,
 }: {
   client?: SupabaseClient
   seasonSlug?: string
 }) {
-  const { targetSeason, isAssociated, membership } = useAppSession()
-  const needsSeasonConfirmation = Boolean(
-    isAssociated &&
-      membership &&
-      shouldPromptForSeasonConfirmation(
-        membership.status,
-        membership.last_confirmation_requested_at,
-      ),
-  )
-  const [seasonPromptFinished, setSeasonPromptFinished] = useState(false)
-
-  useEffect(() => {
-    if (!isAssociated) {
-      setSeasonPromptFinished(false)
-    } else if (!needsSeasonConfirmation) {
-      setSeasonPromptFinished(true)
-    }
-  }, [isAssociated, needsSeasonConfirmation])
-
   return (
     <>
       <AccountAssociationPrompt client={client} />
-      <SeasonConfirmationPrompt
-        client={client}
-        seasonSlug={seasonSlug ?? targetSeason?.slug ?? "2026-2027"}
-        onFinished={() => setSeasonPromptFinished(true)}
-      />
-      <OpenPaymentsPrompt
-        enabled={!needsSeasonConfirmation || seasonPromptFinished}
-      />
+      <ArchivedMemberNotice client={client} />
+      <OpenPaymentsPrompt />
     </>
   )
 }

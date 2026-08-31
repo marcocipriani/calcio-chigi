@@ -38,14 +38,6 @@ import {
 } from "@/lib/management-columns"
 import { ageGroupAt, cn } from "@/lib/utils"
 
-const statusLabel = {
-  INTERESTED: "Interessato",
-  PENDING: "Da confermare",
-  YES: "Sì",
-  MAYBE: "Forse",
-  NO: "No",
-}
-
 const tone = {
   good: "bg-emerald-500",
   warning: "bg-amber-500",
@@ -233,7 +225,6 @@ type ManagementColumn = {
   filter?:
     | "text"
     | "ageGroup"
-    | "confirmation"
     | "account"
     | "payment"
     | "registration"
@@ -261,27 +252,6 @@ const personColumn: ManagementColumn = {
 const columnsByView: Record<ManagementView, ManagementColumn[]> = {
   PEOPLE: [
     personColumn,
-    {
-      id: "confirmation",
-      label: "Conferma",
-      filter: "confirmation",
-      filterValue: (person) => person.status,
-      sortValue: (person) => statusLabel[person.status],
-      render: (person) => (
-        <Dot
-          kind={
-            person.status === "YES"
-              ? "good"
-              : person.status === "MAYBE"
-                ? "warning"
-                : person.status === "NO"
-                  ? "bad"
-                  : "neutral"
-          }
-          label={statusLabel[person.status]}
-        />
-      ),
-    },
     {
       id: "phone",
       label: "Telefono",
@@ -323,21 +293,6 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
           <span className="ml-1 text-muted-foreground">
             ({person.attendance?.training.present ?? 0}/
             {person.attendance?.training.total ?? 0})
-          </span>
-        </span>
-      ),
-    },
-    {
-      id: "matchRate",
-      label: "Presenze partite",
-      filterValue: (person) => person.attendance?.matches.percentage,
-      sortValue: (person) => person.attendance?.matches.percentage,
-      render: (person) => (
-        <span className="text-xs tabular-nums">
-          {percentage(person.attendance?.matches.percentage)}
-          <span className="ml-1 text-muted-foreground">
-            ({person.attendance?.matches.present ?? 0}/
-            {person.attendance?.matches.total ?? 0})
           </span>
         </span>
       ),
@@ -637,14 +592,6 @@ const filterOptions = {
     ["", "Tutti"],
     ["U35", "U35"],
     ["OVER_35", "Over 35"],
-  ],
-  confirmation: [
-    ["", "Tutte"],
-    ["INTERESTED", "Interessato"],
-    ["PENDING", "Da confermare"],
-    ["YES", "Sì"],
-    ["MAYBE", "Forse"],
-    ["NO", "No"],
   ],
   account: [
     ["", "Tutti"],

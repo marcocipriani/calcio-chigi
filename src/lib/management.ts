@@ -73,6 +73,8 @@ export function effectiveCertificateStatus(
 
 export type ManagementFilters = {
   query: string
+  /** true = mostra solo gli archiviati (elenco separato). */
+  archived?: boolean
 }
 
 export function filterManagementRows(
@@ -82,6 +84,8 @@ export function filterManagementRows(
   const query = filters.query.trim().toLocaleLowerCase("it")
 
   return people.filter((person) => {
+    if ((person.status === "NO") !== Boolean(filters.archived)) return false
+
     if (
       query &&
       ![
@@ -103,7 +107,9 @@ export function filterManagementRows(
   })
 }
 
-export function managementKpis(people: ManagementPerson[]) {
+export function managementKpis(allPeople: ManagementPerson[]) {
+  const people = allPeople.filter(({ status }) => status !== "NO")
+
   return {
     total: people.length,
     registrationsOpen: people.filter(
@@ -120,5 +126,6 @@ export function managementKpis(people: ManagementPerson[]) {
     accountsOpen: people.filter(
       ({ accountStatus }) => accountStatus !== "ACTIVE",
     ).length,
+    archived: allPeople.length - people.length,
   }
 }

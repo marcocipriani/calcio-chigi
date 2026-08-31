@@ -38,85 +38,90 @@ describe("management column preferences", () => {
   })
 })
 
-describe("fetchManagementAttendance", () => {
-  it("loads the season events and aggregates only player attendance", async () => {
-    const checkinResponse = {
-      data: [
-        {
-          event_id: "training-1",
-          profile_id: "player-1",
-          status: "PRESENT",
-        },
-      ],
-      error: null,
-    }
-    const checkinQuery = {
-      in: vi.fn(),
-      order: vi.fn(),
-      range: vi.fn(),
-      then: vi.fn(),
-    }
-    checkinQuery.in.mockReturnValue(checkinQuery)
-    checkinQuery.order.mockReturnValue(checkinQuery)
-    checkinQuery.range.mockResolvedValue(checkinResponse)
-    checkinQuery.then.mockImplementation((resolve) =>
-      Promise.resolve(checkinResponse).then(resolve),
-    )
-    const from = vi.fn((table: string) => {
-      if (table === "seasons") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: { id: "season-1" },
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === "events") {
-        return {
-          select: () => ({
-            eq: () => ({
-              lte: () => ({
-                order: async () => ({
-                  data: [
-                    {
-                      id: "training-1",
-                      tipo: "ALLENAMENTO",
-                      data_ora: "2026-07-20T18:30:00.000Z",
-                    },
-                  ],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }
-      }
+type StubRow = Record<string, unknown>
+
+type PageResult = { data: StubRow[] | null; error: unknown }
+
+function pagedQuery(pages: (from: number, to: number) => PageResult) {
+  const query = {
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(async (from: number, to: number) => pages(from, to)),
+  }
+  return query
+}
+
+function rowsPage(rows: StubRow[]) {
+  return (from: number, to: number): PageResult => ({
+    data: rows.slice(from, to + 1),
+    error: null,
+  })
+}
+
+function stubClient({
+  events,
+  checkins,
+  attendance,
+}: {
+  events: StubRow[]
+  checkins: ReturnType<typeof rowsPage>
+  attendance: ReturnType<typeof rowsPage>
+}) {
+  const checkinQuery = pagedQuery(checkins)
+  const attendanceQuery = pagedQuery(attendance)
+  const eventsQuery = {
+    eq: vi.fn(() => eventsQuery),
+    lte: vi.fn(() => eventsQuery),
+    order: vi.fn(async () => ({ data: events, error: null })),
+  }
+  const from = vi.fn((table: string) => {
+    if (table === "seasons") {
       return {
-        select: () => checkinQuery,
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ data: { id: "season-1" }, error: null }),
+          }),
+        }),
       }
+    }
+    if (table === "events") return { select: () => eventsQuery }
+    if (table === "attendance") return { select: () => attendanceQuery }
+    return { select: () => checkinQuery }
+  })
+
+  return {
+    attendanceQuery,
+    checkinQuery,
+    client: { from } as unknown as SupabaseClient,
+    eventsQuery,
+  }
+}
+
+describe("fetchManagementAttendance", () => {
+  it("counts trainings only, skips staff and drops the KO trainings", async () => {
+    const { attendanceQuery, checkinQuery, client, eventsQuery } = stubClient({
+      events: [
+        { id: "training-1", data_ora: "2026-07-20T18:30:00.000Z" },
+        { id: "training-2", data_ora: "2026-07-23T18:30:00.000Z" },
+      ],
+      checkins: rowsPage([
+        { event_id: "training-1", profile_id: "player-1", status: "PRESENT" },
+      ]),
+      attendance: rowsPage([
+        {
+          event_id: "training-2",
+          profile_id: "player-1",
+          status: "INFORTUNATO_PRESENTE",
+        },
+      ]),
     })
     const people = [
-      {
-        profileId: "player-1",
-        category: "PLAYER",
-        joinedOn: null,
-      },
-      {
-        profileId: "staff-1",
-        category: "STAFF",
-        joinedOn: null,
-      },
+      { profileId: "player-1", category: "PLAYER", joinedOn: null },
+      { profileId: "staff-1", category: "STAFF", joinedOn: null },
     ] as ManagementPerson[]
 
-    const result = await fetchManagementAttendance(
-      { from } as unknown as SupabaseClient,
-      "2026-2027",
-      people,
-    )
+    const result = await fetchManagementAttendance(client, "2026-2027", people)
 
     expect(result.get("player-1")?.training).toEqual({
       present: 1,
@@ -124,99 +129,47 @@ describe("fetchManagementAttendance", () => {
       percentage: 100,
     })
     expect(result.has("staff-1")).toBe(false)
-    expect(checkinQuery.in).toHaveBeenCalledWith("event_id", ["training-1"])
+    expect(eventsQuery.eq.mock.calls).toEqual([
+      ["season_id", "season-1"],
+      ["tipo", "ALLENAMENTO"],
+      ["cancellato", false],
+    ])
+    expect(checkinQuery.in).toHaveBeenCalledWith("event_id", [
+      "training-1",
+      "training-2",
+    ])
     expect(checkinQuery.in).toHaveBeenCalledWith("profile_id", ["player-1"])
+    expect(attendanceQuery.eq).toHaveBeenCalledWith(
+      "status",
+      "INFORTUNATO_PRESENTE",
+    )
   })
 
   it("paginates check-ins deterministically and includes the second page", async () => {
-    const events = Array.from({ length: 501 }, (_, index) => {
-      const sequence = String(index + 1).padStart(4, "0")
-      return {
-        id: `training-${sequence}`,
-        tipo: "ALLENAMENTO",
-        data_ora: new Date(
-          Date.UTC(2025, 0, index + 1, 18, 30),
-        ).toISOString(),
-      }
-    })
+    const events = Array.from({ length: 501 }, (_, index) => ({
+      id: `training-${String(index + 1).padStart(4, "0")}`,
+      data_ora: new Date(Date.UTC(2025, 0, index + 1, 18, 30)).toISOString(),
+    }))
     const checkins = events.flatMap(({ id }, eventIndex) => [
       {
         event_id: id,
         profile_id: "player-1",
         status: eventIndex === events.length - 1 ? "PRESENT" : "ABSENT",
       },
-      {
-        event_id: id,
-        profile_id: "player-2",
-        status: "PRESENT",
-      },
+      { event_id: id, profile_id: "player-2", status: "PRESENT" },
     ])
-    const checkinQuery = {
-      in: vi.fn(),
-      order: vi.fn(),
-      range: vi.fn(async (from: number, to: number) => ({
-        data: checkins.slice(from, to + 1),
-        error: null,
-      })),
-      then: vi.fn(),
-    }
-    checkinQuery.in.mockReturnValue(checkinQuery)
-    checkinQuery.order.mockReturnValue(checkinQuery)
-    checkinQuery.then.mockImplementation((resolve) =>
-      Promise.resolve({
-        data: checkins.slice(0, 1000),
-        error: null,
-      }).then(resolve),
-    )
-    const from = vi.fn((table: string) => {
-      if (table === "seasons") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: { id: "season-1" },
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === "events") {
-        return {
-          select: () => ({
-            eq: () => ({
-              lte: () => ({
-                order: async () => ({ data: events, error: null }),
-              }),
-            }),
-          }),
-        }
-      }
-      return { select: () => checkinQuery }
+    const { checkinQuery, client } = stubClient({
+      events,
+      checkins: rowsPage(checkins),
+      attendance: rowsPage([]),
     })
     const people = [
-      {
-        profileId: "player-1",
-        category: "PLAYER",
-        joinedOn: null,
-      },
-      {
-        profileId: "player-2",
-        category: "PLAYER",
-        joinedOn: null,
-      },
-      {
-        profileId: "staff-1",
-        category: "STAFF",
-        joinedOn: null,
-      },
+      { profileId: "player-1", category: "PLAYER", joinedOn: null },
+      { profileId: "player-2", category: "PLAYER", joinedOn: null },
+      { profileId: "staff-1", category: "STAFF", joinedOn: null },
     ] as ManagementPerson[]
 
-    const result = await fetchManagementAttendance(
-      { from } as unknown as SupabaseClient,
-      "2026-2027",
-      people,
-    )
+    const result = await fetchManagementAttendance(client, "2026-2027", people)
 
     expect(result.get("player-1")?.training).toEqual({
       present: 1,
@@ -228,12 +181,6 @@ describe("fetchManagementAttendance", () => {
       startsAt: events[500].data_ora,
       status: "PRESENT",
     })
-    expect(checkinQuery.in.mock.calls).toEqual([
-      ["event_id", events.map(({ id }) => id)],
-      ["profile_id", ["player-1", "player-2"]],
-      ["event_id", events.map(({ id }) => id)],
-      ["profile_id", ["player-1", "player-2"]],
-    ])
     expect(checkinQuery.order.mock.calls).toEqual([
       ["event_id", { ascending: true }],
       ["profile_id", { ascending: true }],
@@ -253,69 +200,19 @@ describe("fetchManagementAttendance", () => {
       profile_id: "player-1",
       status: "PRESENT",
     }))
-    const checkinQuery = {
-      in: vi.fn(),
-      order: vi.fn(),
-      range: vi.fn(async (from: number) =>
+    const { client } = stubClient({
+      events: [{ id: "training-1", data_ora: "2026-07-20T18:30:00.000Z" }],
+      checkins: (from) =>
         from === 0
           ? { data: fullPage, error: null }
           : { data: null, error: pageError },
-      ),
-      then: vi.fn(),
-    }
-    checkinQuery.in.mockReturnValue(checkinQuery)
-    checkinQuery.order.mockReturnValue(checkinQuery)
-    checkinQuery.then.mockImplementation((resolve) =>
-      Promise.resolve({ data: fullPage, error: null }).then(resolve),
-    )
-    const from = vi.fn((table: string) => {
-      if (table === "seasons") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: { id: "season-1" },
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-      if (table === "events") {
-        return {
-          select: () => ({
-            eq: () => ({
-              lte: () => ({
-                order: async () => ({
-                  data: [
-                    {
-                      id: "training-1",
-                      tipo: "ALLENAMENTO",
-                      data_ora: "2026-07-20T18:30:00.000Z",
-                    },
-                  ],
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }
-      }
-      return { select: () => checkinQuery }
+      attendance: rowsPage([]),
     })
 
     await expect(
-      fetchManagementAttendance(
-        { from } as unknown as SupabaseClient,
-        "2026-2027",
-        [
-          {
-            profileId: "player-1",
-            category: "PLAYER",
-            joinedOn: null,
-          },
-        ] as ManagementPerson[],
-      ),
+      fetchManagementAttendance(client, "2026-2027", [
+        { profileId: "player-1", category: "PLAYER", joinedOn: null },
+      ] as ManagementPerson[]),
     ).rejects.toBe(pageError)
   })
 })

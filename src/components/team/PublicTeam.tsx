@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { ChevronDown, UsersRound } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerRosterCard } from "@/components/team/PlayerRosterCard"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
@@ -20,7 +19,7 @@ type PublicMember = {
   staff_function: string | null
   jersey_number: number | null
   is_u35: boolean
-  status: "YES" | "MAYBE"
+  status: "YES"
 }
 
 type PublicStats = {
@@ -63,10 +62,7 @@ export function PublicTeam({
     [stats],
   )
   const confirmedPlayers = members.filter(
-    ({ category, status }) => category === "PLAYER" && status === "YES",
-  )
-  const maybePlayers = members.filter(
-    ({ category, status }) => category === "PLAYER" && status === "MAYBE",
+    ({ category }) => category === "PLAYER",
   )
   const staff = members.filter(({ category }) => category === "STAFF")
 
@@ -94,26 +90,6 @@ export function PublicTeam({
                   <PlayerRosterCard
                     canViewProfile={canViewProfiles}
                     key={player.id}
-                    player={player}
-                    stats={playerStats}
-                  />
-                )
-              })}
-            </div>
-          </section>
-
-          <section aria-label="In forse" className="space-y-2 border-t pt-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider">
-              In forse
-            </h2>
-            <div className="grid grid-cols-2 gap-1.5 min-[360px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-              {maybePlayers.map((player) => {
-                const playerStats = statsByProfile.get(player.id)
-                return (
-                  <PlayerRosterCard
-                    canViewProfile={canViewProfiles}
-                    key={player.id}
-                    muted
                     player={player}
                     stats={playerStats}
                   />
@@ -170,9 +146,6 @@ export function PublicTeam({
                   </summary>
                   <div className="flex items-center justify-between gap-2 border-t px-3 py-2 text-xs text-muted-foreground">
                     <span>Staff · stagione in corso</span>
-                    {member.status === "MAYBE" && (
-                      <Badge variant="outline">Forse</Badge>
-                    )}
                   </div>
                 </details>
               ))}

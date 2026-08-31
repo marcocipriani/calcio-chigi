@@ -3,19 +3,43 @@ import { describe, expect, it } from "vitest"
 import { aggregateManagementAttendance } from "@/lib/management-attendance"
 
 describe("aggregateManagementAttendance", () => {
-  it("separates training and matches, ignores missing checkins and pre-join events", () => {
+  it("counts every training after the join date and keeps missing checkins as absences", () => {
     const result = aggregateManagementAttendance(
       [{ profileId: "p1", joinedOn: "2026-07-08" }],
       [
-        { id: "old", type: "ALLENAMENTO", startsAt: "2026-07-01T18:00:00Z" },
-        { id: "t1", type: "ALLENAMENTO", startsAt: "2026-07-10T18:00:00Z" },
-        { id: "t2", type: "ALLENAMENTO", startsAt: "2026-07-13T18:00:00Z" },
-        { id: "m1", type: "PARTITA", startsAt: "2026-07-15T18:00:00Z" },
+        { id: "old", startsAt: "2026-07-01T18:00:00Z" },
+        { id: "t1", startsAt: "2026-07-10T18:00:00Z" },
+        { id: "t2", startsAt: "2026-07-13T18:00:00Z" },
       ],
       [
         { eventId: "old", profileId: "p1", status: "PRESENT" },
         { eventId: "t1", profileId: "p1", status: "PRESENT" },
-        { eventId: "m1", profileId: "p1", status: "ABSENT" },
+      ],
+    ).get("p1")
+
+    expect(result?.training).toEqual({
+      present: 1,
+      total: 2,
+      percentage: 50,
+    })
+    expect(result?.recentTraining.map(({ status }) => status)).toEqual([
+      "PRESENT",
+      "MISSING",
+    ])
+  })
+
+  it("drops the trainings the player declared KO for", () => {
+    const result = aggregateManagementAttendance(
+      [{ profileId: "p1", joinedOn: null }],
+      [
+        { id: "t1", startsAt: "2026-07-10T18:00:00Z" },
+        { id: "t2", startsAt: "2026-07-13T18:00:00Z" },
+        { id: "t3", startsAt: "2026-07-17T18:00:00Z" },
+      ],
+      [{ eventId: "t1", profileId: "p1", status: "PRESENT" }],
+      [
+        { eventId: "t2", profileId: "p1" },
+        { eventId: "t3", profileId: "p1" },
       ],
     ).get("p1")
 
@@ -24,21 +48,12 @@ describe("aggregateManagementAttendance", () => {
       total: 1,
       percentage: 100,
     })
-    expect(result?.matches).toEqual({
-      present: 0,
-      total: 1,
-      percentage: 0,
-    })
-    expect(result?.recentTraining.map(({ status }) => status)).toEqual([
-      "PRESENT",
-      "MISSING",
-    ])
+    expect(result?.recentTraining.map(({ eventId }) => eventId)).toEqual(["t1"])
   })
 
   it("keeps only the latest eight trainings and renders oldest first", () => {
     const events = Array.from({ length: 10 }, (_, index) => ({
       id: `t${index}`,
-      type: "ALLENAMENTO" as const,
       startsAt: `2026-07-${String(index + 1).padStart(2, "0")}T18:00:00Z`,
     }))
     const result = aggregateManagementAttendance(

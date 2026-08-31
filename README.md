@@ -55,16 +55,17 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 
 - **Calendario** di partite e allenamenti con viste lista/mese, filtri e
   countdown al prossimo incontro.
-- **Disponibilità e check-in** distinti: la risposta del giocatore resta
-  separata dalla presenza ufficiale usata nelle statistiche.
-- **Squadra stagionale** con confermati, incerti e staff separati; ruolo,
+- **Disponibilità e check-in** sulla stessa riga: la risposta del giocatore
+  resta distinta dal check-in ufficiale del manager, usato nelle statistiche.
+- **Squadra stagionale** con giocatori in rosa e staff separati; ruolo,
   numero di maglia e statistiche pubbliche.
 - **Profilo privato** con anagrafica, avatar, fototessera, certificato
   agonistico, quote, tesseramento e preferenza calendario.
 - **Torneo** con classifica, calendario per giornata, fasi disponibili,
   comunicati e risultati.
 - **Statistiche per annualità** con goal, assist, MVP, cartellini e presenze
-  agli allenamenti.
+  agli allenamenti (solo check-in ufficiali, al netto degli allenamenti
+  saltati per infortunio).
 - **Formazione personale** esportabile e condivisibile.
 
 ### 🛡️ Dirigenti (Manager)
@@ -77,8 +78,14 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 - **Formazione interattiva**: campo con **drag & drop** ([dnd-kit](https://dndkit.com/)), moduli 4-4-2 / 4-3-3 / 3-5-2 / 4-2-3-1, capitano/vice, colore maglia, controllo quota U35 in campo e totale.
 - **Export distinta ufficiale** in **Excel** ([ExcelJS](https://github.com/exceljs/exceljs)) precompilata dal template, ed export **PNG** della formazione ([html-to-image](https://github.com/bubkoo/html-to-image)).
 - **Convocazioni WhatsApp**: messaggio generato automaticamente (ritrovo, divisa, elenco convocati diviso Under/Over/Portieri).
-- **Presenze ufficiali**, verifica quote e certificati, tesseramenti,
-  associazione account e notifiche.
+- **Check-in ufficiale** dalla pagina evento: switch sulla singola riga o
+  switch di gruppo sulle righe selezionate, accanto alla disponibilità
+  dichiarata dal giocatore.
+- **Archiviazione della rosa**: la persona archiviata esce da pagine
+  pubbliche, formazioni e check-in ma resta in gestione, in un elenco
+  separato, con tutto lo storico.
+- **Verifica quote e certificati**, tesseramenti, associazione account e
+  notifiche.
 - **Aggiornamento risultati** inline dalla pagina Torneo.
 - **Ruoli separati**: `is_staff` descrive la rosa, `is_manager` autorizza la
   dashboard; entrambi sono protetti a livello database.
@@ -211,6 +218,7 @@ src/
 ├── components/
 │   ├── ui/                  # shadcn/ui (Radix + Tailwind)
 │   ├── management/          # Tabelle, drawer e azioni operative
+│   ├── events/              # Lista unica evento: disponibilità + check-in
 │   ├── EventCard.tsx · EventDialog.tsx
 │   ├── SiteHeader.tsx · BottomNav.tsx · AppCredits.tsx
 │   └── theme-provider.tsx

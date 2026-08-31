@@ -51,7 +51,7 @@ describe("mapExcelMembership", () => {
         note: "IN FORSE",
         excelOnly: true,
       }).status,
-      "MAYBE",
+      "YES",
     )
     assert.equal(
       mapExcelMembership({
@@ -63,29 +63,26 @@ describe("mapExcelMembership", () => {
     )
   })
 
-  it("keeps existing profiles pending without a final response", () => {
+  it("keeps people in the roster without a final response", () => {
     assert.equal(
       mapExcelMembership({
         adhesion: "LO SENTE ELIO",
         note: "",
         excelOnly: false,
       }).status,
-      "PENDING",
+      "YES",
     )
-  })
-
-  it("maps Excel-only contacts to interested", () => {
     assert.equal(
       mapExcelMembership({
         adhesion: "CHIESTO",
         note: "DA RISENTIRE",
         excelOnly: true,
       }).status,
-      "INTERESTED",
+      "YES",
     )
   })
 
-  it("keeps training-only interested and out of match formations", () => {
+  it("keeps training-only people out of match formations", () => {
     assert.deepEqual(
       mapExcelMembership({
         adhesion: "-",
@@ -93,7 +90,7 @@ describe("mapExcelMembership", () => {
         excelOnly: true,
       }),
       {
-        status: "INTERESTED",
+        status: "YES",
         category: "PLAYER",
         training_only: true,
       },
@@ -108,7 +105,7 @@ describe("mapExcelMembership", () => {
         excelOnly: true,
       }),
       {
-        status: "INTERESTED",
+        status: "YES",
         category: "STAFF",
         training_only: false,
       },

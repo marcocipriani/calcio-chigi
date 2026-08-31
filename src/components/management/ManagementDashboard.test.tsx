@@ -516,7 +516,7 @@ describe("ManagementDashboard operational state", () => {
     ).not.toBeInTheDocument()
 
     preferenceLoad.resolve({
-      PEOPLE: ["person", "confirmation", "phone", "account"],
+      PEOPLE: ["person", "phone", "account"],
     })
     await waitFor(() => expect(columnsButton).toBeEnabled())
     fireEvent.click(columnsButton)
@@ -532,7 +532,7 @@ describe("ManagementDashboard operational state", () => {
     })
     expect(api.saveManagementColumnPreferences.mock.calls[1][2]).toEqual(
       expect.objectContaining({
-        PEOPLE: ["person", "confirmation"],
+        PEOPLE: ["person"],
       }),
     )
     secondSave.resolve()

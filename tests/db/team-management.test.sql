@@ -146,7 +146,7 @@ select has_table('public'::name, 'notification_outbox'::name);
 select has_view('public'::name, 'claimable_profile_directory'::name);
 select has_function('public', 'get_app_context', array[]::text[]);
 select has_function('public', 'request_profile_association', array['uuid']);
-select has_function('public', 'respond_to_season_confirmation', array['text', 'text']);
+select hasnt_function('public', 'respond_to_season_confirmation', array['text', 'text']);
 select has_function('public', 'set_event_checkin', array['uuid', 'uuid', 'event_checkin_status']);
 select has_function('public', 'get_event_roster', array['uuid']);
 select has_function('public', 'guard_notification_recipient_identity', array[]::text[]);

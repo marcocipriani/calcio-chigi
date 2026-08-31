@@ -21,6 +21,7 @@ function fakeClient(context: Record<string, unknown>) {
       onAuthStateChange: vi.fn().mockReturnValue({
         data: { subscription: { unsubscribe: vi.fn() } },
       }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
     },
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -70,7 +71,7 @@ describe("AppGates", () => {
     })
   })
 
-  it("offers yes, maybe and no for the pending season confirmation", async () => {
+  it("locks archived members out of the team features", async () => {
     const client = fakeClient({
       profile: {
         id: "profile-1",
@@ -79,34 +80,22 @@ describe("AppGates", () => {
         is_manager: false,
       },
       associationStatus: "ACTIVE",
-      membership: {
-        id: "membership-1",
-        status: "PENDING",
-        last_confirmation_requested_at: null,
-      },
+      membership: { id: "membership-1", status: "NO" },
       unreadNotifications: 0,
     })
+    const signOut = client.auth.signOut
 
     render(
       <AppSessionProvider client={client as never}>
-        <AppGates client={client as never} seasonSlug="2026-2027" />
+        <AppGates client={client as never} />
       </AppSessionProvider>,
     )
 
-    expect(await screen.findByRole("button", { name: "Sì" })).toBeVisible()
-    expect(screen.getByRole("button", { name: "Forse" })).toBeVisible()
-    expect(screen.getByRole("button", { name: "No" })).toBeVisible()
+    expect(
+      await screen.findByRole("heading", { name: /Posto in rosa archiviato/i }),
+    ).toBeVisible()
 
-    fireEvent.click(screen.getByRole("button", { name: "Forse" }))
-
-    await waitFor(() => {
-      expect(client.rpc).toHaveBeenCalledWith(
-        "respond_to_season_confirmation",
-        {
-          p_season_slug: "2026-2027",
-          p_response: "MAYBE",
-        },
-      )
-    })
+    fireEvent.click(screen.getByRole("button", { name: "Esci" }))
+    await waitFor(() => expect(signOut).toHaveBeenCalled())
   })
 })

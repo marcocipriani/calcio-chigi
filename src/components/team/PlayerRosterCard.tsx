@@ -3,11 +3,9 @@ import { Info, Shirt, Sparkles } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 
 type PlayerRosterCardProps = {
   canViewProfile?: boolean
-  muted?: boolean
   player: {
     id: string
     nome: string
@@ -16,7 +14,6 @@ type PlayerRosterCardProps = {
     role: string | null
     jersey_number: number | null
     is_u35: boolean
-    status: "YES" | "MAYBE"
   }
   stats?: {
     goals: number
@@ -27,20 +24,16 @@ type PlayerRosterCardProps = {
 
 export function PlayerRosterCard({
   canViewProfile = false,
-  muted = false,
   player,
   stats,
 }: PlayerRosterCardProps) {
   return (
     <article
       aria-label={`${player.nome} ${player.cognome}`}
-      className={cn(
-        "relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs",
-        muted && "border-dashed border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20",
-      )}
+      className="relative min-w-0 overflow-hidden rounded-xl border bg-card px-1.5 py-2 text-center shadow-xs"
       data-player-card
     >
-      {canViewProfile && !muted && (
+      {canViewProfile && (
         <Link
           aria-label={`Profilo di ${player.nome} ${player.cognome}`}
           className="absolute right-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -101,14 +94,6 @@ export function PlayerRosterCard({
           <strong>{stats?.player_of_match ?? 0}</strong>
         </span>
       </div>
-      {player.status === "MAYBE" && (
-        <Badge
-          className="absolute right-1 top-1 h-4 border-amber-200 bg-amber-50 px-1 text-[8px] text-amber-800"
-          variant="outline"
-        >
-          Forse
-        </Badge>
-      )}
     </article>
   )
 }

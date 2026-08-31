@@ -233,15 +233,43 @@ COPPA_LAZIO_PROFESSIONISTI: 7 righe, G=11, MVP=6, A=0, ESP=0
 2. Se non è associato, sceglie nome e cognome dalla rosa.
 3. Il manager riceve una notifica e approva o rifiuta.
 4. Fino all’approvazione l’utente vede soltanto l’area pubblica.
-5. Se il profilo era `INTERESTED`, l’approvazione lo porta a `PENDING`.
-6. Alla prima apertura della nuova stagione, giocatore o manager registra
-   `YES`, `MAYBE` o `NO`.
+5. L’approvazione non tocca lo stato in rosa.
 
-I profili `INTERESTED` sono contatti senza account e non entrano in formazione
-finché non vengono confermati.
+La rosa è binaria: `YES` (in rosa) o `NO` (archiviato). L’archiviazione è
+manuale dalla dashboard: la persona resta in gestione nell’elenco archiviati
+con tutto lo storico, ma non compare nelle pagine pubbliche, non entra in
+formazione, non riceve check-in e non può usare l’area di squadra.
 
 Check-in e formazione leggono sempre la rosa della stagione assegnata
 all’evento, anche consultando partite storiche dopo il cambio stagione.
+
+## Check-in e presenze
+
+La pagina evento ha una lista sola: ogni riga mostra la disponibilità
+dichiarata dal giocatore e, per il manager, lo switch di check-in ufficiale.
+Sono due dati distinti — la disponibilità è una previsione, il check-in è la
+presenza reale — ma restano sulla stessa riga.
+
+- Check-in singolo: switch sulla riga. ON scrive `PRESENT`, OFF `ABSENT`.
+  `PRESENT` allinea anche la disponibilità a `PRESENTE`.
+- Check-in di gruppo: si selezionano le righe con le checkbox (scorciatoie
+  «Seleziona disponibili» e «Tutti»), poi lo switch in testata applica lo
+  stesso stato a tutta la selezione.
+- Lo staff compare in lista senza check-in. I `training_only` sono esclusi
+  dal check-in nelle partite, non negli allenamenti.
+- Le statistiche partita (goal, assist, cartellini, MVP) si aprono sotto la
+  riga di chi ha check-in `PRESENT`.
+
+La percentuale presenze della dashboard conta **solo i check-in ufficiali**:
+
+- numeratore: check-in `PRESENT`;
+- denominatore: tutti gli allenamenti non annullati della stagione successivi
+  a `joined_on`, **esclusi** quelli in cui il giocatore aveva dichiarato KO
+  (`INFORTUNATO_PRESENTE`);
+- le partite non entrano nel conteggio.
+
+Un allenamento senza check-in del manager conta quindi come assenza: se la
+percentuale sembra bassa, controllare prima che i check-in siano stati fatti.
 
 ## Pagamenti e certificati
 

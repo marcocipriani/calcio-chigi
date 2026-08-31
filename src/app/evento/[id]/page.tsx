@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, ShieldCheck, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Eye, UserCheck, UserX, Hand, Users, Share2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventDialog } from '@/components/EventDialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
@@ -23,7 +22,7 @@ import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendan
 import { ageGroupAt, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
-import { CheckinStatsPanel } from '@/components/management/CheckinStatsPanel';
+import { EventRosterPanel } from '@/components/events/EventRosterPanel';
 import { PageContainer } from "@/components/layout/PageContainer";
 
 interface RosterPlayer {
@@ -34,6 +33,7 @@ interface RosterPlayer {
   avatar_url?: string | null;
   data_nascita?: string | null;
   is_staff?: boolean;
+  training_only?: boolean;
   status: string | null;
   vote_time: string | null;
   modified_by: string | null;
@@ -211,41 +211,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           toast.info("Scelta rimossa");
       }
   }
-
-  const handleManagerOverride = async (targetProfileId: string, newStatus: string) => {
-      if (!myProfileId) return;
-
-      const prevRoster = [...roster];
-      const now = new Date().toISOString();
-      
-      setRoster(prev => prev.map(p => p.id === targetProfileId ? { 
-          ...p, 
-          status: newStatus === 'RESET' ? null : newStatus, 
-          vote_time: newStatus === 'RESET' ? null : now,
-          modified_by: newStatus === 'RESET' ? null : myProfileId 
-      } : p));
-
-      let error = null;
-      if (newStatus === "RESET") {
-          const res = await supabase.from('attendance').delete().match({ event_id: id, profile_id: targetProfileId });
-          error = res.error;
-      } else {
-          const res = await supabase.from('attendance').upsert({
-              event_id: id,
-              profile_id: targetProfileId,
-              status: newStatus,
-              modified_by: myProfileId
-          }, { onConflict: 'event_id, profile_id' });
-          error = res.error;
-      }
-
-      if (error) {
-          setRoster(prevRoster);
-          toast.error("Errore aggiornamento manager: " + error.message);
-      } else {
-          toast.info("Stato aggiornato dal manager");
-      }
-  };
 
   const handleEventUpdate = async (updatedData: Partial<Event>) => {
       const prevEvent = event;
@@ -456,8 +421,6 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
           </Card>
         )}
 
-        {isManager && <CheckinStatsPanel eventId={id} isMatch={isMatch} />}
-
         {isAssociated && !isCancelled && (
             isMatch ? (
                 <div className="grid grid-cols-6 gap-2">
@@ -557,101 +520,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         )}
 
         {isAssociated && (
-        <div>
-            <div className="flex flex-col mb-4 border-b pb-2 gap-2">
-                <h3 className="font-bold text-lg">Risposte</h3>
-            </div>
-
-            <div className="space-y-2">
-                {sortedRoster.map((p) => {
-                    const status = p.status;
-                    let borderClass = "border-l-4 border-l-slate-300 dark:border-l-slate-600"; 
-                    const bgClass = "bg-card";
-                    let statusText = "Non ha votato";
-                    let statusColor = "text-muted-foreground";
-
-                    if (status === 'PRESENTE') {
-                        borderClass = "border-l-4 border-l-green-500";
-                        statusText = "PRESENTE";
-                        statusColor = "text-green-600 dark:text-green-400";
-                    } else if (status === 'ASSENTE') {
-                        borderClass = "border-l-4 border-l-red-500 opacity-60";
-                        statusText = "ASSENTE";
-                        statusColor = "text-red-600 dark:text-red-400";
-                    } else if (status === 'INFORTUNATO_PRESENTE') {
-                        if (isMatch) {
-                            borderClass = "border-l-4 border-l-slate-500 bg-slate-50 dark:bg-slate-900/50";
-                            statusText = "SPETTATORE";
-                            statusColor = "text-slate-600 dark:text-slate-400";
-                        } else {
-                            borderClass = "border-l-4 border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10";
-                            statusText = "PRESENTE (KO)";
-                            statusColor = "text-yellow-600 dark:text-yellow-400";
-                        }
-                    }
-
-                    const isU35Player = isU35At(p.data_nascita, eventDate);
-                    const voteTime = p.vote_time ? format(new Date(p.vote_time), 'dd/MM HH:mm') : '';
-                    
-                    const isManagerEdit = p.modified_by && p.modified_by !== p.id;
-                    const managerName = isManagerEdit ? allProfilesMap[p.modified_by ?? '']?.split(' ')[0] : null;
-
-                    return (
-                        <div key={p.id} className={`flex items-center justify-between p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 ${borderClass} ${bgClass} transition-[border-color,background-color,opacity] duration-300`}>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
-                                    <AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} />
-                                    <AvatarFallback>{p.nome[0]}{p.cognome[0]}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-bold text-sm leading-none flex items-center gap-1">
-                                            {p.cognome} {p.nome}
-                                            {p.is_staff && <ShieldCheck className="h-3 w-3 text-muted-foreground" />}
-                                        </p>
-                                        {isU35Player && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0">U35</Badge>}
-                                        {p.ruolo === 'PORTIERE' && <Badge className="text-[8px] h-4 px-1 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-0">POR</Badge>}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1">
-                                        <p className="text-[9px] font-bold uppercase text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 rounded">
-                                            {p.ruolo?.substring(0,3)}
-                                        </p>
-                                        <p className={`text-[10px] font-bold ${statusColor}`}>
-                                            {statusText}
-                                        </p>
-                                        {voteTime && (
-                                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                                {isManagerEdit ? `(Modificato da ${managerName} ${voteTime})` : `(Votato ${voteTime})`}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {isManager ? (
-                                <Select 
-                                    value={status || "RESET"} 
-                                    onValueChange={(val) => handleManagerOverride(p.id, val)}
-                                >
-                                    <SelectTrigger className="h-7 w-[100px] text-[10px] font-bold bg-background border-purple-200 focus:ring-purple-500">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="RESET">-- Reset --</SelectItem>
-                                        <SelectItem value="PRESENTE">Presente</SelectItem>
-                                        <SelectItem value="ASSENTE">Assente</SelectItem>
-                                        <SelectItem value="INFORTUNATO_PRESENTE">{isMatch ? 'Spettatore' : 'Infortunato'}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                status === 'PRESENTE' && <CheckCircle2 className="h-5 w-5 text-green-500" />
-                            )}
-                        </div>
-                    );
-                })}
-                {sortedRoster.length === 0 && <p className="text-center text-sm text-muted-foreground py-4">Nessuno ha ancora risposto.</p>}
-            </div>
-        </div>
+          <EventRosterPanel
+            eventDate={eventDate}
+            eventId={id}
+            isManager={isManager}
+            isMatch={isMatch}
+            managerProfileId={myProfileId}
+            namesByProfileId={allProfilesMap}
+            roster={sortedRoster}
+          />
         )}
 
       </div>

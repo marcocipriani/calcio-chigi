@@ -16,16 +16,16 @@ const database = vi.hoisted(() => {
       status: "YES",
     },
     {
-      id: "maybe-1",
+      id: "confirmed-2",
       nome: "Marco",
-      cognome: "Incerto",
+      cognome: "Secondo",
       avatar_url: null,
       category: "PLAYER",
       role: "ATTACCANTE",
       staff_function: null,
       jersey_number: 9,
       is_u35: false,
-      status: "MAYBE",
+      status: "YES",
     },
     {
       id: "staff-1",
@@ -64,21 +64,18 @@ vi.mock("@/lib/supabaseBrowser", () => ({ supabaseBrowser: database }))
 import { PublicTeam } from "@/components/team/PublicTeam"
 
 describe("PublicTeam", () => {
-  it("separates maybe players from confirmed players without profile actions", async () => {
+  it("lists every rostered player in one squad section", async () => {
     render(<PublicTeam canViewProfiles />)
 
     expect(await screen.findByRole("heading", { name: "Squadra" })).toBeVisible()
-    expect(screen.getByRole("heading", { name: "In forse" })).toBeVisible()
     expect(screen.getByRole("heading", { name: "Staff" })).toBeVisible()
+    expect(
+      screen.queryByRole("heading", { name: "In forse" }),
+    ).not.toBeInTheDocument()
 
     const confirmed = screen.getByRole("region", { name: "Squadra" })
-    const maybe = screen.getByRole("region", { name: "In forse" })
     expect(within(confirmed).getByText("Confermato")).toBeVisible()
+    expect(within(confirmed).getByText("Secondo")).toBeVisible()
     expect(within(confirmed).getByText("U35")).toBeVisible()
-    expect(within(maybe).getByText("Incerto")).toBeVisible()
-    expect(within(maybe).queryByText("U35")).not.toBeInTheDocument()
-    expect(
-      within(maybe).queryByRole("link", { name: /profilo di/i }),
-    ).not.toBeInTheDocument()
   })
 })

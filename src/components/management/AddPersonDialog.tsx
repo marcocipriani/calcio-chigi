@@ -45,11 +45,6 @@ export function AddPersonDialog({
         cognome: String(form.get("cognome") ?? ""),
         phone: String(form.get("phone") ?? ""),
         category,
-        status: String(form.get("status")) as
-          | "INTERESTED"
-          | "PENDING"
-          | "YES"
-          | "MAYBE",
         role: String(form.get("role") ?? ""),
         staffFunction: String(form.get("staffFunction") ?? ""),
         trainingOnly: form.get("trainingOnly") === "on",
@@ -73,7 +68,7 @@ export function AddPersonDialog({
         <DialogHeader className="text-left">
           <DialogTitle>Aggiungi persona</DialogTitle>
           <DialogDescription>
-            Può essere un giocatore, uno staff o un interessato senza account.
+            Entra subito in rosa. Se non gioca più, archivialo dalla scheda.
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-3 sm:grid-cols-2" onSubmit={submit}>
@@ -107,20 +102,6 @@ export function AddPersonDialog({
             >
               <option value="PLAYER">Giocatore</option>
               <option value="STAFF">Staff</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-status">Interesse / conferma</Label>
-            <select
-              className={fieldClass}
-              defaultValue="INTERESTED"
-              id="new-status"
-              name="status"
-            >
-              <option value="INTERESTED">Interessato</option>
-              <option value="PENDING">Da confermare</option>
-              <option value="YES">Sì</option>
-              <option value="MAYBE">Forse</option>
             </select>
           </div>
           {category === "PLAYER" ? (

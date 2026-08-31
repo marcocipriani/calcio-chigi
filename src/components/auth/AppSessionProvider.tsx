@@ -26,8 +26,7 @@ export type AppProfile = {
 
 export type AppMembership = {
   id: string
-  status: "PENDING" | "YES" | "MAYBE" | "NO" | "INTERESTED"
-  last_confirmation_requested_at?: string | null
+  status: "YES" | "NO"
   [key: string]: unknown
 }
 

@@ -236,13 +236,18 @@ export async function fetchManagementAttendance(
 
   const { data: events, error: eventsError } = await client
     .from("events")
-    .select("id, tipo, data_ora")
+    .select("id, data_ora")
     .eq("season_id", season.id)
+    .eq("tipo", "ALLENAMENTO")
+    .eq("cancellato", false)
     .lte("data_ora", new Date().toISOString())
     .order("data_ora")
   if (eventsError) throw eventsError
 
-  const eventIds = (events ?? []).map(({ id }) => id)
+  const trainings = (events ?? []).flatMap((event) =>
+    event.data_ora ? [{ id: event.id, startsAt: event.data_ora }] : [],
+  )
+  const eventIds = trainings.map(({ id }) => id)
   const players = people
     .filter(({ category }) => category === "PLAYER")
     .map(({ profileId, joinedOn }) => ({
@@ -250,43 +255,48 @@ export async function fetchManagementAttendance(
       joinedOn: joinedOn ?? null,
     }))
   const profileIds = players.map(({ profileId }) => profileId)
-  const checkins = []
 
-  if (eventIds.length && profileIds.length) {
+  async function fetchPaged(
+    table: "event_checkins" | "attendance",
+    status?: string,
+  ) {
+    if (!eventIds.length || !profileIds.length) return [] as UnknownRow[]
+    const rows: UnknownRow[] = []
     for (let from = 0; ; from += CHECKIN_PAGE_SIZE) {
-      const { data, error } = await client
-        .from("event_checkins")
+      const query = client
+        .from(table)
         .select("event_id, profile_id, status")
         .in("event_id", eventIds)
         .in("profile_id", profileIds)
+      const { data, error } = await (status ? query.eq("status", status) : query)
         .order("event_id", { ascending: true })
         .order("profile_id", { ascending: true })
         .range(from, from + CHECKIN_PAGE_SIZE - 1)
       if (error) throw error
-
-      const page = data ?? []
-      checkins.push(...page)
+      const page = (data ?? []) as UnknownRow[]
+      rows.push(...page)
       if (page.length < CHECKIN_PAGE_SIZE) break
     }
+    return rows
   }
+
+  const [checkins, injuries] = await Promise.all([
+    fetchPaged("event_checkins"),
+    // Il KO dichiarato dal giocatore toglie l'allenamento dal denominatore.
+    fetchPaged("attendance", "INFORTUNATO_PRESENTE"),
+  ])
 
   return aggregateManagementAttendance(
     players,
-    (events ?? []).flatMap((event) =>
-      event.data_ora
-        ? [
-            {
-              id: event.id,
-              type: event.tipo,
-              startsAt: event.data_ora,
-            },
-          ]
-        : [],
-    ),
+    trainings,
     checkins.map((row) => ({
-      eventId: row.event_id,
-      profileId: row.profile_id,
-      status: row.status,
+      eventId: String(row.event_id),
+      profileId: String(row.profile_id),
+      status: row.status as "PRESENT" | "ABSENT",
+    })),
+    injuries.map((row) => ({
+      eventId: String(row.event_id),
+      profileId: String(row.profile_id),
     })),
   )
 }
@@ -298,7 +308,6 @@ export async function createManagementPerson(
     nome: string
     cognome: string
     category: MembershipCategory
-    status: MembershipStatus
     phone?: string
     role?: string
     staffFunction?: string
@@ -311,7 +320,7 @@ export async function createManagementPerson(
     p_nome: input.nome,
     p_cognome: input.cognome,
     p_category: input.category,
-    p_status: input.status,
+    p_status: "YES",
     p_phone: input.phone || null,
     p_role: input.role || null,
     p_staff_function: input.staffFunction || null,

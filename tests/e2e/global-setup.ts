@@ -227,7 +227,7 @@ export default async function globalSetup() {
   const membershipPeople = [
     [IDS.manager, "PLAYER", "DIFENSORE", null, 4, "YES"],
     [IDS.player, "PLAYER", "ATTACCANTE", null, 9, "YES"],
-    [IDS.maybe, "PLAYER", "PORTIERE", null, 1, "MAYBE"],
+    [IDS.maybe, "PLAYER", "PORTIERE", null, 1, "YES"],
     [IDS.no, "PLAYER", "CENTROCAMPISTA", null, 8, "NO"],
     [IDS.staff, "STAFF", null, "Massaggiatrice", null, "YES"],
   ]

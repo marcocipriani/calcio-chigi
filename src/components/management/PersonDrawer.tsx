@@ -429,18 +429,15 @@ export function PersonDrawer({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="person-status">Conferma</Label>
+                  <Label htmlFor="person-status">Stato</Label>
                   <select
                     className={selectClass}
                     defaultValue={person.status}
                     id="person-status"
                     name="status"
                   >
-                    <option value="INTERESTED">Interessato</option>
-                    <option value="PENDING">Da confermare</option>
-                    <option value="YES">Sì</option>
-                    <option value="MAYBE">Forse</option>
-                    <option value="NO">No</option>
+                    <option value="YES">In rosa</option>
+                    <option value="NO">Archiviato</option>
                   </select>
                 </div>
               </div>

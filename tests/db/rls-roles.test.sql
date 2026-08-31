@@ -70,7 +70,7 @@ select
   'PLAYER',
   'CENTROCAMPISTA',
   8,
-  'INTERESTED'
+  'NO'
 from public.seasons season
 where season.slug = '2026-2027';
 
@@ -222,7 +222,7 @@ select results_eq(
        '10000000-0000-0000-0000-000000000004'
      )$$,
   array[0::bigint],
-  'public statistics do not enumerate interested or unrostered people'
+  'public statistics do not enumerate archived or unrostered people'
 );
 select throws_ok(
   $$select * from public.get_player_profile(
@@ -266,9 +266,12 @@ select throws_ok(
 select results_eq(
   $$select id
       from public.claimable_profile_directory
-     where id = '10000000-0000-0000-0000-000000000003'$$,
-  array['10000000-0000-0000-0000-000000000003'::uuid],
-  'unlinked account sees claimable names'
+     where id in (
+       '10000000-0000-0000-0000-000000000003',
+       '10000000-0000-0000-0000-000000000004'
+     )$$,
+  array['10000000-0000-0000-0000-000000000004'::uuid],
+  'claimable names exclude the archived people'
 );
 select lives_ok(
   $$select public.request_profile_association(
@@ -296,7 +299,7 @@ select lives_ok(
     ),
     '10000000-0000-0000-0000-000000000001'
   )$$,
-  'manager approval links an interested person account'
+  'manager approval links an unclaimed profile to its account'
 );
 select results_eq(
   $$select status::text
@@ -305,8 +308,8 @@ select results_eq(
      where membership.profile_id =
        '10000000-0000-0000-0000-000000000003'
        and season.slug = '2026-2027'$$,
-  array['PENDING'::text],
-  'approved interested person is moved to the confirmation queue'
+  array['NO'::text],
+  'account approval never changes the roster status'
 );
 reset role;
 select set_config('request.jwt.claim.role', 'authenticated', true);
@@ -486,7 +489,7 @@ select results_eq(
     '10000000-0000-0000-0000-000000000002'::uuid,
     '10000000-0000-0000-0000-000000000004'::uuid
   ],
-  'event roster follows the event season and excludes interested people'
+  'event roster follows the event season and excludes archived people'
 );
 select results_eq(
   $$select profile_id

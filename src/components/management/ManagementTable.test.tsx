@@ -22,7 +22,7 @@ const people: ManagementPerson[] = [
     nome: "Luca",
     cognome: "Verdi",
     category: "PLAYER",
-    status: "MAYBE",
+    status: "YES",
     role: "Difensore",
     jerseyNumber: 8,
     phone: "333 1111111",
@@ -69,7 +69,7 @@ function renderPeopleTable() {
   render(
     <ManagementTable
       {...actions}
-      columns={["person", "confirmation", "phone", "account"]}
+      columns={["person", "phone", "account"]}
       people={people}
       selected={new Set()}
       view="PEOPLE"
@@ -90,7 +90,6 @@ function renderAttendanceTable(onOpen = vi.fn()) {
     ...people[0],
     attendance: {
       training: { present: 1, total: 1, percentage: 100 },
-      matches: { present: 0, total: 0, percentage: 0 },
       recentTraining: [
         {
           eventId: "training-1",
@@ -103,7 +102,7 @@ function renderAttendanceTable(onOpen = vi.fn()) {
   const result = render(
     <ManagementTable
       {...actions}
-      columns={["person", "trainingStreak", "trainingRate", "matchRate"]}
+      columns={["person", "trainingStreak", "trainingRate"]}
       onOpen={onOpen}
       people={[player]}
       selected={new Set()}
@@ -121,8 +120,11 @@ describe("ManagementTable", () => {
       screen.getByRole("columnheader", { name: /persona/i }),
     ).toBeVisible()
     expect(
-      screen.getByRole("columnheader", { name: /conferma/i }),
+      screen.getByRole("columnheader", { name: /telefono/i }),
     ).toBeVisible()
+    expect(
+      screen.queryByRole("columnheader", { name: /conferma/i }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText("Dipartimento")).not.toBeInTheDocument()
     expect(screen.queryByText("Tag")).not.toBeInTheDocument()
     expect(screen.getByLabelText("Numero maglia 8")).toBeVisible()

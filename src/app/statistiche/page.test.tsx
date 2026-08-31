@@ -78,6 +78,15 @@ const database = vi.hoisted(() => {
       order() {
         return query
       },
+      range() {
+        const response = responses.get(table) ?? {
+          data: [],
+          error: null,
+        }
+        return response instanceof Promise
+          ? response
+          : Promise.resolve(response)
+      },
       maybeSingle() {
         if (table === "seasons") {
           return Promise.resolve({
@@ -196,7 +205,12 @@ function selectSeason(slug: "2026-2027" | "2025-2026") {
 
 function privateQueries() {
   return database.queries.filter(({ table }) =>
-    ["events", "event_checkins"].includes(table),
+    [
+      "events",
+      "event_checkins",
+      "attendance",
+      "authenticated_season_join_dates",
+    ].includes(table),
   )
 }
 
@@ -304,11 +318,17 @@ describe("StatisticsPage seasonal rankings", () => {
   it("adds the selected season to every associated player link and loads current attendance", async () => {
     session.useAppSession.mockReturnValue(associatedSession())
     database.responses.set("events", {
-      data: [{ id: "training-1" }],
+      data: [{ id: "training-1", data_ora: "2026-08-20T18:30:00.000Z" }],
       error: null,
     })
     database.responses.set("event_checkins", {
-      data: [{ event_id: "training-1", profile_id: "player-1" }],
+      data: [
+        {
+          event_id: "training-1",
+          profile_id: "player-1",
+          status: "PRESENT",
+        },
+      ],
       error: null,
     })
 
@@ -325,13 +345,17 @@ describe("StatisticsPage seasonal rankings", () => {
         "/giocatore/player-1?season=2026-2027",
       )
     }
-    const [eventsQuery, checkinsQuery] = privateQueries()
+    expect(screen.getByLabelText("Posizione 1")).toBeVisible()
+    const queryFor = (table: string) =>
+      privateQueries().find((query) => query.table === table)
+    const eventsQuery = queryFor("events")!
     expect(eventsQuery).toEqual({
       table: "events",
-      columns: "id",
+      columns: "id, data_ora",
       filters: [
         { method: "eq", column: "season_id", value: "season-2026" },
         { method: "eq", column: "tipo", value: "ALLENAMENTO" },
+        { method: "eq", column: "cancellato", value: false },
         {
           method: "lte",
           column: "data_ora",
@@ -344,15 +368,25 @@ describe("StatisticsPage seasonal rankings", () => {
     )
     expect(cutoff).toBeGreaterThanOrEqual(requestStartedAt)
     expect(cutoff).toBeLessThanOrEqual(requestFinishedAt)
-    expect(checkinsQuery).toEqual({
+    expect(queryFor("event_checkins")).toEqual({
       table: "event_checkins",
-      columns: "event_id, profile_id",
+      columns: "event_id, profile_id, status",
       filters: [
-        { method: "eq", column: "status", value: "PRESENT" },
+        { method: "in", column: "event_id", value: ["training-1"] },
+        { method: "in", column: "profile_id", value: ["player-1"] },
+      ],
+    })
+    // Stessa regola della dashboard: gli allenamenti con KO escono dal conteggio.
+    expect(queryFor("attendance")).toEqual({
+      table: "attendance",
+      columns: "event_id, profile_id, status",
+      filters: [
+        { method: "in", column: "event_id", value: ["training-1"] },
+        { method: "in", column: "profile_id", value: ["player-1"] },
         {
-          method: "in",
-          column: "event_id",
-          value: ["training-1"],
+          method: "eq",
+          column: "status",
+          value: "INFORTUNATO_PRESENTE",
         },
       ],
     })
@@ -432,6 +466,10 @@ describe("StatisticsPage seasonal rankings", () => {
 
     render(<StatisticsPage />)
     await waitFor(() => expect(ranking("Goal").getByText("5")).toBeVisible())
+    await waitFor(() =>
+      expect(screen.getByText("0/0 allenamenti")).toBeVisible(),
+    )
+    expect(screen.queryByLabelText("Posizione 1")).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByRole("combobox", { name: "Fase" }), {
       target: { value: "FASE_1" },

@@ -222,22 +222,25 @@ export async function saveManagementColumnPreferences(
   if (error) throw error
 }
 
-export async function fetchManagementAttendance(
-  client: SupabaseClient,
-  seasonSlug: string,
-  people: ManagementPerson[],
-) {
-  const { data: season, error: seasonError } = await client
-    .from("seasons")
-    .select("id")
-    .eq("slug", seasonSlug)
-    .single()
-  if (seasonError) throw seasonError
+export type SeasonAttendancePlayer = {
+  profileId: string
+  joinedOn: string | null
+}
 
+/**
+ * Presenze ufficiali di una stagione, con la sola regola valida ovunque:
+ * check-in `PRESENT` sugli allenamenti non annullati già svolti, dopo
+ * l'ingresso in rosa e al netto degli allenamenti saltati per KO.
+ */
+export async function fetchSeasonAttendance(
+  client: SupabaseClient,
+  seasonId: string,
+  players: SeasonAttendancePlayer[],
+) {
   const { data: events, error: eventsError } = await client
     .from("events")
     .select("id, data_ora")
-    .eq("season_id", season.id)
+    .eq("season_id", seasonId)
     .eq("tipo", "ALLENAMENTO")
     .eq("cancellato", false)
     .lte("data_ora", new Date().toISOString())
@@ -248,12 +251,6 @@ export async function fetchManagementAttendance(
     event.data_ora ? [{ id: event.id, startsAt: event.data_ora }] : [],
   )
   const eventIds = trainings.map(({ id }) => id)
-  const players = people
-    .filter(({ category }) => category === "PLAYER")
-    .map(({ profileId, joinedOn }) => ({
-      profileId,
-      joinedOn: joinedOn ?? null,
-    }))
   const profileIds = players.map(({ profileId }) => profileId)
 
   async function fetchPaged(
@@ -298,6 +295,30 @@ export async function fetchManagementAttendance(
       eventId: String(row.event_id),
       profileId: String(row.profile_id),
     })),
+  )
+}
+
+export async function fetchManagementAttendance(
+  client: SupabaseClient,
+  seasonSlug: string,
+  people: ManagementPerson[],
+) {
+  const { data: season, error: seasonError } = await client
+    .from("seasons")
+    .select("id")
+    .eq("slug", seasonSlug)
+    .single()
+  if (seasonError) throw seasonError
+
+  return fetchSeasonAttendance(
+    client,
+    season.id,
+    people
+      .filter(({ category }) => category === "PLAYER")
+      .map(({ profileId, joinedOn }) => ({
+        profileId,
+        joinedOn: joinedOn ?? null,
+      })),
   )
 }
 

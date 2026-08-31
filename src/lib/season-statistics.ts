@@ -101,3 +101,22 @@ export function aggregateSeasonStats(
     red_cards: rows.reduce((total, row) => total + row.red_cards, 0),
   }
 }
+
+/**
+ * Percentuali che valgono la medaglia in /statistiche: le prime tre distinte,
+ * contando solo chi ha almeno una presenza. I pari merito la ricevono tutti,
+ * chi è a zero presenze non la riceve mai.
+ */
+export function medalPercentages(
+  rows: readonly { present: number; percentage: number }[],
+) {
+  return [
+    ...new Set(
+      rows
+        .filter(({ present }) => present > 0)
+        .map(({ percentage }) => percentage),
+    ),
+  ]
+    .sort((left, right) => right - left)
+    .slice(0, 3)
+}

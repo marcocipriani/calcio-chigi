@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import { fetchSafePlayerProfile } from "@/lib/api"
 import {
   aggregateSeasonStats,
+  medalPercentages,
   phaseOptionsForSeason,
   SEASON_OPTIONS,
 } from "@/lib/season-statistics"
@@ -93,5 +94,35 @@ describe("aggregateSeasonStats", () => {
       yellow_cards: 2,
       red_cards: 1,
     })
+  })
+})
+
+describe("medalPercentages", () => {
+  it("keeps the top three distinct rates so every tie is rewarded", () => {
+    const rows = [
+      { present: 3, percentage: 100 },
+      { present: 3, percentage: 100 },
+      { present: 2, percentage: 66 },
+      { present: 1, percentage: 33 },
+      { present: 1, percentage: 33 },
+      { present: 1, percentage: 10 },
+    ]
+
+    expect(medalPercentages(rows)).toEqual([100, 66, 33])
+  })
+
+  it("never rewards players without a single check-in", () => {
+    expect(
+      medalPercentages([
+        { present: 0, percentage: 0 },
+        { present: 0, percentage: 0 },
+      ]),
+    ).toEqual([])
+    expect(
+      medalPercentages([
+        { present: 1, percentage: 50 },
+        { present: 0, percentage: 0 },
+      ]),
+    ).toEqual([50])
   })
 })

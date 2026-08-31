@@ -9,6 +9,8 @@ const seasonStatsMigrationPath =
   "supabase/migrations/20260729010000_season_stats_player_access.sql"
 const profilePreferencesMigrationPath =
   "supabase/migrations/20260730010000_profile_ui_preferences.sql"
+const seasonJoinDatesMigrationPath =
+  "supabase/migrations/20260831195519_authenticated_season_join_dates.sql"
 const schemaPath = "supabase/schema.sql"
 
 const [
@@ -16,12 +18,14 @@ const [
   publicFormationSummaryMigration,
   seasonStatsMigration,
   profilePreferencesMigration,
+  seasonJoinDatesMigration,
   schema,
 ] = await Promise.all([
   readFile(migrationPath, "utf8"),
   readFile(publicFormationSummaryMigrationPath, "utf8"),
   readFile(seasonStatsMigrationPath, "utf8"),
   readFile(profilePreferencesMigrationPath, "utf8"),
+  readFile(seasonJoinDatesMigrationPath, "utf8"),
   readFile(schemaPath, "utf8"),
 ])
 
@@ -148,6 +152,24 @@ assert.match(
   "profile UI preferences must remain self-scoped",
 )
 
+for (const source of [seasonJoinDatesMigration, schema]) {
+  assert.match(
+    source,
+    /create or replace view public\.authenticated_season_join_dates\s+with \(security_barrier = true\)/i,
+    "missing authenticated season join dates view",
+  )
+  assert.match(
+    source,
+    /where public\.is_current_user_associated\(\)/i,
+    "season join dates must stay behind an associated account",
+  )
+}
+assert.doesNotMatch(
+  seasonJoinDatesMigration,
+  /grant select on public\.authenticated_season_join_dates to [^;]*anon/i,
+  "season join dates must never be granted to anon",
+)
+
 console.log(
-  `Schema verification passed: ${expectedTables.length + 1} tables, 7 safe views`,
+  `Schema verification passed: ${expectedTables.length + 1} tables, 8 safe views`,
 )

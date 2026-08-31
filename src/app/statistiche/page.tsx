@@ -21,8 +21,10 @@ import {
   SEASON_OPTIONS,
   type PhaseFilter,
   type PlayerSeasonStat,
+  medalPercentages,
   type SeasonPlayerDirectoryEntry,
 } from "@/lib/season-statistics"
+import { fetchSeasonAttendance } from "@/lib/management-api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 type SeasonSlug = (typeof SEASON_OPTIONS)[number]["slug"]
@@ -182,6 +184,11 @@ export default function StatisticsPage() {
   const [attendanceState, setAttendanceState] = useState<
     "idle" | "loading" | "error"
   >("idle")
+
+  const medalRates = useMemo(
+    () => medalPercentages(attendance),
+    [attendance],
+  )
 
   const selectedSeason = SEASON_OPTIONS.find(
     ({ slug }) => slug === selectedSeasonSlug,
@@ -356,46 +363,38 @@ export default function StatisticsPage() {
     setAttendanceState("loading")
     void (async () => {
       try {
-        const { data: events, error: eventsError } = await supabaseBrowser
-          .from("events")
-          .select("id")
+        const { data: joinDates, error: joinDatesError } = await supabaseBrowser
+          .from("authenticated_season_join_dates")
+          .select("profile_id, joined_on")
           .eq("season_id", selectedSeasonId)
-          .eq("tipo", "ALLENAMENTO")
-          .lte("data_ora", new Date().toISOString())
-        if (eventsError) throw eventsError
+        if (joinDatesError) throw joinDatesError
         if (!active) return
 
-        const eventIds = (events ?? []).map(({ id }) => id)
-        let checkins: Array<{ event_id: string; profile_id: string }> = []
-        if (eventIds.length) {
-          const result = await supabaseBrowser
-            .from("event_checkins")
-            .select("event_id, profile_id")
-            .eq("status", "PRESENT")
-            .in("event_id", eventIds)
-          if (result.error) throw result.error
-          checkins = (result.data ?? []) as typeof checkins
-        }
+        const joinedByPlayer = new Map(
+          (joinDates ?? []).map((row) => [
+            row.profile_id as string,
+            (row.joined_on as string | null) ?? null,
+          ]),
+        )
+        const summaries = await fetchSeasonAttendance(
+          supabaseBrowser,
+          selectedSeasonId,
+          players.map(({ profile_id }) => ({
+            profileId: profile_id,
+            joinedOn: joinedByPlayer.get(profile_id) ?? null,
+          })),
+        )
         if (!active) return
 
-        const presentByPlayer = new Map<string, number>()
-        for (const checkin of checkins) {
-          presentByPlayer.set(
-            checkin.profile_id,
-            (presentByPlayer.get(checkin.profile_id) ?? 0) + 1,
-          )
-        }
         setAttendance(
           players
             .map((player) => {
-              const present = presentByPlayer.get(player.profile_id) ?? 0
+              const training = summaries.get(player.profile_id)?.training
               return {
                 ...player,
-                present,
-                total: eventIds.length,
-                percentage: eventIds.length
-                  ? (present / eventIds.length) * 100
-                  : 0,
+                present: training?.present ?? 0,
+                total: training?.total ?? 0,
+                percentage: training?.percentage ?? 0,
               }
             })
             .sort(
@@ -582,32 +581,38 @@ export default function StatisticsPage() {
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {attendance.map((player, index) => (
-                  <Link
-                    aria-label={`Presenze di ${playerName(player)}`}
-                    className="flex min-h-28 flex-col items-center justify-center rounded-xl border bg-card p-3 text-center shadow-xs transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
-                    href={`/giocatore/${player.profile_id}?season=${selectedSeasonSlug}`}
-                    key={player.profile_id}
-                  >
-                    <AttendanceRing
-                      avatarUrl={player.avatar_url}
-                      name={playerName(player)}
-                      percentage={player.percentage}
-                    />
-                    <strong className="mt-2 max-w-full truncate text-xs">
-                      {playerName(player)}
-                    </strong>
-                    <span className="text-[10px] text-muted-foreground">
-                      {player.present}/{player.total} allenamenti
-                    </span>
-                    {index < 3 && player.total > 0 && (
-                      <Medal
-                        aria-label={`Posizione ${index + 1}`}
-                        className="mt-1 size-3 text-amber-500"
+                {attendance.map((player) => {
+                  const medalRank =
+                    player.present > 0
+                      ? medalRates.indexOf(player.percentage)
+                      : -1
+                  return (
+                    <Link
+                      aria-label={`Presenze di ${playerName(player)}`}
+                      className="flex min-h-28 flex-col items-center justify-center rounded-xl border bg-card p-3 text-center shadow-xs transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
+                      href={`/giocatore/${player.profile_id}?season=${selectedSeasonSlug}`}
+                      key={player.profile_id}
+                    >
+                      <AttendanceRing
+                        avatarUrl={player.avatar_url}
+                        name={playerName(player)}
+                        percentage={player.percentage}
                       />
-                    )}
-                  </Link>
-                ))}
+                      <strong className="mt-2 max-w-full truncate text-xs">
+                        {playerName(player)}
+                      </strong>
+                      <span className="text-[10px] text-muted-foreground">
+                        {player.present}/{player.total} allenamenti
+                      </span>
+                      {medalRank >= 0 && (
+                        <Medal
+                          aria-label={`Posizione ${medalRank + 1}`}
+                          className="mt-1 size-3 text-amber-500"
+                        />
+                      )}
+                    </Link>
+                  )
+                })}
               </div>
             )}
           </section>

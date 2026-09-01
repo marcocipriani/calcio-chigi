@@ -8,7 +8,9 @@ import {
   BellPlus,
   CalendarClock,
   CircleDollarSign,
+  LayoutGrid,
   Plus,
+  Rows3,
   Search,
   UsersRound,
 } from "lucide-react"
@@ -19,7 +21,12 @@ import { AddPersonDialog } from "@/components/management/AddPersonDialog"
 import { BulkPaymentDialog } from "@/components/management/BulkPaymentDialog"
 import { ColumnCustomizer } from "@/components/management/ColumnCustomizer"
 import {
+  ColumnFilters,
+  SortControl,
+} from "@/components/management/ColumnFilters"
+import {
   getAvailableManagementColumns,
+  getManagementColumnAccessors,
   ManagementTable,
 } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
@@ -69,9 +76,15 @@ import {
 } from "@/lib/management-api"
 import type { AttendanceSummary } from "@/lib/management-attendance"
 import {
+  activeColumnFilters,
+  applyTableState,
   DEFAULT_COLUMNS,
+  nextSort,
   normalizeColumnPreferences,
+  type ManagementColumnFilters,
+  type ManagementLayout,
   type ManagementView,
+  type TableSort,
 } from "@/lib/management-columns"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { cn } from "@/lib/utils"
@@ -87,6 +100,15 @@ const views = [
   { id: "CERTIFICATES", label: "Certificati" },
   { id: "ACCOUNTS", label: "Account" },
 ] satisfies Array<{ id: ManagementView; label: string }>
+
+const layouts = [
+  { id: "TABLE", label: "Vista elenco", icon: Rows3 },
+  { id: "CARDS", label: "Vista schede", icon: LayoutGrid },
+] satisfies Array<{
+  id: ManagementLayout
+  label: string
+  icon: typeof Rows3
+}>
 
 const emptyFilters: ManagementFilters = {
   query: "",
@@ -112,11 +134,6 @@ type AttendanceLoadState =
       requestId: number
       message?: string
     }
-
-type VisibleTableState = {
-  key: string
-  people: ManagementPerson[]
-}
 
 type RosterLoadError = {
   seasonSlug: string
@@ -159,8 +176,11 @@ export function ManagementDashboard() {
   const [passportPhotoStates, setPassportPhotoStates] = useState<
     Map<string, PassportPhotoState>
   >(new Map())
-  const [visibleTableState, setVisibleTableState] =
-    useState<VisibleTableState | null>(null)
+  const [layout, setLayout] = useState<ManagementLayout>("TABLE")
+  const [sort, setSort] = useState<TableSort>(null)
+  const [columnFilters, setColumnFilters] = useState<ManagementColumnFilters>(
+    {},
+  )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openPerson, setOpenPerson] = useState<ManagementPerson | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -411,26 +431,55 @@ export function ManagementDashboard() {
     () => filterManagementRows(tablePeople, filters),
     [filters, tablePeople],
   )
-  const tableInputKey = `${view}:${filtered
-    .map(({ id }) => id)
-    .sort()
-    .join(",")}`
-  const handleVisiblePeopleChange = useCallback(
-    (visiblePeople: ManagementPerson[]) => {
-      setVisibleTableState({
-        key: tableInputKey,
-        people: visiblePeople,
-      })
-    },
-    [tableInputKey],
+  const availableColumns = useMemo(
+    () => getAvailableManagementColumns(view),
+    [view],
   )
-  const visiblePeople =
-    visibleTableState?.key === tableInputKey
-      ? visibleTableState.people
-      : filtered
+  const visibleColumnIds = columnPreferences[view]
+  const visibleColumns = useMemo(() => {
+    const byId = new Map(availableColumns.map((column) => [column.id, column]))
+    return visibleColumnIds.flatMap((id) => {
+      const column = byId.get(id)
+      return column ? [column] : []
+    })
+  }, [availableColumns, visibleColumnIds])
+  const filterableColumns = useMemo(
+    () => visibleColumns.filter(({ filter }) => Boolean(filter)),
+    [visibleColumns],
+  )
+  const sortableColumns = useMemo(
+    () => visibleColumns.filter(({ action }) => !action),
+    [visibleColumns],
+  )
+  const accessors = useMemo(() => getManagementColumnAccessors(view), [view])
+  const appliedFilters = useMemo(
+    () => activeColumnFilters(columnFilters, visibleColumnIds),
+    [columnFilters, visibleColumnIds],
+  )
+  // Un ordinamento su una colonna nascosta resterebbe invisibile: cade.
+  const appliedSort =
+    sort && visibleColumnIds.includes(sort.columnId) ? sort : null
+  const visiblePeople = useMemo(
+    () => applyTableState(filtered, accessors, appliedFilters, appliedSort),
+    [accessors, appliedFilters, appliedSort, filtered],
+  )
+  const visibleIdsKey = visiblePeople.map(({ id }) => id).join(",")
+
+  // Le azioni di massa agiscono solo su ciò che il manager sta vedendo.
+  useEffect(() => {
+    setSelected((current) => {
+      if (!current.size) return current
+      const visibleIds = new Set(visibleIdsKey ? visibleIdsKey.split(",") : [])
+      const next = new Set(
+        [...current].filter((id) => visibleIds.has(id)),
+      )
+      return next.size === current.size ? current : next
+    })
+  }, [visibleIdsKey])
+
   const selectedPeople = useMemo(
-    () => currentPeople.filter(({ id }) => selected.has(id)),
-    [currentPeople, selected],
+    () => visiblePeople.filter(({ id }) => selected.has(id)),
+    [selected, visiblePeople],
   )
   const selectedMembershipIds = selectedPeople.map(({ id }) => id)
   const selectedUserIds = selectedPeople
@@ -447,7 +496,6 @@ export function ManagementDashboard() {
     CERTIFICATES: kpis.certificatesOpen,
     ACCOUNTS: kpis.accountsOpen,
   }
-  const availableColumns = getAvailableManagementColumns(view)
 
   function updateColumns(nextColumns: string[]) {
     const next = {
@@ -510,6 +558,14 @@ export function ManagementDashboard() {
         title="Permesso manager richiesto"
       />
     )
+  }
+
+  function selectView(nextView: ManagementView) {
+    if (nextView === view) return
+    setView(nextView)
+    // I filtri e l’ordinamento appartengono alle colonne della vista.
+    setSort(null)
+    setColumnFilters({})
   }
 
   function toggleSelection(membershipId: string) {
@@ -674,106 +730,22 @@ export function ManagementDashboard() {
     <div className="min-h-screen space-y-3">
       <PageTitleBar
         actions={
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Aggiungi persona"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  onClick={() => setAddOpen(true)}
-                  size="sm"
-                >
-                  <Plus aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Persona</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Aggiungi persona</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Registra quota"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  disabled={!currentRosterLoaded}
-                  onClick={() =>
-                    selectedMembershipIds.length
-                      ? setPaymentOpen(true)
-                      : toast.error("Seleziona almeno una persona")
-                  }
-                  size="sm"
-                  variant="outline"
-                >
-                  <CircleDollarSign aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Quota</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Registra quota</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Imposta scadenza"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  disabled={!currentRosterLoaded}
-                  onClick={applyDeadline}
-                  size="sm"
-                  variant="outline"
-                >
-                  <CalendarClock aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Scadenza</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Imposta scadenza</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={
-                    filters.archived ? "Rimetti in rosa" : "Archivia"
-                  }
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  disabled={!currentRosterLoaded || actionBusy}
-                  onClick={() => void setArchived(!filters.archived)}
-                  size="sm"
-                  variant="outline"
-                >
-                  {filters.archived ? (
-                    <ArchiveRestore aria-hidden="true" />
-                  ) : (
-                    <Archive aria-hidden="true" />
-                  )}
-                  <span className="sr-only sm:not-sr-only">
-                    {filters.archived ? "In rosa" : "Archivia"}
-                  </span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">
-                {filters.archived
-                  ? "Rimetti in rosa i selezionati"
-                  : "Archivia i selezionati"}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Invia notifica"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  disabled={!currentRosterLoaded}
-                  onClick={() =>
-                    selectedUserIds.length
-                      ? setNotificationOpen(true)
-                      : toast.error("Seleziona persone con un account attivo")
-                  }
-                  size="sm"
-                  variant="outline"
-                >
-                  <BellPlus aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Notifica</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Invia notifica</TooltipContent>
-            </Tooltip>
-          </>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label="Aggiungi persona"
+                className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                onClick={() => setAddOpen(true)}
+                size="sm"
+              >
+                <Plus aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Persona</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="sm:hidden">
+              Aggiungi persona
+            </TooltipContent>
+          </Tooltip>
         }
         context={
           <select
@@ -813,7 +785,7 @@ export function ManagementDashboard() {
                   : "text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50",
               )}
               key={item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => selectView(item.id)}
               role="tab"
               type="button"
             >
@@ -832,73 +804,183 @@ export function ManagementDashboard() {
         </div>
         <div
           aria-label="Strumenti dashboard"
-          className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 border-t pt-1.5"
+          className="mt-1.5 grid min-w-0 gap-1.5 border-t pt-1.5"
           role="group"
         >
-          <label className="relative min-w-0 flex-[1_1_14rem] xl:max-w-80">
-            <span className="sr-only">Cerca persone</span>
-            <Search
-              aria-hidden="true"
-              className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              className="h-8 pl-8"
-              onChange={(event) =>
-                setFilters((current) => ({
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <label className="relative min-w-0 flex-[1_1_12rem] xl:max-w-80">
+              <span className="sr-only">Cerca persone</span>
+              <Search
+                aria-hidden="true"
+                className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                className="h-8 pl-8"
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    query: event.target.value,
+                  }))
+                }
+                placeholder="Cerca persona, telefono…"
+                value={filters.query}
+              />
+            </label>
+            <label className="flex min-h-8 shrink-0 items-center gap-2 rounded-md border px-2 text-xs font-semibold">
+              <Switch
+                aria-label="Mostra archiviati"
+                checked={Boolean(filters.archived)}
+                onCheckedChange={(archived) => {
+                  setSelected(new Set())
+                  setFilters((current) => ({ ...current, archived }))
+                }}
+              />
+              Archiviati
+              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+                {kpis.archived}
+              </span>
+            </label>
+            <ColumnFilters
+              columns={filterableColumns}
+              disabled={!columnPreferencesReady}
+              onChange={(columnId, value) =>
+                setColumnFilters((current) => ({
                   ...current,
-                  query: event.target.value,
+                  [columnId]: value,
                 }))
               }
-              placeholder="Cerca persona, telefono…"
-              value={filters.query}
+              onReset={() => setColumnFilters({})}
+              values={columnFilters}
             />
-          </label>
-          <label className="flex min-h-8 items-center gap-2 rounded-md border px-2 text-xs font-semibold">
-            <Switch
-              aria-label="Mostra archiviati"
-              checked={Boolean(filters.archived)}
-              onCheckedChange={(archived) => {
-                setSelected(new Set())
-                setFilters((current) => ({ ...current, archived }))
-              }}
+            <ColumnCustomizer
+              availableColumns={availableColumns}
+              columns={visibleColumnIds}
+              disabled={!columnPreferencesReady}
+              onChange={updateColumns}
+              onReset={() =>
+                updateColumns([...DEFAULT_COLUMNS[view]])
+              }
             />
-            Archiviati
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
-              {kpis.archived}
-            </span>
-          </label>
-          <ColumnCustomizer
-            availableColumns={availableColumns}
-            columns={columnPreferences[view]}
-            disabled={!columnPreferencesReady}
-            onChange={updateColumns}
-            onReset={() =>
-              updateColumns([...DEFAULT_COLUMNS[view]])
-            }
-          />
-          <div className="ml-auto flex min-h-8 min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <SortControl
+              className={cn(
+                "min-w-0 shrink-0",
+                layout === "TABLE" && "md:hidden",
+              )}
+              columns={sortableColumns}
+              onChange={setSort}
+              sort={appliedSort}
+            />
+            <div
+              aria-label="Disposizione risultati"
+              className="hidden shrink-0 items-center gap-0.5 rounded-md border p-0.5 md:flex"
+              role="group"
+            >
+              {layouts.map((item) => (
+                <button
+                  aria-label={item.label}
+                  aria-pressed={layout === item.id}
+                  className={cn(
+                    "inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    layout === item.id
+                      ? "bg-violet-600 text-white"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                  key={item.id}
+                  onClick={() => setLayout(item.id)}
+                  type="button"
+                >
+                  <item.icon aria-hidden="true" className="size-4" />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div
+            aria-label="Selezione e azioni di massa"
+            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+            role="group"
+          >
             <span className="whitespace-nowrap">
               {visiblePeople.length} risultati · {selectedPeople.length}{" "}
               selezionati
             </span>
-            <button
-              className="min-h-7 underline-offset-4 hover:underline"
-              disabled={!currentRosterLoaded}
-              onClick={() =>
-                setSelected(new Set(visiblePeople.map(({ id }) => id)))
-              }
-              type="button"
-            >
-              Seleziona visibili
-            </button>
-            {selectedPeople.length > 0 && (
-              <button
-                className="min-h-7 underline-offset-4 hover:underline"
-                onClick={() => setSelected(new Set())}
-                type="button"
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                disabled={!currentRosterLoaded || !visiblePeople.length}
+                onClick={() =>
+                  setSelected(new Set(visiblePeople.map(({ id }) => id)))
+                }
+                size="sm"
+                variant="ghost"
               >
-                Deseleziona
-              </button>
+                Seleziona visibili
+              </Button>
+              {selectedPeople.length > 0 && (
+                <Button
+                  onClick={() => setSelected(new Set())}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Deseleziona
+                </Button>
+              )}
+            </div>
+            {selectedPeople.length > 0 && (
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                <Button
+                  aria-label="Registra quota"
+                  disabled={actionBusy}
+                  onClick={() => setPaymentOpen(true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <CircleDollarSign aria-hidden="true" />
+                  Quota
+                </Button>
+                <Button
+                  aria-label="Imposta scadenza"
+                  disabled={actionBusy}
+                  onClick={applyDeadline}
+                  size="sm"
+                  variant="outline"
+                >
+                  <CalendarClock aria-hidden="true" />
+                  Scadenza
+                </Button>
+                <Button
+                  aria-label={
+                    filters.archived
+                      ? "Rimetti in rosa i selezionati"
+                      : "Archivia i selezionati"
+                  }
+                  disabled={actionBusy}
+                  onClick={() => void setArchived(!filters.archived)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {filters.archived ? (
+                    <ArchiveRestore aria-hidden="true" />
+                  ) : (
+                    <Archive aria-hidden="true" />
+                  )}
+                  {filters.archived ? "In rosa" : "Archivia"}
+                </Button>
+                <Button
+                  aria-label="Invia notifica"
+                  disabled={actionBusy}
+                  onClick={() =>
+                    selectedUserIds.length
+                      ? setNotificationOpen(true)
+                      : toast.error(
+                          "Nessun selezionato ha un account attivo",
+                        )
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  <BellPlus aria-hidden="true" />
+                  Notifica
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -959,17 +1041,27 @@ export function ManagementDashboard() {
         </div>
       ) : (
         <ManagementTable
-          columns={columnPreferences[view]}
-          key={view}
+          columns={visibleColumnIds}
+          layout={layout}
           onAccountAction={accountAction}
           onOpen={setOpenPerson}
           onReviewCertificate={reviewCertificate}
           onSelect={toggleSelection}
+          onSelectAllVisible={(checked) =>
+            setSelected(
+              checked
+                ? new Set(visiblePeople.map(({ id }) => id))
+                : new Set(),
+            )
+          }
+          onSortChange={(columnId) =>
+            setSort((current) => nextSort(current, columnId))
+          }
           onVerifyPayment={verifyPayment}
-          onVisiblePeopleChange={handleVisiblePeopleChange}
           passportPhotoStates={passportPhotoStates}
-          people={filtered}
+          people={visiblePeople}
           selected={selected}
+          sort={appliedSort}
           view={view}
         />
       )}

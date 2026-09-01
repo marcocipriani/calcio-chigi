@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, type ReactNode } from "react"
 import {
   Check,
   ChevronDown,
@@ -20,7 +20,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -31,8 +30,8 @@ import {
 } from "@/components/ui/table"
 import type { ManagementPerson } from "@/lib/management"
 import {
-  applyTableState,
   DEFAULT_COLUMNS,
+  type ManagementLayout,
   type ManagementView,
   type TableSort,
 } from "@/lib/management-columns"
@@ -216,6 +215,12 @@ type ManagementColumn = {
   id: string
   label: string
   required?: boolean
+  /** Le colonne azione restano fuori dai campi della scheda. */
+  action?: boolean
+  /** Nella scheda il valore largo va sotto l’etichetta, non accanto. */
+  wide?: boolean
+  /** Vero solo quando la riga ha davvero un’azione disponibile. */
+  actionable?: (person: ManagementPerson) => boolean
   filterValue: (
     person: ManagementPerson,
   ) => string | number | null | undefined
@@ -276,6 +281,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     {
       id: "trainingStreak",
       label: "Ultimi allenamenti",
+      wide: true,
       filterValue: () => "",
       sortValue: (person) => person.attendance?.training.percentage,
       render: (person) => (
@@ -335,12 +341,18 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     {
       id: "paymentAction",
       label: "Azione",
+      action: true,
+      actionable: (person) => {
+        const next = nextPayment(person)
+        return Boolean(next?.status === "PENDING_REVIEW" && next.id)
+      },
       filterValue: () => "",
       sortValue: () => "",
       render: (person, actions) => {
         const next = nextPayment(person)
         return next?.status === "PENDING_REVIEW" && next.id ? (
           <Button
+            aria-label={`Verifica pagamento di ${person.nome} ${person.cognome}`}
             onClick={(event) => {
               event.stopPropagation()
               actions.onVerifyPayment(next.id!)
@@ -468,6 +480,10 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     {
       id: "certificateAction",
       label: "Azione",
+      action: true,
+      actionable: (person) =>
+        person.certificateStatus === "PENDING_REVIEW" &&
+        Boolean(person.certificateId),
       filterValue: () => "",
       sortValue: () => "",
       render: (person, actions) =>
@@ -535,12 +551,15 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     {
       id: "accountAction",
       label: "Azioni",
+      action: true,
+      actionable: (person) => Boolean(person.associationRequestId),
       filterValue: () => "",
       sortValue: () => "",
       render: (person, actions) =>
         person.associationRequestId ? (
           <div className="flex gap-1">
             <Button
+              aria-label={`Approva account di ${person.nome} ${person.cognome}`}
               onClick={(event) => {
                 event.stopPropagation()
                 actions.onAccountAction(person.associationRequestId!, "APPROVE")
@@ -550,6 +569,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
               Approva
             </Button>
             <Button
+              aria-label={`Rifiuta account di ${person.nome} ${person.cognome}`}
               onClick={(event) => {
                 event.stopPropagation()
                 actions.onAccountAction(person.associationRequestId!, "REJECT")
@@ -579,15 +599,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
   ],
 }
 
-export function getAvailableManagementColumns(view: ManagementView) {
-  return columnsByView[view].map(({ id, label, required }) => ({
-    id,
-    label,
-    required,
-  }))
-}
-
-const filterOptions = {
+export const managementFilterOptions = {
   ageGroup: [
     ["", "Tutti"],
     ["U35", "U35"],
@@ -624,54 +636,36 @@ const filterOptions = {
   Array<[string, string]>
 >
 
-function ColumnFilter({
-  column,
-  value,
-  onChange,
-}: {
-  column: ManagementColumn
-  value: string
-  onChange: (value: string) => void
-}) {
-  if (!column.filter) return null
-  const label = `Filtra ${column.label}`
-
-  if (column.filter === "text") {
-    return (
-      <Input
-        aria-label={label}
-        className="h-7 min-w-28 text-xs"
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="Filtra…"
-        value={value}
-      />
-    )
-  }
-
-  return (
-    <select
-      aria-label={label}
-      className="h-7 min-w-28 rounded-md border bg-background px-2 text-xs"
-      onChange={(event) => onChange(event.target.value)}
-      value={value}
-    >
-      {filterOptions[column.filter].map(([optionValue, optionLabel]) => (
-        <option key={optionValue} value={optionValue}>
-          {optionLabel}
-        </option>
-      ))}
-    </select>
-  )
+export type ManagementColumnMeta = {
+  id: string
+  label: string
+  required?: boolean
+  action?: boolean
+  filter?: ManagementColumn["filter"]
+  filterOptions?: Array<[string, string]>
 }
 
-function nextSort(current: TableSort, columnId: string): TableSort {
-  if (!current || current.columnId !== columnId) {
-    return { columnId, direction: "asc" }
-  }
-  if (current.direction === "asc") {
-    return { columnId, direction: "desc" }
-  }
-  return null
+export function getAvailableManagementColumns(
+  view: ManagementView,
+): ManagementColumnMeta[] {
+  return columnsByView[view].map(({ id, label, required, action, filter }) => ({
+    id,
+    label,
+    required,
+    action,
+    filter,
+    filterOptions:
+      filter && filter !== "text" ? managementFilterOptions[filter] : undefined,
+  }))
+}
+
+export function getManagementColumnAccessors(view: ManagementView) {
+  return Object.fromEntries(
+    columnsByView[view].map((column) => [
+      column.id,
+      { filterValue: column.filterValue, sortValue: column.sortValue },
+    ]),
+  )
 }
 
 function SortIcon({
@@ -691,14 +685,44 @@ function SortIcon({
   )
 }
 
+function SelectAllCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean
+  indeterminate: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+
+  return (
+    <input
+      aria-label="Seleziona tutte le righe visibili"
+      checked={checked}
+      className="size-4 accent-primary"
+      onChange={(event) => onChange(event.target.checked)}
+      ref={ref}
+      type="checkbox"
+    />
+  )
+}
+
 export function ManagementTable({
   people,
   view,
   columns = DEFAULT_COLUMNS[view],
+  layout = "TABLE",
   selected,
+  sort = null,
+  onSortChange,
   onSelect,
+  onSelectAllVisible,
   onOpen,
-  onVisiblePeopleChange,
   onAccountAction,
   onVerifyPayment,
   onReviewCertificate,
@@ -707,219 +731,213 @@ export function ManagementTable({
   people: ManagementPerson[]
   view: ManagementView
   columns?: string[]
+  layout?: ManagementLayout
   selected: Set<string>
+  sort?: TableSort
+  onSortChange?: (columnId: string) => void
   onSelect: (membershipId: string) => void
+  onSelectAllVisible?: (checked: boolean) => void
   onOpen: (person: ManagementPerson) => void
-  onVisiblePeopleChange?: (people: ManagementPerson[]) => void
   onAccountAction: ManagementTableActions["onAccountAction"]
   onVerifyPayment: ManagementTableActions["onVerifyPayment"]
   onReviewCertificate: ManagementTableActions["onReviewCertificate"]
   passportPhotoStates?: Map<string, PassportPhotoState>
 }) {
-  const [sort, setSort] = useState<TableSort>(null)
-  const [filters, setFilters] = useState<Record<string, string>>({})
   const visibleColumns = useMemo(() => {
     const byId = new Map(columnsByView[view].map((column) => [column.id, column]))
     return columns
       .map((id) => byId.get(id))
       .filter((column): column is ManagementColumn => Boolean(column))
   }, [columns, view])
-  const accessors = useMemo(
-    () =>
-      Object.fromEntries(
-        columnsByView[view].map((column) => [
-          column.id,
-          {
-            filterValue: column.filterValue,
-            sortValue: column.sortValue,
-          },
-        ]),
-      ),
-    [view],
-  )
-  const rows = useMemo(
-    () =>
-      applyTableState(
-        people,
-        accessors,
-        Object.fromEntries(
-          visibleColumns.map(({ id }) => [id, filters[id] ?? ""]),
-        ),
-        sort,
-      ),
-    [accessors, filters, people, sort, visibleColumns],
-  )
   const actions = useMemo(
     () => ({ onAccountAction, onReviewCertificate, onVerifyPayment }),
     [onAccountAction, onReviewCertificate, onVerifyPayment],
   )
-  const mobileColumns = visibleColumns
-    .filter(
-      ({ id }) =>
-        id !== "person" &&
-        id !== "paymentAction" &&
-        id !== "certificateAction" &&
-        id !== "accountAction" &&
-        id !== "passportPhoto",
-    )
-    .slice(0, 2)
-
-  useEffect(() => {
-    onVisiblePeopleChange?.(rows)
-  }, [onVisiblePeopleChange, rows])
+  const cardFieldColumns = visibleColumns.filter(
+    (column) => column.id !== "person" && !column.action,
+  )
+  const cardActionColumns = visibleColumns.filter((column) => column.action)
+  const allVisibleSelected =
+    people.length > 0 && people.every(({ id }) => selected.has(id))
+  const someVisibleSelected = people.some(({ id }) => selected.has(id))
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
-            <TableRow className="h-10">
-              <TableHead className="w-10">
-                <span className="sr-only">Selezione</span>
-              </TableHead>
-              {visibleColumns.map((column) => (
-                <TableHead
-                  aria-sort={
-                    sort?.columnId === column.id
-                      ? sort.direction === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : "none"
-                  }
-                  className={cn(
-                    "whitespace-nowrap",
-                    column.id === "person" && "min-w-56",
-                  )}
-                  key={column.id}
-                >
-                  <button
-                    className="inline-flex min-h-8 items-center gap-1 font-medium"
-                    onClick={() =>
-                      setSort((current) => nextSort(current, column.id))
-                    }
-                    type="button"
-                  >
-                    {column.label}
-                    <SortIcon columnId={column.id} sort={sort} />
-                  </button>
-                </TableHead>
-              ))}
-              <TableHead className="w-10" />
-            </TableRow>
-            <TableRow>
-              <TableHead />
-              {visibleColumns.map((column) => (
-                <TableHead className="pb-2 align-top" key={column.id}>
-                  <ColumnFilter
-                    column={column}
-                    onChange={(value) =>
-                      setFilters((current) => ({
-                        ...current,
-                        [column.id]: value,
-                      }))
-                    }
-                    value={filters[column.id] ?? ""}
+      {layout === "TABLE" && (
+        <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+          <Table>
+            <TableHeader className="bg-muted/90">
+              <TableRow className="h-11">
+                <TableHead className="w-10">
+                  <SelectAllCheckbox
+                    checked={allVisibleSelected}
+                    indeterminate={!allVisibleSelected && someVisibleSelected}
+                    onChange={(checked) => onSelectAllVisible?.(checked)}
                   />
                 </TableHead>
-              ))}
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((person) => (
-              <TableRow
-                className="h-11 transition-colors"
-                data-state={selected.has(person.id) ? "selected" : undefined}
-                key={person.id}
-              >
-                <TableCell>
-                  <input
-                    aria-label={`Seleziona ${person.nome} ${person.cognome}`}
-                    checked={selected.has(person.id)}
-                    className="size-4 accent-primary"
-                    onChange={() => onSelect(person.id)}
-                    onClick={(event) => event.stopPropagation()}
-                    type="checkbox"
-                  />
-                </TableCell>
                 {visibleColumns.map((column) => (
-                  <TableCell key={column.id}>
-                    {column.render(person, actions, passportPhotoStates)}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Button
-                    aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onOpen(person)
-                    }}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="size-4 text-muted-foreground"
-                    />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {rows.length === 0 && (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            Nessuna persona corrisponde ai filtri.
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-2 md:hidden">
-        {rows.map((person) => (
-          <div
-            className="flex min-h-20 items-center gap-3 rounded-lg border bg-card p-3 shadow-xs"
-            key={person.id}
-          >
-            <input
-              aria-label={`Seleziona ${person.nome} ${person.cognome}`}
-              checked={selected.has(person.id)}
-              className="size-5 shrink-0 accent-primary"
-              onChange={() => onSelect(person.id)}
-              onClick={(event) => event.stopPropagation()}
-              type="checkbox"
-            />
-            <div className="min-w-0 flex-1">
-              <button
-                aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
-                className="flex w-full min-w-0 items-center gap-2 text-left transition-transform active:scale-[0.99]"
-                onClick={() => onOpen(person)}
-                type="button"
-              >
-                <span className="min-w-0 flex-1">
-                  <PersonIdentity accessibleJersey={false} person={person} />
-                </span>
-                <ChevronRight
-                  aria-hidden="true"
-                  className="size-4 text-muted-foreground"
-                />
-              </button>
-              <div className="mt-2 grid gap-1 pl-10">
-                {mobileColumns.map((column) => (
-                  <div
-                    className="flex min-w-0 items-center gap-2 text-xs"
+                  <TableHead
+                    aria-sort={
+                      sort?.columnId === column.id
+                        ? sort.direction === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                    className={cn(
+                      "whitespace-nowrap",
+                      column.id === "person" && "min-w-56",
+                    )}
                     key={column.id}
                   >
-                    <span className="text-muted-foreground">
-                      {column.label}:
-                    </span>
-                    {column.render(person, actions, passportPhotoStates)}
-                  </div>
+                    <button
+                      className="inline-flex min-h-8 items-center gap-1 rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => onSortChange?.(column.id)}
+                      type="button"
+                    >
+                      {column.label}
+                      <SortIcon columnId={column.id} sort={sort} />
+                    </button>
+                  </TableHead>
                 ))}
+                <TableHead className="w-10" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {people.map((person) => (
+                <TableRow
+                  className="h-11 transition-colors"
+                  data-state={selected.has(person.id) ? "selected" : undefined}
+                  key={person.id}
+                >
+                  <TableCell>
+                    <input
+                      aria-label={`Seleziona ${person.nome} ${person.cognome}`}
+                      checked={selected.has(person.id)}
+                      className="size-4 accent-primary"
+                      onChange={() => onSelect(person.id)}
+                      onClick={(event) => event.stopPropagation()}
+                      type="checkbox"
+                    />
+                  </TableCell>
+                  {visibleColumns.map((column) => (
+                    <TableCell key={column.id}>
+                      {column.render(person, actions, passportPhotoStates)}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <Button
+                      aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onOpen(person)
+                      }}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="size-4 text-muted-foreground"
+                      />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <div
+        className={cn(
+          "grid gap-2",
+          layout === "TABLE"
+            ? "md:hidden"
+            : "sm:grid-cols-2 xl:grid-cols-3",
+        )}
+      >
+        {people.map((person) => {
+          const availableActions = cardActionColumns.filter((column) =>
+            column.actionable?.(person),
+          )
+          return (
+            <article
+              className={cn(
+                "flex min-h-20 gap-3 rounded-lg border bg-card p-3 shadow-xs",
+                selected.has(person.id) && "border-violet-500 bg-violet-50/60 dark:bg-violet-950/20",
+              )}
+              key={person.id}
+            >
+              <input
+                aria-label={`Seleziona ${person.nome} ${person.cognome}`}
+                checked={selected.has(person.id)}
+                className="mt-1 size-5 shrink-0 accent-primary"
+                onChange={() => onSelect(person.id)}
+                onClick={(event) => event.stopPropagation()}
+                type="checkbox"
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <button
+                  aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
+                  className="flex w-full min-w-0 items-center gap-2 rounded-md text-left transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
+                  onClick={() => onOpen(person)}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1">
+                    <PersonIdentity accessibleJersey={false} person={person} />
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                </button>
+                {cardFieldColumns.length > 0 && (
+                  <dl className="grid gap-1">
+                    {cardFieldColumns.map((column) => (
+                      <div
+                        className={cn(
+                          "min-w-0 gap-2 text-xs",
+                          column.wide
+                            ? "grid"
+                            : "flex items-center justify-between",
+                        )}
+                        key={column.id}
+                      >
+                        <dt className="shrink-0 text-muted-foreground">
+                          {column.label}:
+                        </dt>
+                        <dd
+                          className={cn(
+                            "min-w-0 overflow-x-auto py-0.5",
+                            !column.wide && "text-right",
+                          )}
+                        >
+                          {column.render(person, actions, passportPhotoStates)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+                {availableActions.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
+                    {availableActions.map((column) => (
+                      <div key={column.id}>
+                        {column.render(person, actions, passportPhotoStates)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        ))}
+            </article>
+          )
+        })}
       </div>
+
+      {people.length === 0 && (
+        <p className="rounded-lg border bg-card py-12 text-center text-sm text-muted-foreground">
+          Nessuna persona corrisponde ai filtri.
+        </p>
+      )}
     </>
   )
 }

@@ -1,8 +1,18 @@
+import { useState } from "react"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ManagementTable } from "@/components/management/ManagementTable"
+import {
+  getManagementColumnAccessors,
+  ManagementTable,
+} from "@/components/management/ManagementTable"
 import type { ManagementPerson } from "@/lib/management"
+import {
+  applyTableState,
+  nextSort,
+  type ManagementView,
+  type TableSort,
+} from "@/lib/management-columns"
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -65,13 +75,42 @@ const actions = {
   onVerifyPayment: vi.fn(),
 }
 
-function renderPeopleTable() {
-  render(
+/** L’ordinamento è controllato dalla dashboard: qui lo simuliamo. */
+function SortableTable({
+  columns,
+  people: rows,
+  view,
+}: {
+  columns: string[]
+  people: ManagementPerson[]
+  view: ManagementView
+}) {
+  const [sort, setSort] = useState<TableSort>(null)
+  return (
     <ManagementTable
       {...actions}
+      columns={columns}
+      onSortChange={(columnId) =>
+        setSort((current) => nextSort(current, columnId))
+      }
+      people={applyTableState(
+        rows,
+        getManagementColumnAccessors(view),
+        {},
+        sort,
+      )}
+      selected={new Set()}
+      sort={sort}
+      view={view}
+    />
+  )
+}
+
+function renderPeopleTable() {
+  render(
+    <SortableTable
       columns={["person", "phone", "account"]}
       people={people}
-      selected={new Set()}
       view="PEOPLE"
     />,
   )
@@ -81,7 +120,7 @@ function renderPeopleTable() {
 function dataRowNames(table: HTMLElement) {
   return within(table)
     .getAllByRole("row")
-    .slice(2)
+    .slice(1)
     .map((row) => row.textContent)
 }
 
@@ -141,7 +180,7 @@ describe("ManagementTable", () => {
     expect(dataRowNames(table)[0]).toContain("Luca Verdi")
   })
 
-  it("filters players by current U35 group and leaves unknown dates in all", () => {
+  it("exposes the current U35 group as the person filter value", () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-07-31T12:00:00+02:00"))
     const agePeople: ManagementPerson[] = [
@@ -164,6 +203,22 @@ describe("ManagementTable", () => {
       },
       people[1],
     ]
+    const accessors = getManagementColumnAccessors("PEOPLE")
+
+    expect(
+      applyTableState(agePeople, accessors, { person: "U35" }, null).map(
+        ({ id }) => id,
+      ),
+    ).toEqual(["u35"])
+    expect(
+      applyTableState(agePeople, accessors, { person: "OVER_35" }, null).map(
+        ({ id }) => id,
+      ),
+    ).toEqual(["over-35"])
+    expect(
+      applyTableState(agePeople, accessors, {}, null),
+    ).toHaveLength(4)
+
     render(
       <ManagementTable
         {...actions}
@@ -173,23 +228,10 @@ describe("ManagementTable", () => {
         view="PEOPLE"
       />,
     )
-    const table = screen.getByRole("table")
-    const filter = screen.getByRole("combobox", { name: "Filtra Persona" })
-
-    expect(dataRowNames(table)).toHaveLength(4)
-    const u35Badge = within(table)
+    const u35Badge = within(screen.getByRole("table"))
       .getAllByText("U35")
       .find((element) => element.dataset.slot === "badge")
     expect(u35Badge).toHaveClass("bg-sky-100", "text-sky-700")
-
-    fireEvent.change(filter, { target: { value: "U35" } })
-    expect(dataRowNames(table)).toHaveLength(1)
-    expect(dataRowNames(table)[0]).toContain("Luca Verdi")
-
-    fireEvent.change(filter, { target: { value: "OVER_35" } })
-    expect(dataRowNames(table)).toHaveLength(1)
-    expect(dataRowNames(table)[0]).toContain("Paolo Over")
-
   })
 
   it("uses the signed passport photo URL for registration previews", () => {
@@ -214,7 +256,7 @@ describe("ManagementTable", () => {
       />,
     )
 
-    const trigger = screen.getByRole("button", {
+    const trigger = within(screen.getByRole("table")).getByRole("button", {
       name: "Apri fototessera di Anna Rossi",
     })
     expect(within(trigger).getByRole("img")).toHaveAttribute(
@@ -248,7 +290,7 @@ describe("ManagementTable", () => {
     )
 
     fireEvent.click(
-      screen.getByRole("button", {
+      within(screen.getByRole("table")).getByRole("button", {
         name: "Apri fototessera di Anna Rossi",
       }),
     )
@@ -297,5 +339,87 @@ describe("ManagementTable", () => {
     fireEvent.click(mobileOpenControl!)
     expect(onOpen).toHaveBeenCalledOnce()
     expect(onOpen).toHaveBeenCalledWith(player)
+  })
+
+  it("keeps every visible column and the row action inside the card", () => {
+    const onVerifyPayment = vi.fn()
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "payments", "dueOn", "paymentAction", "method"]}
+        layout="CARDS"
+        onVerifyPayment={onVerifyPayment}
+        people={[
+          {
+            ...people[0],
+            payments: [
+              {
+                id: "payment-1",
+                status: "PENDING_REVIEW",
+                amountDue: 80,
+                dueOn: "2026-09-30",
+                method: "BANK_TRANSFER",
+              },
+            ],
+          },
+        ]}
+        selected={new Set()}
+        view="PAYMENTS"
+      />,
+    )
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    const card = screen.getByRole("article")
+    expect(within(card).getByText("Quote:")).toBeVisible()
+    expect(within(card).getByText("Scadenza:")).toBeVisible()
+    expect(within(card).getByText("Metodo:")).toBeVisible()
+    expect(within(card).queryByText("Azione:")).not.toBeInTheDocument()
+
+    fireEvent.click(
+      within(card).getByRole("button", {
+        name: "Verifica pagamento di Luca Verdi",
+      }),
+    )
+    expect(onVerifyPayment).toHaveBeenCalledWith("payment-1")
+  })
+
+  it("omits the action row when the card has nothing to act on", () => {
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "account", "accountAction"]}
+        layout="CARDS"
+        people={[people[1]]}
+        selected={new Set()}
+        view="ACCOUNTS"
+      />,
+    )
+
+    expect(
+      screen.queryByRole("button", { name: /Approva account/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("selects and clears every visible row from the table header", () => {
+    const onSelectAllVisible = vi.fn()
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person"]}
+        onSelectAllVisible={onSelectAllVisible}
+        people={people}
+        selected={new Set(["membership-1"])}
+        view="PEOPLE"
+      />,
+    )
+
+    const selectAll = within(screen.getByRole("table")).getByRole("checkbox", {
+      name: "Seleziona tutte le righe visibili",
+    })
+    expect(selectAll).not.toBeChecked()
+    expect((selectAll as HTMLInputElement).indeterminate).toBe(true)
+
+    fireEvent.click(selectAll)
+    expect(onSelectAllVisible).toHaveBeenCalledWith(true)
   })
 })

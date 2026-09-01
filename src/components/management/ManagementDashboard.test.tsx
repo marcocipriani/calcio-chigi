@@ -158,8 +158,9 @@ describe("ManagementDashboard operational state", () => {
     render(<ManagementDashboard />)
 
     const table = await screen.findByRole("table")
+    fireEvent.click(screen.getByRole("button", { name: "Filtri" }))
     fireEvent.change(
-      within(table).getByRole("combobox", { name: "Filtra Persona" }),
+      await screen.findByRole("combobox", { name: "Filtra Persona" }),
       { target: { value: "U35" } },
     )
 
@@ -180,6 +181,103 @@ describe("ManagementDashboard operational state", () => {
     ).toBeChecked()
     expect(
       within(table).queryByRole("checkbox", { name: "Seleziona Anna Rossi" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("drops a selection that leaves the visible rows", async () => {
+    render(<ManagementDashboard />)
+
+    const table = await screen.findByRole("table")
+    fireEvent.click(
+      within(table).getByRole("checkbox", { name: "Seleziona Anna Rossi" }),
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByText("2 risultati · 1 selezionati"),
+      ).toBeInTheDocument()
+    })
+
+    fireEvent.change(
+      screen.getByPlaceholderText("Cerca persona, telefono…"),
+      { target: { value: "Luca" } },
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("1 risultati · 0 selezionati"),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it("clears column filters and sorting when the view changes", async () => {
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+
+    fireEvent.click(screen.getByRole("button", { name: "Filtri" }))
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "Filtra Persona" }),
+      { target: { value: "U35" } },
+    )
+    await waitFor(() => {
+      expect(
+        screen.getByText("1 risultati · 0 selezionati"),
+      ).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole("tab", { name: /Quote/ }))
+    fireEvent.click(screen.getByRole("tab", { name: /Persone/ }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("2 risultati · 0 selezionati"),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it("switches the desktop layout from the list to the cards", async () => {
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+
+    fireEvent.click(screen.getByRole("button", { name: "Vista schede" }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    })
+    expect(screen.getAllByRole("article")).toHaveLength(2)
+    expect(
+      screen.getByRole("button", { name: "Vista schede" }),
+    ).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("offers the mass actions only next to an existing selection", async () => {
+    render(<ManagementDashboard />)
+
+    const table = await screen.findByRole("table")
+    expect(
+      screen.queryByRole("button", { name: "Archivia i selezionati" }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      within(table).getByRole("checkbox", { name: "Seleziona Luca Verdi" }),
+    )
+
+    const actionsGroup = screen.getByRole("group", {
+      name: "Selezione e azioni di massa",
+    })
+    for (const name of [
+      "Registra quota",
+      "Imposta scadenza",
+      "Archivia i selezionati",
+      "Invia notifica",
+    ]) {
+      expect(within(actionsGroup).getByRole("button", { name })).toBeVisible()
+    }
+
+    fireEvent.click(
+      within(actionsGroup).getByRole("button", { name: "Deseleziona" }),
+    )
+    expect(
+      screen.queryByRole("button", { name: "Registra quota" }),
     ).not.toBeInTheDocument()
   })
 
@@ -212,7 +310,9 @@ describe("ManagementDashboard operational state", () => {
     render(<ManagementDashboard />)
     await screen.findByRole("table")
     fireEvent.click(screen.getByRole("tab", { name: /Account/ }))
-    fireEvent.click(await screen.findByRole("button", { name: "Rifiuta" }))
+    fireEvent.click(
+      (await screen.findAllByRole("button", { name: /Rifiuta account di/ }))[0],
+    )
 
     expect(
       await screen.findByRole("button", { name: "Elimina account" }),
@@ -317,7 +417,7 @@ describe("ManagementDashboard operational state", () => {
       ],
       error: null,
     })
-    const trigger = await screen.findByRole("button", {
+    const [trigger] = await screen.findAllByRole("button", {
       name: "Apri fototessera di Anna Rossi",
     })
     expect(within(trigger).getByRole("img")).toHaveAttribute(
@@ -425,7 +525,10 @@ describe("ManagementDashboard operational state", () => {
     expect(screen.queryByText("Luca Verdi")).not.toBeInTheDocument()
     expect(screen.getByText("0 risultati · 0 selezionati")).toBeVisible()
     expect(
-      screen.getByRole("button", { name: "Registra quota" }),
+      screen.queryByRole("button", { name: "Registra quota" }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Seleziona visibili" }),
     ).toBeDisabled()
 
     fireEvent.click(within(alert).getByRole("button", { name: "Riprova" }))

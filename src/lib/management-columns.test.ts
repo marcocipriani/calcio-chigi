@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   DEFAULT_COLUMNS,
+  activeColumnFilters,
   applyTableState,
   moveColumn,
+  nextSort,
   normalizeColumnPreferences,
 } from "@/lib/management-columns"
 
@@ -57,5 +59,26 @@ describe("management columns", () => {
         { columnId: "name", direction: "asc" },
       ),
     ).toEqual([{ name: "Anna", status: "MAYBE" }])
+  })
+
+  it("cycles a column through ascending, descending and no order", () => {
+    const ascending = nextSort(null, "person")
+    expect(ascending).toEqual({ columnId: "person", direction: "asc" })
+    const descending = nextSort(ascending, "person")
+    expect(descending).toEqual({ columnId: "person", direction: "desc" })
+    expect(nextSort(descending, "person")).toBeNull()
+    expect(nextSort(descending, "phone")).toEqual({
+      columnId: "phone",
+      direction: "asc",
+    })
+  })
+
+  it("keeps only the filters of the visible and valued columns", () => {
+    expect(
+      activeColumnFilters(
+        { person: "U35", phone: "", account: "ACTIVE" },
+        ["person", "phone"],
+      ),
+    ).toEqual({ person: "U35" })
   })
 })

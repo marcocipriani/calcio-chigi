@@ -21,6 +21,32 @@ export type TableSort = {
   direction: "asc" | "desc"
 } | null
 
+/** Elenco tabellare oppure schede: stessa gerarchia, due composizioni. */
+export type ManagementLayout = "TABLE" | "CARDS"
+
+export type ManagementColumnFilters = Record<string, string>
+
+export function nextSort(current: TableSort, columnId: string): TableSort {
+  if (!current || current.columnId !== columnId) {
+    return { columnId, direction: "asc" }
+  }
+  return current.direction === "asc"
+    ? { columnId, direction: "desc" }
+    : null
+}
+
+/** Tiene solo i filtri delle colonne ancora visibili e non vuoti. */
+export function activeColumnFilters(
+  filters: ManagementColumnFilters,
+  visibleColumnIds: string[],
+): ManagementColumnFilters {
+  return Object.fromEntries(
+    visibleColumnIds.flatMap((id) =>
+      filters[id] ? [[id, filters[id]] as const] : [],
+    ),
+  )
+}
+
 export function normalizeColumnPreferences(value: unknown): ColumnPreferences {
   const source =
     value && typeof value === "object"

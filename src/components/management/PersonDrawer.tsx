@@ -282,8 +282,8 @@ export function PersonDrawer({
           onOpenChange(open)
         }}
       >
-        <DialogContent className="max-h-[calc(100dvh-1rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b p-4 text-left">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="shrink-0 border-b p-4 text-left">
           <div className="flex items-center gap-3">
             <Avatar className="size-12 shrink-0 ring-1 ring-border">
               <AvatarImage
@@ -324,8 +324,8 @@ export function PersonDrawer({
             </label>
           </div>
         </DialogHeader>
-        <form className="contents" onSubmit={submit}>
-          <div className="grid flex-1 gap-5 overflow-y-auto p-4 md:grid-cols-2">
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
+          <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 md:grid-cols-2">
             <section className="grid content-start gap-3">
               <h3 className="text-sm font-semibold">
                 Persona e contatti
@@ -712,7 +712,7 @@ export function PersonDrawer({
               </div>
             </section>
           </div>
-          <DialogFooter className="border-t p-4">
+          <DialogFooter className="shrink-0 border-t p-4">
             <Button
               onClick={() => onOpenChange(false)}
               type="button"

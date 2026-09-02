@@ -908,8 +908,10 @@ export function ManagementTable({
                         </dt>
                         <dd
                           className={cn(
-                            "min-w-0 overflow-x-auto py-0.5",
-                            !column.wide && "text-right",
+                            "min-w-0 py-0.5",
+                            column.wide
+                              ? "overflow-x-auto overscroll-x-contain"
+                              : "break-words text-right",
                           )}
                         >
                           {column.render(person, actions, passportPhotoStates)}

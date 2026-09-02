@@ -71,6 +71,42 @@ describe("AppGates", () => {
     })
   })
 
+  it("keeps the profile list scrollable between a pinned header and footer", async () => {
+    const client = fakeClient({
+      profile: null,
+      associationStatus: "NONE",
+      membership: null,
+      unreadNotifications: 0,
+    })
+
+    render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    await screen.findByRole("button", { name: /Marco Rossi/i })
+    const content = screen.getByRole("dialog")
+    const list = content.querySelector<HTMLElement>(
+      '[aria-label="Profili disponibili"]',
+    )
+    const footer = content.querySelector<HTMLElement>(
+      '[data-slot="dialog-footer"]',
+    )
+    if (!list || !footer) throw new Error("Dialog senza lista o footer")
+
+    // Con `grid` le tracce si dimensionano sul contenuto e ignorano il tetto di
+    // altezza: con una rosa lunga la lista sforava e il footer usciva fuori.
+    expect(content).toHaveClass("flex", "flex-col", "overflow-hidden")
+    expect(content.querySelector('[data-slot="dialog-header"]')).toHaveClass(
+      "shrink-0",
+    )
+    expect(list).toHaveClass("min-h-0", "flex-auto", "overflow-y-auto")
+    expect(list).not.toHaveClass("min-h-36")
+    expect(footer).toHaveClass("shrink-0")
+    expect(list.contains(footer)).toBe(false)
+  })
+
   it("locks archived members out of the team features", async () => {
     const client = fakeClient({
       profile: {

@@ -96,12 +96,12 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   return (
     <Dialog open={open}>
       <DialogContent
-        className="max-h-[min(680px,calc(100dvh-2rem))] gap-3 overflow-hidden p-4 sm:max-w-md"
+        className="flex max-h-[min(680px,calc(100dvh-2rem))] flex-col gap-3 overflow-hidden p-4 sm:max-w-md"
         showCloseButton={false}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
       >
-        <DialogHeader className="text-left">
+        <DialogHeader className="shrink-0 text-left">
           <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
             <UserRoundCheck aria-hidden="true" className="size-5" />
           </div>
@@ -114,7 +114,7 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
 
         {step === "PICK" ? (
           <>
-            <label className="relative block">
+            <label className="relative block shrink-0">
               <span className="sr-only">Cerca nome o cognome</span>
               <Search
                 aria-hidden="true"
@@ -130,7 +130,7 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
 
             <div
               aria-label="Profili disponibili"
-              className="min-h-36 flex-1 overflow-y-auto rounded-md border"
+              className="min-h-0 flex-auto overflow-y-auto rounded-md border"
             >
               {filteredProfiles.map((profile) => {
                 const active = selected?.id === profile.id
@@ -159,12 +159,12 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
             </div>
 
             {error && (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="shrink-0 text-sm text-destructive" role="alert">
                 {error}
               </p>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="shrink-0">
               <Button
                 className="w-full sm:w-auto"
                 disabled={!selected}

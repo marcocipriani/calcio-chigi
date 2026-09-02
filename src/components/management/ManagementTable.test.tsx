@@ -383,6 +383,27 @@ describe("ManagementTable", () => {
     expect(onVerifyPayment).toHaveBeenCalledWith("payment-1")
   })
 
+  it("scorre solo i campi della card che non possono andare a capo", () => {
+    renderAttendanceTable()
+    const card = screen.getByRole("article")
+    const fields = new Map(
+      Array.from(card.querySelectorAll("dt")).map((label) => [
+        label.textContent?.replace(":", "").trim() ?? "",
+        label.nextElementSibling as HTMLElement,
+      ]),
+    )
+
+    // Un valore testuale va a capo dentro la card: niente scroll orizzontale
+    // che nasconda il contenuto senza alcun indizio visivo.
+    const rate = fields.get("Presenze allenamenti")
+    expect(rate).toHaveClass("break-words", "text-right")
+    expect(rate).not.toHaveClass("overflow-x-auto")
+
+    // La striscia presenze non può andare a capo: lì lo scroll resta.
+    const streak = fields.get("Ultimi allenamenti")
+    expect(streak).toHaveClass("overflow-x-auto", "overscroll-x-contain")
+  })
+
   it("omits the action row when the card has nothing to act on", () => {
     render(
       <ManagementTable

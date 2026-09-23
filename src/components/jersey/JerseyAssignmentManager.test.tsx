@@ -92,6 +92,7 @@ describe("JerseyAssignmentManager", () => {
     expect(card).toHaveTextContent("potrebbe vincere per riconferma")
     expect(screen.getByLabelText("Numero di Anna Test")).toHaveValue("14")
     expect(screen.getByLabelText("Numero di Bruno Test")).toHaveValue("21")
+    expect(screen.getAllByText(/Ultimo aggiornamento: 20 set 2026/)).toHaveLength(2)
 
     fireEvent.click(
       within(card).getByRole("button", { name: /#10 a Anna T\./ }),

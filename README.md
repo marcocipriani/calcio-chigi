@@ -71,7 +71,8 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
   numeri in ordine (preferiti o accettabili) e quelli da evitare, oppure
   "nessuna preferenza" (riceve il numero libero più basso che nessuno ha
   scelto); vede chi ha già scelto e la bozza pubblicata dal manager. Un
-  promemoria chiudibile resta attivo finché i numeri non sono definitivi. Il
+  promemoria, comprimibile in un bottone con la maglia, resta visibile finché
+  i numeri non sono definitivi. Il
   numero ufficiale è storicizzato per stagione nel profilo, nella scheda
   giocatore e nella scheda persona della gestione squadra.
 
@@ -82,8 +83,9 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
   operazioni massive e colonne persistenti per account.
 - **Assegnazione maglie**: proposta automatica con conflitti tra preferiti
   segnalati (e risolvibili con gli accettabili), possibili riconferme,
-  modifiche dopo la bozza, versioni giornaliere delle preferenze, promemoria
-  push ai mancanti, pubblicazione della bozza e conferma definitiva.
+  modifiche dopo la bozza, ultimo aggiornamento e versioni giornaliere delle
+  preferenze, promemoria push ai mancanti, pubblicazione della bozza e
+  conferma definitiva.
 - **Gestione eventi**: creazione, modifica e annullamento di partite e
   allenamenti.
 - **Formazione interattiva**: campo con **drag & drop** ([dnd-kit](https://dndkit.com/)), moduli 4-4-2 / 4-3-3 / 3-5-2 / 4-2-3-1, capitano/vice, colore maglia, controllo quota U35 in campo e totale.

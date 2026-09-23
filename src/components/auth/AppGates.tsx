@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useState } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { Archive, Check, Search, UserRoundCheck, WalletCards } from "lucide-react"
+import { usePathname } from "next/navigation"
+import {
+  Archive,
+  Check,
+  ChevronDown,
+  Search,
+  Shirt,
+  UserRoundCheck,
+  WalletCards,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -307,17 +315,16 @@ function OpenPaymentsPrompt() {
   )
 }
 
-const JERSEY_PROMPT_ID = "jersey-preferences"
-
 /**
- * Promemoria non bloccante per chi è in rosa, visibile finché il manager non
- * rende definitivi i numeri di maglia. Resta a schermo fino a quando il
- * giocatore lo chiude o apre /maglie; chiuso, torna il giorno dopo.
+ * Promemoria per chi è in rosa, visibile finché il manager non rende
+ * definitivi i numeri di maglia. Si comprime in un bottone con la maglia
+ * (scelta ricordata per stagione) ma non sparisce mai prima della conferma.
  */
 function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
   const { isAssociated, membership, targetSeason } = useAppSession()
   const pathname = usePathname()
-  const router = useRouter()
+  const [chosen, setChosen] = useState<boolean | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
   const membershipId =
     isAssociated &&
     membership?.category === "PLAYER" &&
@@ -326,28 +333,12 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
       : null
   const seasonId = targetSeason?.id
   const onJerseyPage = pathname === "/maglie"
+  const collapsedKey = `jersey-prompt-collapsed:${seasonId}`
 
+  // Si ricarica anche uscendo da /maglie, dove le preferenze cambiano.
   useEffect(() => {
-    if (!membershipId || !seasonId) return
-    const today = new Date().toISOString().slice(0, 10)
-    const key = `jersey-preferences:${seasonId}:${today}`
-    const remember = () => {
-      try {
-        window.localStorage.setItem(key, "seen")
-      } catch {
-        // Senza storage il promemoria torna alla prossima apertura.
-      }
-    }
-    if (onJerseyPage) {
-      remember()
-      toast.dismiss(JERSEY_PROMPT_ID)
-      return
-    }
-    try {
-      if (window.localStorage.getItem(key)) return
-    } catch {
-      // Storage non disponibile: il promemoria si mostra comunque.
-    }
+    setChosen(null)
+    if (!membershipId || !seasonId || onJerseyPage) return
 
     let active = true
     void Promise.all([
@@ -364,36 +355,102 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
     ]).then(([preferences, draft]) => {
       if (!active || preferences.error || draft.error) return
       if (draft.data?.confirmed_at) return
-      const chosen = Boolean(preferences.data)
-      toast(
-        chosen
-          ? "Scelta dei numeri di maglia aperta"
-          : "Scegli il tuo numero di maglia",
-        {
-          id: JERSEY_PROMPT_ID,
-          description: chosen
-            ? "Puoi modificare le tue preferenze finché il manager non assegna i numeri."
-            : "Indica i numeri che preferisci, oppure che non hai preferenze.",
-          duration: Infinity,
-          closeButton: true,
-          onDismiss: remember,
-          action: {
-            label: chosen ? "Modifica" : "Scegli",
-            onClick: () => {
-              remember()
-              router.push("/maglie")
-            },
-          },
-        },
-      )
+      let stored: string | null = null
+      try {
+        stored = window.localStorage.getItem(
+          `jersey-prompt-collapsed:${seasonId}`,
+        )
+      } catch {
+        // Senza storage si parte aperti se manca la scelta.
+      }
+      setCollapsed(stored ? stored === "1" : Boolean(preferences.data))
+      setChosen(Boolean(preferences.data))
     })
 
     return () => {
       active = false
     }
-  }, [client, membershipId, onJerseyPage, router, seasonId])
+  }, [client, membershipId, onJerseyPage, seasonId])
 
-  return null
+  function toggle(next: boolean) {
+    setCollapsed(next)
+    try {
+      window.localStorage.setItem(collapsedKey, next ? "1" : "0")
+    } catch {
+      // Preferenza solo di sessione.
+    }
+  }
+
+  if (chosen === null) return null
+
+  const position =
+    "fixed right-3 z-40 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-20"
+
+  if (collapsed) {
+    return (
+      <button
+        aria-label={
+          chosen
+            ? "Numero di maglia: scelta aperta"
+            : "Numero di maglia: da scegliere"
+        }
+        className={cn(
+          position,
+          "grid size-12 place-items-center rounded-full border bg-background text-violet-700 shadow-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-violet-300",
+        )}
+        onClick={() => toggle(false)}
+        type="button"
+      >
+        <Shirt aria-hidden="true" className="size-6" />
+        {!chosen && (
+          <span
+            aria-hidden="true"
+            className="absolute right-1 top-1 size-3 rounded-full border-2 border-background bg-amber-500"
+          />
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <section
+      aria-labelledby="jersey-prompt-title"
+      className={cn(
+        position,
+        "w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border bg-background p-3 shadow-lg",
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+          <Shirt aria-hidden="true" className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-bold" id="jersey-prompt-title">
+            {chosen
+              ? "Scelta dei numeri di maglia aperta"
+              : "Scegli il tuo numero di maglia"}
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {chosen
+              ? "Puoi modificare le preferenze finché il manager non assegna i numeri."
+              : "Indica i numeri che preferisci, oppure che non hai preferenze."}
+          </p>
+        </div>
+        <Button
+          aria-label="Comprimi"
+          className="-mr-1 -mt-1 size-9 shrink-0"
+          onClick={() => toggle(true)}
+          size="icon"
+          variant="ghost"
+        >
+          <ChevronDown aria-hidden="true" />
+        </Button>
+      </div>
+      <Button asChild className="mt-2.5 w-full" size="sm">
+        <Link href="/maglie">{chosen ? "Modifica" : "Scegli"}</Link>
+      </Button>
+    </section>
+  )
 }
 
 export function AppGates({

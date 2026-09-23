@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 const navigation = vi.hoisted(() => ({
@@ -15,7 +15,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("sonner", () => ({
   toast: Object.assign(notifications.toast, {
-    dismiss: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
   }),
@@ -56,6 +55,47 @@ function fakeClient(context: Record<string, unknown>) {
     }),
     rpc,
   }
+}
+
+function jerseyClient({
+  preference,
+  confirmedAt,
+}: {
+  preference: { membership_id: string } | null
+  confirmedAt: string | null
+}) {
+  const client = fakeClient({
+    profile: {
+      id: "profile-1",
+      nome: "Marco",
+      cognome: "Rossi",
+      is_manager: false,
+    },
+    associationStatus: "ACTIVE",
+    membership: { id: "membership-1", status: "YES", category: "PLAYER" },
+    targetSeason: {
+      id: "season-1",
+      slug: "2026-2027",
+      name: "Stagione 2026–2027",
+      starts_on: "2026-08-01",
+      ends_on: "2027-07-31",
+    },
+    unreadNotifications: 0,
+  })
+  client.from.mockImplementation(((table: string) => ({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data:
+            table === "jersey_preferences"
+              ? preference
+              : { confirmed_at: confirmedAt },
+          error: null,
+        }),
+      }),
+    }),
+  })) as never)
+  return client
 }
 
 describe("AppGates", () => {
@@ -155,32 +195,9 @@ describe("AppGates", () => {
     await waitFor(() => expect(signOut).toHaveBeenCalled())
   })
 
-  it("keeps the jersey reminder up until dismissed, then skips the rest of the day", async () => {
+  it("keeps the jersey reminder until confirmation, collapsible into a shirt button", async () => {
     window.localStorage.clear()
-    const client = fakeClient({
-      profile: {
-        id: "profile-1",
-        nome: "Marco",
-        cognome: "Rossi",
-        is_manager: false,
-      },
-      associationStatus: "ACTIVE",
-      membership: { id: "membership-1", status: "YES", category: "PLAYER" },
-      targetSeason: {
-        id: "season-1",
-        slug: "2026-2027",
-        name: "Stagione 2026–2027",
-        starts_on: "2026-08-01",
-        ends_on: "2027-07-31",
-      },
-      unreadNotifications: 0,
-    })
-    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
-    client.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({ maybeSingle }),
-      }),
-    } as never)
+    const client = jerseyClient({ preference: null, confirmedAt: null })
 
     const { unmount } = render(
       <AppSessionProvider client={client as never}>
@@ -188,26 +205,63 @@ describe("AppGates", () => {
       </AppSessionProvider>,
     )
 
-    await waitFor(() =>
-      expect(notifications.toast).toHaveBeenCalledWith(
-        "Scegli il tuo numero di maglia",
-        expect.objectContaining({
-          action: expect.objectContaining({ label: "Scegli" }),
-          closeButton: true,
-          duration: Infinity,
-        }),
-      ),
+    const prompt = await screen.findByRole("region", {
+      name: "Scegli il tuo numero di maglia",
+    })
+    expect(within(prompt).getByRole("link", { name: "Scegli" })).toHaveAttribute(
+      "href",
+      "/maglie",
     )
-    notifications.toast.mock.calls[0][1].onDismiss()
+    fireEvent.click(within(prompt).getByRole("button", { name: "Comprimi" }))
+    expect(
+      screen.getByRole("button", { name: "Numero di maglia: da scegliere" }),
+    ).toBeVisible()
     unmount()
-    notifications.toast.mockClear()
 
+    // Riaprendo l'app resta compresso, ma non sparisce.
     render(
       <AppSessionProvider client={client as never}>
         <AppGates client={client as never} />
       </AppSessionProvider>,
     )
-    await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(2))
-    expect(notifications.toast).not.toHaveBeenCalled()
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Numero di maglia: da scegliere",
+      }),
+    )
+    expect(
+      screen.getByRole("region", { name: "Scegli il tuo numero di maglia" }),
+    ).toBeVisible()
+  })
+
+  it("starts collapsed for players who already chose and hides once confirmed", async () => {
+    window.localStorage.clear()
+    const open = jerseyClient({
+      preference: { membership_id: "membership-1" },
+      confirmedAt: null,
+    })
+    const { unmount } = render(
+      <AppSessionProvider client={open as never}>
+        <AppGates client={open as never} />
+      </AppSessionProvider>,
+    )
+    expect(
+      await screen.findByRole("button", {
+        name: "Numero di maglia: scelta aperta",
+      }),
+    ).toBeVisible()
+    unmount()
+
+    const closed = jerseyClient({
+      preference: { membership_id: "membership-1" },
+      confirmedAt: "2026-09-21T10:00:00Z",
+    })
+    render(
+      <AppSessionProvider client={closed as never}>
+        <AppGates client={closed as never} />
+      </AppSessionProvider>,
+    )
+    await waitFor(() => expect(closed.from).toHaveBeenCalledTimes(2))
+    expect(screen.queryByRole("button", { name: /Numero di maglia/ })).toBeNull()
   })
 })

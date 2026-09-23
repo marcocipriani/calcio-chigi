@@ -555,6 +555,12 @@ export function JerseyAssignmentManager() {
                           noPreference={row.noPreference}
                         />
                       </div>
+                      {row.updatedAt && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Ultimo aggiornamento:{" "}
+                          {formatJerseyTimestamp(row.updatedAt)}
+                        </p>
+                      )}
                     </div>
                     {versions.length > 0 && (
                       <Button

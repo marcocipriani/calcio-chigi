@@ -8,6 +8,7 @@ import { ServiceWorkerRegister } from "@/lib/ServiceWorkerRegister";
 import { Toaster } from "@/components/ui/toaster";
 import { AppSessionProvider } from "@/components/auth/AppSessionProvider";
 import { AppGates } from "@/components/auth/AppGates";
+import appleStartupImages from "@/lib/apple-startup-images.json";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,13 +17,17 @@ export const metadata: Metadata = {
   description: "Gestione della squadra di calcio del Circolo Chigi",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon-192x192.png",
-    apple: "/icon-192x192.png",
+    icon: [
+      { url: "/favicon.ico?v=2", sizes: "16x16 32x32 48x48" },
+      { url: "/brand/icons/icon-192x192.png?v=2", sizes: "192x192", type: "image/png" },
+    ],
+    apple: { url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Real Chigi",
+    title: "Calcio Chigi",
+    startupImage: appleStartupImages,
   },
 };
 

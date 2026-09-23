@@ -1,13 +1,17 @@
-const CACHE_NAME = "real-chigi-cache-v4";
+const CACHE_NAME = "real-chigi-cache-v7";
 
 const STATIC_ASSETS = [
   "/manifest.json",
   "/site.webmanifest",
-  "/icon-192x192.png",
-  "/icon-512x512.png",
-  "/icon.png",
-  "/logo-circolo-chigi.webp",
-  "/logo-circolo-chigi-mark.webp",
+  "/brand/icons/icon-192x192.png?v=2",
+  "/brand/icons/icon-512x512.png?v=2",
+  "/brand/icons/icon-maskable-512x512.png?v=3",
+  "/apple-touch-icon.png?v=2",
+  "/favicon.ico?v=2",
+  "/brand/logos/logo-circolo-chigi.webp?v=2",
+  "/brand/logos/logo-circolo-chigi-light.webp?v=2",
+  "/brand/logos/logo-circolo-chigi-mark.webp?v=2",
+  "/teams/chigi.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -82,8 +86,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title || "Calcio Circolo Chigi", {
       body: payload.body || "Hai una nuova notifica.",
-      icon: "/icon-192x192.png",
-      badge: "/icon-192x192.png",
+      icon: "/brand/icons/icon-192x192.png?v=2",
+      badge: "/brand/icons/icon-192x192.png?v=2",
       tag: payload.tag || undefined,
       data: { url: payload.url || "/" },
     }),

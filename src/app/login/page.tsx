@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card"
 import { Loader2, Mail } from 'lucide-react'
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
@@ -89,25 +89,30 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-xl border-t-4 border-t-primary animate-in fade-in zoom-in-95 duration-300">
         <CardHeader className="flex flex-col items-center gap-4 pb-2">
 
-          <div className="relative h-32 w-28 overflow-hidden rounded-2xl bg-slate-950 shadow-md ring-1 ring-slate-800">
+          <div className="relative h-36 w-30">
             <Image
               alt="Logo Circolo Chigi"
-              className="object-contain p-2"
+              className="object-contain dark:hidden"
               fill
               priority
-              sizes="112px"
-              src="/logo-circolo-chigi.webp"
+              unoptimized
+              sizes="120px"
+              src="/brand/logos/logo-circolo-chigi-light.webp?v=2"
+            />
+            <Image
+              alt="Logo Circolo Chigi"
+              className="hidden object-contain dark:block"
+              fill
+              priority
+              unoptimized
+              sizes="120px"
+              src="/brand/logos/logo-circolo-chigi.webp?v=2"
             />
           </div>
 
-          <div className="text-center space-y-1">
-            <CardTitle className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
-                Circolo Chigi
-            </CardTitle>
-            <CardDescription>
-                Accedi per gestire presenze e voti
-            </CardDescription>
-          </div>
+          <CardDescription className="text-center">
+              Accedi per gestire presenze e voti
+          </CardDescription>
         </CardHeader>
 
         <CardContent>

@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "assets:brand": "node scripts/generate-brand-assets.mjs",
+    "test:brand": "node --test scripts/brand-assets.test.mjs",
     "db:verify": "node scripts/verify-schema.mjs",
     "db:snapshot": "node scripts/build-schema-snapshot.mjs",
     "test:import": "node --test scripts/import-roster.test.mjs scripts/import-enjore-history.test.mjs",

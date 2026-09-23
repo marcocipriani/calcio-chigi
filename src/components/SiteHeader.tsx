@@ -29,14 +29,15 @@ export function SiteHeader() {
           className="group flex min-w-0 items-center gap-1.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring sm:gap-2.5"
           href="/"
         >
-          <span className="relative size-8 shrink-0 sm:size-9">
+          <span className="relative size-10 shrink-0 sm:size-11">
             <Image
               alt="Logo Circolo Chigi"
               className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
               fill
               priority
-              sizes="36px"
-              src="/logo-circolo-chigi-mark.webp"
+              unoptimized
+              sizes="44px"
+              src="/brand/logos/logo-circolo-chigi-mark.webp?v=2"
             />
           </span>
           <span className="truncate text-[11px] font-black uppercase tracking-tight sm:hidden">

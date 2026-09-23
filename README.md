@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./public/icon.png" width="120" alt="Logo Circolo Chigi" />
+<img src="./public/brand/icons/icon-512x512.png" width="120" alt="Logo Circolo Chigi" />
 
 # ⚽ Calcio Circolo Chigi
 
@@ -133,6 +133,21 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 - **Immagini** — `next/image` con `remotePatterns` per i loghi (Enjore CDN); avatar su Supabase Storage.
 - **PWA** — installabile su iOS/Android, service worker per caching statico, tema e icone dedicate.
 
+### Logo, icone e splash
+
+Sorgente originale e anteprime sono raccolti in [`assets/brand`](./assets/brand/README.md).
+Gli asset serviti dall'app sono in `public/brand/{logos,icons,splash}`;
+`favicon.ico` e `apple-touch-icon.png` restano nella root pubblica per il
+riconoscimento automatico dei browser. I vecchi URL reindirizzano ai nuovi file.
+
+```bash
+npm run assets:brand  # Rigenera gli asset lossless e l'indice degli splash
+npm run test:brand    # Verifica pixel, area sicura Android e dimensioni Apple
+```
+
+La [guida degli asset](./assets/brand/README.md) documenta sorgente, varianti,
+anteprime, cache e limiti dello splash nativo.
+
 ## 🚀 Avvio rapido
 
 ```bash
@@ -164,6 +179,8 @@ App su [http://localhost:3000](http://localhost:3000).
 | `npm run start` | Serve la build |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Verifica TypeScript |
+| `npm run assets:brand` | Rigenera logo, icone e splash dal sorgente approvato |
+| `npm run test:brand` | Verifica gli asset e i vincoli delle piattaforme |
 | `npm test` | Test Vitest |
 | `npm run test:import` | Test degli import Enjore |
 | `npm run db:verify` | Verifica snapshot e migration |

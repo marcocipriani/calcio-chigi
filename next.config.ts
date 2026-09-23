@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
+  async redirects() {
+    // Compatibilità con pagine memorizzate e vecchie installazioni PWA.
+    return [
+      ...["logo-circolo-chigi.webp", "logo-circolo-chigi-light.webp", "logo-circolo-chigi-mark.webp"]
+        .map((name) => ({ source: `/${name}`, destination: `/brand/logos/${name}`, permanent: true })),
+      ...["icon-192x192.png", "icon-512x512.png", "icon-maskable-512x512.png"]
+        .map((name) => ({ source: `/${name}`, destination: `/brand/icons/${name}`, permanent: true })),
+      { source: "/icon.png", destination: "/brand/icons/icon-512x512.png", permanent: true },
+      { source: "/splash/:path*", destination: "/brand/splash/:path*", permanent: true },
+    ];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.enjore.com' },

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   History,
+  Pencil,
   RefreshCw,
   Send,
 } from "lucide-react"
@@ -20,6 +21,7 @@ import {
   formatJerseyTimestamp,
   JerseyDraftTable,
 } from "@/components/jersey/JerseyDraftTable"
+import { JerseyPreferencesForm } from "@/components/jersey/JerseyPreferencesForm"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import {
   AlertDialog,
@@ -34,6 +36,13 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -43,6 +52,7 @@ import {
   fetchJerseyPreferenceVersions,
   fetchSeasonAvoidedNumbers,
   publishJerseyDraft,
+  saveJerseyPreferences,
   sendJerseyPreferenceReminder,
   type JerseyBoardRow,
   type JerseyDraft,
@@ -50,6 +60,7 @@ import {
 } from "@/lib/jersey-api"
 import {
   applyJerseyResolution,
+  initialJerseyChoices,
   isValidJerseyNumber,
   JERSEY_LEVEL_LABEL,
   jerseyAssignmentIssues,
@@ -138,6 +149,7 @@ export function JerseyAssignmentManager() {
   const [pending, setPending] = useState<PendingAction>(null)
   const [busy, setBusy] = useState(false)
   const [openHistory, setOpenHistory] = useState<string | null>(null)
+  const [editing, setEditing] = useState<JerseyBoardRow | null>(null)
 
   const seasonId = targetSeason?.id
 
@@ -180,15 +192,18 @@ export function JerseyAssignmentManager() {
   }, [isManager, load, sessionLoading])
 
   // Si parte dalla bozza pubblicata; chi non c'è ancora riceve la proposta.
+  // Ai ricaricamenti le modifiche a mano restano: si rigenera a richiesta.
   useEffect(() => {
     if (!data) return
-    setAssignment(
+    setAssignment((current) =>
       Object.fromEntries(
         players.map(({ membershipId }) => [
           membershipId,
-          data.draft && membershipId in data.draft.assignment
-            ? data.draft.assignment[membershipId]
-            : proposal.assignment[membershipId],
+          membershipId in current
+            ? current[membershipId]
+            : data.draft && membershipId in data.draft.assignment
+              ? data.draft.assignment[membershipId]
+              : proposal.assignment[membershipId],
         ]),
       ),
     )
@@ -291,6 +306,33 @@ export function JerseyAssignmentManager() {
     } finally {
       setBusy(false)
       setPending(null)
+    }
+  }
+
+  async function saveOnBehalf(
+    row: JerseyBoardRow,
+    choices: JerseyChoice[],
+    avoidNumbers: number[],
+    noPreference: boolean,
+  ) {
+    if (!seasonId) return
+    try {
+      await saveJerseyPreferences(
+        supabaseBrowser,
+        seasonId,
+        choices,
+        avoidNumbers,
+        noPreference,
+        row.membershipId,
+      )
+      toast.success(`Preferenze di ${playerShortName(row)} salvate`)
+      setEditing(null)
+      await load()
+    } catch (saveError) {
+      toast.error("Preferenze non salvate", {
+        description:
+          saveError instanceof Error ? saveError.message : undefined,
+      })
     }
   }
 
@@ -547,6 +589,9 @@ export function JerseyAssignmentManager() {
                             Modificate dopo la bozza
                           </Badge>
                         )}
+                        {row.updatedByManager && (
+                          <Badge variant="secondary">Inserite dal manager</Badge>
+                        )}
                       </p>
                       <div className="mt-1">
                         <ChoiceChips
@@ -562,6 +607,17 @@ export function JerseyAssignmentManager() {
                         </p>
                       )}
                     </div>
+                    {!closed && (
+                      <Button
+                        aria-label={`Preferenze di ${row.nome} ${row.cognome}`}
+                        onClick={() => setEditing(row)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <Pencil aria-hidden="true" />
+                        <span className="sr-only sm:not-sr-only">Preferenze</span>
+                      </Button>
+                    )}
                     {versions.length > 0 && (
                       <Button
                         aria-expanded={openHistory === row.membershipId}
@@ -604,6 +660,12 @@ export function JerseyAssignmentManager() {
                             choices={version.choices}
                             noPreference={version.noPreference}
                           />
+                          {version.updatedBy &&
+                            version.updatedBy !== row.profileId && (
+                              <span className="text-muted-foreground">
+                                (manager)
+                              </span>
+                            )}
                         </li>
                       ))}
                     </ol>
@@ -652,6 +714,45 @@ export function JerseyAssignmentManager() {
           <JerseyBoard rows={data.board} />
         </CardContent>
       </Card>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setEditing(null)
+        }}
+        open={editing !== null}
+      >
+        <DialogContent className="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader className="text-left">
+            <DialogTitle>
+              Preferenze di {editing?.nome} {editing?.cognome}
+            </DialogTitle>
+            <DialogDescription>
+              Le inserisci al posto del giocatore: vedrà che sono state messe
+              dal manager e potrà modificarle fino alla conferma.
+            </DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <JerseyPreferencesForm
+              initialAvoidNumbers={data.avoided.get(editing.membershipId) ?? []}
+              initialChoices={initialJerseyChoices(
+                editing.choices,
+                editing.updatedAt ? null : editing.previousJerseyNumber,
+              )}
+              initialNoPreference={editing.noPreference}
+              key={editing.membershipId}
+              onSave={(choices, avoidNumbers, noPreference) =>
+                saveOnBehalf(editing, choices, avoidNumbers, noPreference)
+              }
+              others={data.board.filter(
+                ({ membershipId }) => membershipId !== editing.membershipId,
+              )}
+              suggestedFromPreviousSeason={
+                !editing.updatedAt && editing.previousJerseyNumber !== null
+              }
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         onOpenChange={(open) => {

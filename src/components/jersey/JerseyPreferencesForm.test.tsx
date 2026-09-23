@@ -15,6 +15,7 @@ const teammate: JerseyBoardRow = {
   previousJerseyNumber: null,
   choices: [{ number: 10, level: "PREFERRED" }],
   noPreference: false,
+  updatedByManager: false,
   updatedAt: "2026-09-20T10:00:00Z",
 }
 

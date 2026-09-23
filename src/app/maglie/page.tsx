@@ -218,6 +218,12 @@ export default function JerseyNumbersPage() {
                   Ultimo salvataggio: {formatJerseyTimestamp(data.own.updatedAt)}
                 </p>
               )}
+              {ownRow?.updatedByManager && (
+                <p className="rounded-md bg-violet-50 px-2 py-1.5 text-xs font-medium text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+                  Queste preferenze sono state inserite dal manager: controllale
+                  e modificale se serve.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               {closed ? (

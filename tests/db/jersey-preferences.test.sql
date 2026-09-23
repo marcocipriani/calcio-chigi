@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(31);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -205,12 +205,45 @@ select is(
   'no preference is stored without numbers and shown on the board'
 );
 
+select throws_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"number": 9, "level": "PREFERRED"}]',
+      '{}',
+      false,
+      '30000000-0000-0000-0000-000000000a02'
+    )$$,
+  '42501',
+  null,
+  'players cannot save preferences for someone else'
+);
+
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a01', true);
 
 select is(
   (select count(*)::integer from public.jersey_preferences),
   2,
   'managers read every preference'
+);
+
+select lives_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"number": 5, "level": "PREFERRED"}]',
+      '{}',
+      false,
+      '30000000-0000-0000-0000-000000000a04'
+    )$$,
+  'a manager saves preferences on behalf of a player'
+);
+
+select is(
+  (select array_agg(updated_by_manager order by profile_id)
+     from public.jersey_preference_board board
+     join public.seasons season on season.id = board.season_id
+    where season.slug = '2026-2027'),
+  array[false, false, true],
+  'the board flags preferences entered by a manager'
 );
 
 select throws_ok(

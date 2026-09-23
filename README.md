@@ -84,8 +84,9 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 - **Assegnazione maglie**: proposta automatica con conflitti tra preferiti
   segnalati (e risolvibili con gli accettabili), possibili riconferme,
   modifiche dopo la bozza, ultimo aggiornamento e versioni giornaliere delle
-  preferenze, promemoria push ai mancanti, pubblicazione della bozza e
-  conferma definitiva.
+  preferenze, inserimento delle preferenze al posto di un giocatore
+  (segnalato come "inserite dal manager"), promemoria push ai mancanti,
+  pubblicazione della bozza e conferma definitiva.
 - **Gestione eventi**: creazione, modifica e annullamento di partite e
   allenamenti.
 - **Formazione interattiva**: campo con **drag & drop** ([dnd-kit](https://dndkit.com/)), moduli 4-4-2 / 4-3-3 / 3-5-2 / 4-2-3-1, capitano/vice, colore maglia, controllo quota U35 in campo e totale.

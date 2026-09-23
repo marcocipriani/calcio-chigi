@@ -19,6 +19,7 @@ export type JerseyBoardRow = {
   noPreference: boolean
   // null finché il giocatore non ha risposto.
   updatedAt: string | null
+  updatedByManager: boolean
 }
 
 export type JerseyDraft = {
@@ -41,6 +42,7 @@ export type JerseyPreferenceVersion = {
   choices: JerseyChoice[]
   noPreference: boolean
   avoidNumbers: number[]
+  updatedBy: string | null
 }
 
 export type JerseyHistoryEntry = {
@@ -73,7 +75,7 @@ export async function fetchJerseyBoard(
   const { data, error } = await client
     .from("jersey_preference_board")
     .select(
-      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, previous_jersey_number, choices, no_preference, updated_at",
+      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, previous_jersey_number, choices, no_preference, updated_at, updated_by_manager",
     )
     .eq("season_id", seasonId)
     .order("cognome", { ascending: true })
@@ -91,6 +93,7 @@ export async function fetchJerseyBoard(
     choices: parseJerseyChoices(row.choices),
     noPreference: row.no_preference === true,
     updatedAt: asText(row.updated_at),
+    updatedByManager: row.updated_by_manager === true,
   }))
 }
 
@@ -163,7 +166,9 @@ export async function fetchJerseyPreferenceVersions(
   if (!membershipIds.length) return []
   const { data, error } = await client
     .from("jersey_preference_versions")
-    .select("membership_id, version_on, choices, no_preference, avoid_numbers")
+    .select(
+      "membership_id, version_on, choices, no_preference, avoid_numbers, updated_by",
+    )
     .in("membership_id", membershipIds)
     .order("version_on", { ascending: false })
   if (error) throw error
@@ -173,6 +178,7 @@ export async function fetchJerseyPreferenceVersions(
     choices: parseJerseyChoices(row.choices),
     noPreference: row.no_preference === true,
     avoidNumbers: asNumbers(row.avoid_numbers),
+    updatedBy: asText(row.updated_by),
   }))
 }
 
@@ -182,12 +188,15 @@ export async function saveJerseyPreferences(
   choices: JerseyChoice[],
   avoidNumbers: number[],
   noPreference: boolean,
+  // Solo manager: salva al posto di questo giocatore.
+  membershipId?: string,
 ) {
   const { error } = await client.rpc("save_jersey_preferences", {
     p_season_id: seasonId,
     p_choices: noPreference ? [] : choices,
     p_avoid_numbers: avoidNumbers,
     p_no_preference: noPreference,
+    ...(membershipId ? { p_membership_id: membershipId } : {}),
   })
   if (error) throw error
 }

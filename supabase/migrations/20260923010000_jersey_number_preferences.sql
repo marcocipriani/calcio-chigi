@@ -8,6 +8,8 @@ begin;
 -- (ricevono il numero libero più basso che nessuno ha scelto); il manager
 -- pubblica una bozza e poi la conferma, scrivendo i numeri definitivi nelle
 -- membership. Dopo la conferma le preferenze non si modificano più.
+-- Il manager può inserire le preferenze al posto di un giocatore: `updated_by`
+-- registra chi ha salvato, così la scelta resta riconoscibile come sua.
 
 create table if not exists public.jersey_preferences (
   membership_id  uuid primary key
@@ -16,6 +18,7 @@ create table if not exists public.jersey_preferences (
   -- vuoto solo per chi non ha preferenze.
   choices        jsonb not null check (jsonb_typeof(choices) = 'array'),
   no_preference  boolean not null default false,
+  updated_by     uuid references public.profiles(id) on delete set null,
   avoid_numbers  integer[] not null default '{}' check (
     cardinality(avoid_numbers) <= 10
     and 1 <= all(avoid_numbers)
@@ -39,6 +42,7 @@ create table if not exists public.jersey_preference_versions (
   version_on     date not null,
   choices        jsonb not null,
   no_preference  boolean not null default false,
+  updated_by     uuid references public.profiles(id) on delete set null,
   avoid_numbers  integer[] not null,
   saved_at       timestamptz not null default now(),
   primary key (membership_id, version_on)
@@ -120,7 +124,9 @@ select
   previous.jersey_number as previous_jersey_number,
   preference.choices,
   coalesce(preference.no_preference, false) as no_preference,
-  preference.updated_at
+  preference.updated_at,
+  coalesce(preference.updated_by <> membership.profile_id, false)
+    as updated_by_manager
 from public.season_memberships membership
 join public.profiles profile on profile.id = membership.profile_id
 join public.seasons season on season.id = membership.season_id
@@ -190,7 +196,9 @@ create or replace function public.save_jersey_preferences(
   p_season_id uuid,
   p_choices jsonb,
   p_avoid_numbers integer[],
-  p_no_preference boolean default false
+  p_no_preference boolean default false,
+  -- Solo per i manager: salva al posto di questo giocatore.
+  p_membership_id uuid default null
 )
 returns public.jersey_preferences
 language plpgsql
@@ -212,12 +220,23 @@ begin
     raise exception 'Approved account required' using errcode = '42501';
   end if;
 
+  if p_membership_id is not null
+     and not public.is_current_user_manager() then
+    raise exception 'Manager permission required' using errcode = '42501';
+  end if;
+
   select membership.id
   into membership_id_value
   from public.season_memberships membership
   join public.seasons season on season.id = membership.season_id
   where membership.season_id = p_season_id
-    and membership.profile_id = public.current_profile_id()
+    and (
+      membership.id = p_membership_id
+      or (
+        p_membership_id is null
+        and membership.profile_id = public.current_profile_id()
+      )
+    )
     and membership.category = 'PLAYER'
     and membership.status <> 'NO'
     and season.ends_on >= today;
@@ -293,17 +312,20 @@ begin
     membership_id,
     choices,
     no_preference,
-    avoid_numbers
+    avoid_numbers,
+    updated_by
   )
   values (
     membership_id_value,
     normalized_choices,
     coalesce(p_no_preference, false),
-    normalized_avoid
+    normalized_avoid,
+    public.current_profile_id()
   )
   on conflict (membership_id) do update
   set choices = excluded.choices,
       no_preference = excluded.no_preference,
+      updated_by = excluded.updated_by,
       avoid_numbers = excluded.avoid_numbers,
       updated_at = now()
   returning * into saved;
@@ -313,18 +335,21 @@ begin
     version_on,
     choices,
     no_preference,
-    avoid_numbers
+    avoid_numbers,
+    updated_by
   )
   values (
     membership_id_value,
     today,
     normalized_choices,
     coalesce(p_no_preference, false),
-    normalized_avoid
+    normalized_avoid,
+    public.current_profile_id()
   )
   on conflict (membership_id, version_on) do update
   set choices = excluded.choices,
       no_preference = excluded.no_preference,
+      updated_by = excluded.updated_by,
       avoid_numbers = excluded.avoid_numbers,
       saved_at = now();
 
@@ -589,7 +614,7 @@ revoke all on function public.normalize_jersey_assignments(uuid, jsonb)
   from public, anon, authenticated;
 revoke all on function public.jersey_season_player_user_ids(uuid, boolean)
   from public, anon, authenticated;
-revoke all on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean)
+revoke all on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean, uuid)
   from public, anon, authenticated;
 revoke all on function public.publish_jersey_draft(uuid, jsonb)
   from public, anon, authenticated;
@@ -598,7 +623,7 @@ revoke all on function public.confirm_jersey_draft(uuid)
 revoke all on function public.send_jersey_preference_reminder(uuid)
   from public, anon, authenticated;
 
-grant execute on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean)
+grant execute on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean, uuid)
   to authenticated, service_role;
 grant execute on function public.publish_jersey_draft(uuid, jsonb)
   to authenticated, service_role;

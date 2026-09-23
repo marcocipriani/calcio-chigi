@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   fetchJerseyPreferenceVersions: vi.fn(),
   fetchSeasonAvoidedNumbers: vi.fn(),
   publishJerseyDraft: vi.fn(),
+  saveJerseyPreferences: vi.fn(),
   sendJerseyPreferenceReminder: vi.fn(),
 }))
 
@@ -39,6 +40,7 @@ function row(
     previousJerseyNumber: null,
     choices,
     noPreference: false,
+    updatedByManager: false,
     updatedAt: choices.length ? "2026-09-20T10:00:00Z" : null,
     ...extra,
   }
@@ -147,6 +149,56 @@ describe("JerseyAssignmentManager", () => {
     ).toBeVisible()
     expect(screen.getByText("Chi deve ancora scegliere").closest("[data-slot=card]"))
       .toHaveTextContent("Tutti i giocatori in rosa hanno indicato le preferenze.")
+  })
+
+  it("lets the manager enter preferences on behalf of a player", async () => {
+    api.saveJerseyPreferences.mockResolvedValue(undefined)
+    render(<JerseyAssignmentManager />)
+
+    // Una modifica a mano sopravvive al ricaricamento dopo il salvataggio.
+    const card = (await screen.findByText("Conflitti da decidere")).closest(
+      "[data-slot=card]",
+    ) as HTMLElement
+    fireEvent.click(within(card).getByRole("button", { name: /#10 a Anna T\./ }))
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preferenze di Carlo Test" }),
+    )
+    const dialog = await screen.findByRole("dialog", {
+      name: "Preferenze di Carlo Test",
+    })
+    expect(dialog).toHaveTextContent("inserisci al posto del giocatore")
+    fireEvent.click(
+      within(dialog).getByRole("checkbox", { name: /Non ho preferenze/ }),
+    )
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Salva preferenze/ }),
+    )
+
+    await waitFor(() =>
+      expect(api.saveJerseyPreferences).toHaveBeenCalledWith(
+        expect.anything(),
+        "season-1",
+        [],
+        [],
+        true,
+        "carlo",
+      ),
+    )
+    await waitFor(() => expect(api.fetchJerseyBoard).toHaveBeenCalledTimes(2))
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.getByLabelText("Numero di Anna Test")).toHaveValue("10")
+  })
+
+  it("marks preferences entered by a manager", async () => {
+    api.fetchJerseyBoard.mockResolvedValue([
+      row("anna", "Anna", [{ number: 7, level: "PREFERRED" }], {
+        updatedByManager: true,
+      }),
+    ])
+    render(<JerseyAssignmentManager />)
+
+    expect(await screen.findByText("Inserite dal manager")).toBeVisible()
   })
 
   it("hides the reminders once the numbers are confirmed", async () => {

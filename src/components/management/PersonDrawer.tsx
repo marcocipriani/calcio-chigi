@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
@@ -81,6 +83,7 @@ export function PersonDrawer({
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState<"AVATAR" | "PASSPORT" | null>(null)
   const [pendingForm, setPendingForm] = useState<FormData | null>(null)
+  const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
 
   useEffect(() => {
     if (person) {
@@ -88,6 +91,21 @@ export function PersonDrawer({
       setPendingForm(null)
     }
   }, [person])
+
+  const profileId = person?.profileId
+  useEffect(() => {
+    setJerseyHistory([])
+    if (!profileId) return
+    let active = true
+    fetchJerseyHistory(supabaseBrowser, profileId)
+      .then((entries) => {
+        if (active) setJerseyHistory(entries)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [profileId])
 
   if (!person) return null
   const currentPerson = person
@@ -519,6 +537,12 @@ export function PersonDrawer({
                 ))}
               </div>
             </section>
+
+            {(category === "PLAYER" || jerseyHistory.length > 0) && (
+              <div className="md:col-span-2">
+                <JerseyHistory entries={jerseyHistory} />
+              </div>
+            )}
 
             <section className="grid content-start gap-3 md:col-span-2">
               <h3 className="text-sm font-semibold">

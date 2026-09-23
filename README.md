@@ -68,9 +68,12 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
   saltati per infortunio).
 - **Formazione personale** esportabile e condivisibile.
 - **Numeri di maglia**: a inizio stagione ogni giocatore indica fino a 5
-  numeri in ordine (preferiti o accettabili) e quelli da evitare; vede chi ha
-  già scelto e la bozza pubblicata dal manager. Il numero ufficiale è
-  storicizzato per stagione nel profilo.
+  numeri in ordine (preferiti o accettabili) e quelli da evitare, oppure
+  "nessuna preferenza" (riceve il numero libero più basso che nessuno ha
+  scelto); vede chi ha già scelto e la bozza pubblicata dal manager. Un
+  promemoria chiudibile resta attivo finché i numeri non sono definitivi. Il
+  numero ufficiale è storicizzato per stagione nel profilo, nella scheda
+  giocatore e nella scheda persona della gestione squadra.
 
 ### 🛡️ Dirigenti (Manager)
 

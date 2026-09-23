@@ -7,4 +7,14 @@ process.env.NEXT_PUBLIC_SUPABASE_KEY ??= "test-anon-key"
 
 HTMLElement.prototype.scrollIntoView ??= () => {}
 
+// Node ≥ 25 espone un localStorage globale (undefined senza
+// --localstorage-file) che copre quello di jsdom.
+const jsdomWindow = (globalThis as { jsdom?: { window: Window } }).jsdom?.window
+if (jsdomWindow && !globalThis.localStorage) {
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: jsdomWindow.localStorage,
+  })
+}
+
 afterEach(cleanup)

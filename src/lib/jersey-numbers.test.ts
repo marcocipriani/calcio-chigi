@@ -24,6 +24,7 @@ function player(
     membershipId,
     name: membershipId,
     choices,
+    noPreference: false,
     avoidNumbers: [],
     previousNumber: null,
     ...extra,
@@ -33,6 +34,13 @@ function player(
 describe("validateJerseyPreferences", () => {
   it("accepts one to five ranked numbers with at least one preferred", () => {
     expect(validateJerseyPreferences([P(10), A(14)], [13])).toBeNull()
+  })
+
+  it("accepts no preference, ignoring any leftover choice", () => {
+    expect(validateJerseyPreferences([A(14)], [13], true)).toBeNull()
+    expect(validateJerseyPreferences([], [0], true)).toBe(
+      "I numeri vanno da 1 a 99",
+    )
   })
 
   it("mirrors the database rules", () => {
@@ -146,10 +154,21 @@ describe("proposeJerseyAssignment", () => {
     ])
   })
 
-  it("leaves players without preferences unassigned", () => {
+  it("leaves players who have not answered unassigned", () => {
     expect(
       proposeJerseyAssignment([player("anna", [])]).assignment,
     ).toEqual({ anna: null })
+  })
+
+  it("gives the lowest free unchosen number to players with no preference", () => {
+    const { assignment } = proposeJerseyAssignment([
+      player("anna", [P(1), A(3)]),
+      player("bruno", [P(2)]),
+      player("carlo", [], { noPreference: true, avoidNumbers: [4] }),
+      player("dario", [], { noPreference: true }),
+    ])
+    // 1-3 scelti da qualcuno, 4 da evitare per Carlo.
+    expect(assignment).toEqual({ anna: 1, bruno: 2, carlo: 5, dario: 4 })
   })
 })
 

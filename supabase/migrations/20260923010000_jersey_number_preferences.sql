@@ -4,24 +4,31 @@ begin;
 -- Il numero ufficiale resta `season_memberships.jersey_number`: una riga per
 -- stagione, quindi lo storico è già la sequenza delle membership.
 -- I giocatori indicano da 1 a 5 numeri ordinati (PREFERRED/ACCEPTABLE) più
--- una lista di numeri da evitare; il manager pubblica una bozza e poi la
--- conferma, scrivendo i numeri definitivi nelle membership.
+-- una lista di numeri da evitare, oppure dichiarano di non avere preferenze
+-- (ricevono il numero libero più basso che nessuno ha scelto); il manager
+-- pubblica una bozza e poi la conferma, scrivendo i numeri definitivi nelle
+-- membership. Dopo la conferma le preferenze non si modificano più.
 
 create table if not exists public.jersey_preferences (
   membership_id  uuid primary key
                  references public.season_memberships(id) on delete cascade,
-  -- [{"number": 10, "level": "PREFERRED"}, ...] in ordine di preferenza.
-  choices        jsonb not null check (
-    jsonb_typeof(choices) = 'array'
-    and jsonb_array_length(choices) between 1 and 5
-  ),
+  -- [{"number": 10, "level": "PREFERRED"}, ...] in ordine di preferenza;
+  -- vuoto solo per chi non ha preferenze.
+  choices        jsonb not null check (jsonb_typeof(choices) = 'array'),
+  no_preference  boolean not null default false,
   avoid_numbers  integer[] not null default '{}' check (
     cardinality(avoid_numbers) <= 10
     and 1 <= all(avoid_numbers)
     and 99 >= all(avoid_numbers)
   ),
   created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
+  updated_at     timestamptz not null default now(),
+  check (
+    case when no_preference
+      then jsonb_array_length(choices) = 0
+      else jsonb_array_length(choices) between 1 and 5
+    end
+  )
 );
 
 -- Versionamento giornaliero: una fotografia per giocatore e giorno (ora di
@@ -31,6 +38,7 @@ create table if not exists public.jersey_preference_versions (
                  references public.season_memberships(id) on delete cascade,
   version_on     date not null,
   choices        jsonb not null,
+  no_preference  boolean not null default false,
   avoid_numbers  integer[] not null,
   saved_at       timestamptz not null default now(),
   primary key (membership_id, version_on)
@@ -111,6 +119,7 @@ select
   membership.jersey_number,
   previous.jersey_number as previous_jersey_number,
   preference.choices,
+  coalesce(preference.no_preference, false) as no_preference,
   preference.updated_at
 from public.season_memberships membership
 join public.profiles profile on profile.id = membership.profile_id
@@ -180,7 +189,8 @@ for each row execute function public.guard_unique_season_jersey();
 create or replace function public.save_jersey_preferences(
   p_season_id uuid,
   p_choices jsonb,
-  p_avoid_numbers integer[]
+  p_avoid_numbers integer[],
+  p_no_preference boolean default false
 )
 returns public.jersey_preferences
 language plpgsql
@@ -217,7 +227,18 @@ begin
       using errcode = '42501';
   end if;
 
-  if p_choices is null
+  if exists (
+    select 1
+    from public.jersey_assignment_drafts draft
+    where draft.season_id = p_season_id
+      and draft.confirmed_at is not null
+  ) then
+    raise exception 'La scelta dei numeri di questa stagione è conclusa';
+  end if;
+
+  if coalesce(p_no_preference, false) then
+    p_choices := '[]'::jsonb;
+  elsif p_choices is null
      or jsonb_typeof(p_choices) <> 'array'
      or jsonb_array_length(p_choices) not between 1 and 5 then
     raise exception 'Indica da 1 a 5 numeri';
@@ -247,7 +268,7 @@ begin
     );
   end loop;
 
-  if not has_preferred then
+  if not has_preferred and not coalesce(p_no_preference, false) then
     raise exception 'Serve almeno un numero preferito';
   end if;
 
@@ -271,11 +292,18 @@ begin
   insert into public.jersey_preferences as preference (
     membership_id,
     choices,
+    no_preference,
     avoid_numbers
   )
-  values (membership_id_value, normalized_choices, normalized_avoid)
+  values (
+    membership_id_value,
+    normalized_choices,
+    coalesce(p_no_preference, false),
+    normalized_avoid
+  )
   on conflict (membership_id) do update
   set choices = excluded.choices,
+      no_preference = excluded.no_preference,
       avoid_numbers = excluded.avoid_numbers,
       updated_at = now()
   returning * into saved;
@@ -284,11 +312,19 @@ begin
     membership_id,
     version_on,
     choices,
+    no_preference,
     avoid_numbers
   )
-  values (membership_id_value, today, normalized_choices, normalized_avoid)
+  values (
+    membership_id_value,
+    today,
+    normalized_choices,
+    coalesce(p_no_preference, false),
+    normalized_avoid
+  )
   on conflict (membership_id, version_on) do update
   set choices = excluded.choices,
+      no_preference = excluded.no_preference,
       avoid_numbers = excluded.avoid_numbers,
       saved_at = now();
 
@@ -553,7 +589,7 @@ revoke all on function public.normalize_jersey_assignments(uuid, jsonb)
   from public, anon, authenticated;
 revoke all on function public.jersey_season_player_user_ids(uuid, boolean)
   from public, anon, authenticated;
-revoke all on function public.save_jersey_preferences(uuid, jsonb, integer[])
+revoke all on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean)
   from public, anon, authenticated;
 revoke all on function public.publish_jersey_draft(uuid, jsonb)
   from public, anon, authenticated;
@@ -562,7 +598,7 @@ revoke all on function public.confirm_jersey_draft(uuid)
 revoke all on function public.send_jersey_preference_reminder(uuid)
   from public, anon, authenticated;
 
-grant execute on function public.save_jersey_preferences(uuid, jsonb, integer[])
+grant execute on function public.save_jersey_preferences(uuid, jsonb, integer[], boolean)
   to authenticated, service_role;
 grant execute on function public.publish_jersey_draft(uuid, jsonb)
   to authenticated, service_role;

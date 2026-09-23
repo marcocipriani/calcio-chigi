@@ -16,6 +16,8 @@ export type JerseyBoardRow = {
   jerseyNumber: number | null
   previousJerseyNumber: number | null
   choices: JerseyChoice[]
+  noPreference: boolean
+  // null finché il giocatore non ha risposto.
   updatedAt: string | null
 }
 
@@ -28,6 +30,7 @@ export type JerseyDraft = {
 
 export type OwnJerseyPreferences = {
   choices: JerseyChoice[]
+  noPreference: boolean
   avoidNumbers: number[]
   updatedAt: string
 }
@@ -36,6 +39,7 @@ export type JerseyPreferenceVersion = {
   membershipId: string
   versionOn: string
   choices: JerseyChoice[]
+  noPreference: boolean
   avoidNumbers: number[]
 }
 
@@ -69,7 +73,7 @@ export async function fetchJerseyBoard(
   const { data, error } = await client
     .from("jersey_preference_board")
     .select(
-      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, previous_jersey_number, choices, updated_at",
+      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, previous_jersey_number, choices, no_preference, updated_at",
     )
     .eq("season_id", seasonId)
     .order("cognome", { ascending: true })
@@ -85,6 +89,7 @@ export async function fetchJerseyBoard(
     jerseyNumber: asNumber(row.jersey_number),
     previousJerseyNumber: asNumber(row.previous_jersey_number),
     choices: parseJerseyChoices(row.choices),
+    noPreference: row.no_preference === true,
     updatedAt: asText(row.updated_at),
   }))
 }
@@ -119,13 +124,14 @@ export async function fetchOwnJerseyPreferences(
 ): Promise<OwnJerseyPreferences | null> {
   const { data, error } = await client
     .from("jersey_preferences")
-    .select("choices, avoid_numbers, updated_at")
+    .select("choices, no_preference, avoid_numbers, updated_at")
     .eq("membership_id", membershipId)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
   return {
     choices: parseJerseyChoices(data.choices),
+    noPreference: data.no_preference === true,
     avoidNumbers: asNumbers(data.avoid_numbers),
     updatedAt: String(data.updated_at),
   }
@@ -157,7 +163,7 @@ export async function fetchJerseyPreferenceVersions(
   if (!membershipIds.length) return []
   const { data, error } = await client
     .from("jersey_preference_versions")
-    .select("membership_id, version_on, choices, avoid_numbers")
+    .select("membership_id, version_on, choices, no_preference, avoid_numbers")
     .in("membership_id", membershipIds)
     .order("version_on", { ascending: false })
   if (error) throw error
@@ -165,6 +171,7 @@ export async function fetchJerseyPreferenceVersions(
     membershipId: String(row.membership_id),
     versionOn: String(row.version_on),
     choices: parseJerseyChoices(row.choices),
+    noPreference: row.no_preference === true,
     avoidNumbers: asNumbers(row.avoid_numbers),
   }))
 }
@@ -174,11 +181,13 @@ export async function saveJerseyPreferences(
   seasonId: string,
   choices: JerseyChoice[],
   avoidNumbers: number[],
+  noPreference: boolean,
 ) {
   const { error } = await client.rpc("save_jersey_preferences", {
     p_season_id: seasonId,
-    p_choices: choices,
+    p_choices: noPreference ? [] : choices,
     p_avoid_numbers: avoidNumbers,
+    p_no_preference: noPreference,
   })
   if (error) throw error
 }

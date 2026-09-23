@@ -90,10 +90,17 @@ export default function JerseyNumbersPage() {
   async function save(
     choices: Parameters<typeof saveJerseyPreferences>[2],
     avoidNumbers: number[],
+    noPreference: boolean,
   ) {
     if (!seasonId) return
     try {
-      await saveJerseyPreferences(supabaseBrowser, seasonId, choices, avoidNumbers)
+      await saveJerseyPreferences(
+        supabaseBrowser,
+        seasonId,
+        choices,
+        avoidNumbers,
+        noPreference,
+      )
       toast.success("Preferenze salvate")
       await load()
       setFormVersion((current) => current + 1)
@@ -132,6 +139,7 @@ export default function JerseyNumbersPage() {
     data.own?.choices ?? [],
     previousNumber,
   )
+  const closed = Boolean(data.draft?.confirmedAt)
   const confirmedNumber =
     data.draft?.confirmedAt && ownMembershipId
       ? (data.draft.assignment[ownMembershipId] ?? null)
@@ -160,13 +168,15 @@ export default function JerseyNumbersPage() {
           <AlertTitle>Come funziona</AlertTitle>
           <AlertDescription>
             <p>
-              Indica i numeri che vorresti, in ordine. Prima dell’assegnazione
-              definitiva il manager pubblicherà qui un riepilogo con i numeri
-              proposti a tutti.
+              Indica i numeri che vorresti, in ordine, oppure scegli “Non ho
+              preferenze”: riceverai il numero libero più basso che nessuno ha
+              scelto. Prima dell’assegnazione definitiva il manager
+              pubblicherà qui un riepilogo con i numeri proposti a tutti.
             </p>
             <p>
-              Puoi modificare le preferenze quando vuoi, ad esempio dopo esserti
-              accordato con un compagno: il manager vede le modifiche.
+              Puoi modificare le preferenze finché il manager non rende
+              definitivi i numeri, ad esempio dopo esserti accordato con un
+              compagno: il manager vede le modifiche.
             </p>
           </AlertDescription>
         </Alert>
@@ -210,18 +220,26 @@ export default function JerseyNumbersPage() {
               )}
             </CardHeader>
             <CardContent>
-              <JerseyPreferencesForm
-                initialAvoidNumbers={data.own?.avoidNumbers ?? []}
-                initialChoices={initialChoices}
-                key={`${ownMembershipId}:${formVersion}`}
-                onSave={save}
-                others={data.board.filter(
-                  ({ membershipId }) => membershipId !== ownMembershipId,
-                )}
-                suggestedFromPreviousSeason={
-                  !data.own && initialChoices.length > 0
-                }
-              />
+              {closed ? (
+                <p className="text-sm text-muted-foreground">
+                  La scelta dei numeri è conclusa: le preferenze non sono più
+                  modificabili.
+                </p>
+              ) : (
+                <JerseyPreferencesForm
+                  initialAvoidNumbers={data.own?.avoidNumbers ?? []}
+                  initialChoices={initialChoices}
+                  initialNoPreference={data.own?.noPreference ?? false}
+                  key={`${ownMembershipId}:${formVersion}`}
+                  onSave={save}
+                  others={data.board.filter(
+                    ({ membershipId }) => membershipId !== ownMembershipId,
+                  )}
+                  suggestedFromPreviousSeason={
+                    !data.own && initialChoices.length > 0
+                  }
+                />
+              )}
             </CardContent>
           </Card>
         )}

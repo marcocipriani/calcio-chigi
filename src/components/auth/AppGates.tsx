@@ -307,9 +307,12 @@ function OpenPaymentsPrompt() {
   )
 }
 
+const JERSEY_PROMPT_ID = "jersey-preferences"
+
 /**
- * Promemoria giornaliero, non bloccante, per chi è in rosa e non ha ancora
- * indicato i numeri di maglia della stagione.
+ * Promemoria non bloccante per chi è in rosa, visibile finché il manager non
+ * rende definitivi i numeri di maglia. Resta a schermo fino a quando il
+ * giocatore lo chiude o apre /maglie; chiuso, torna il giorno dopo.
  */
 function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
   const { isAssociated, membership, targetSeason } = useAppSession()
@@ -325,13 +328,25 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
   const onJerseyPage = pathname === "/maglie"
 
   useEffect(() => {
-    if (!membershipId || !seasonId || onJerseyPage) return
+    if (!membershipId || !seasonId) return
     const today = new Date().toISOString().slice(0, 10)
     const key = `jersey-preferences:${seasonId}:${today}`
+    const remember = () => {
+      try {
+        window.localStorage.setItem(key, "seen")
+      } catch {
+        // Senza storage il promemoria torna alla prossima apertura.
+      }
+    }
+    if (onJerseyPage) {
+      remember()
+      toast.dismiss(JERSEY_PROMPT_ID)
+      return
+    }
     try {
       if (window.localStorage.getItem(key)) return
     } catch {
-      return
+      // Storage non disponibile: il promemoria si mostra comunque.
     }
 
     let active = true
@@ -348,17 +363,29 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
         .maybeSingle(),
     ]).then(([preferences, draft]) => {
       if (!active || preferences.error || draft.error) return
-      if (preferences.data || draft.data?.confirmed_at) return
-      try {
-        window.localStorage.setItem(key, "seen")
-      } catch {
-        // Senza storage il promemoria torna alla prossima apertura.
-      }
-      toast("Scegli il tuo numero di maglia", {
-        description: "Indica in app i numeri che preferisci per la stagione.",
-        duration: 10000,
-        action: { label: "Scegli", onClick: () => router.push("/maglie") },
-      })
+      if (draft.data?.confirmed_at) return
+      const chosen = Boolean(preferences.data)
+      toast(
+        chosen
+          ? "Scelta dei numeri di maglia aperta"
+          : "Scegli il tuo numero di maglia",
+        {
+          id: JERSEY_PROMPT_ID,
+          description: chosen
+            ? "Puoi modificare le tue preferenze finché il manager non assegna i numeri."
+            : "Indica i numeri che preferisci, oppure che non hai preferenze.",
+          duration: Infinity,
+          closeButton: true,
+          onDismiss: remember,
+          action: {
+            label: chosen ? "Modifica" : "Scegli",
+            onClick: () => {
+              remember()
+              router.push("/maglie")
+            },
+          },
+        },
+      )
     })
 
     return () => {

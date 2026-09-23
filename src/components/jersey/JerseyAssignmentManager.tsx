@@ -81,20 +81,27 @@ function matchesDraft(assignment: JerseyAssignment, draft: JerseyAssignment) {
 
 function ChoiceChips({
   choices,
+  noPreference,
   avoidNumbers,
 }: {
   choices: JerseyChoice[]
+  noPreference: boolean
   avoidNumbers: number[]
 }) {
-  if (!choices.length) {
+  if (!choices.length && !noPreference) {
     return (
       <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-        Nessuna preferenza
+        Non ha ancora scelto
       </span>
     )
   }
   return (
     <span className="flex flex-wrap gap-1">
+      {noPreference && (
+        <span className="text-xs font-semibold text-muted-foreground">
+          Nessuna preferenza: numero libero più basso
+        </span>
+      )}
       {choices.map(({ number, level }, rank) => (
         <span
           className={cn(
@@ -159,6 +166,7 @@ export function JerseyAssignmentManager() {
         membershipId: row.membershipId,
         name: `${row.nome} ${row.cognome}`,
         choices: row.choices,
+        noPreference: row.noPreference,
         avoidNumbers: data?.avoided.get(row.membershipId) ?? [],
         previousNumber: row.previousJerseyNumber,
       })),
@@ -234,7 +242,8 @@ export function JerseyAssignmentManager() {
     issues.flatMap((issue) => (issue.kind === "DUPLICATE" ? [issue.number] : [])),
   )
   const unassigned = issues.filter(({ kind }) => kind === "UNASSIGNED").length
-  const missing = data.board.filter(({ choices }) => !choices.length)
+  const missing = data.board.filter(({ updatedAt }) => !updatedAt)
+  const closed = Boolean(data.draft?.confirmedAt)
   const changedAfterDraft = data.board.filter(({ updatedAt }) =>
     preferencesChangedAfterDraft(updatedAt, data.draft?.publishedAt ?? null),
   )
@@ -306,7 +315,7 @@ export function JerseyAssignmentManager() {
     const message = [
       `⚽ Numeri di maglia ${targetSeason?.name ?? ""}`.trim(),
       "",
-      `Indicate in app i numeri che preferite (fino a 5, in ordine): ${window.location.origin}/maglie`,
+      `Indicate in app i numeri che preferite (fino a 5, in ordine) oppure che non avete preferenze: ${window.location.origin}/maglie`,
       "Prima dell'assegnazione pubblicheremo il riepilogo.",
       "",
       `Mancano ancora: ${missing.map(playerShortName).join(", ")}`,
@@ -353,38 +362,40 @@ export function JerseyAssignmentManager() {
         ))}
       </dl>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Chi deve ancora scegliere</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {missing.length
-              ? missing.map(playerShortName).join(", ")
-              : "Tutti i giocatori in rosa hanno indicato le preferenze."}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={busy || !missing.length}
-              onClick={() => void remind()}
-              size="sm"
-              variant="outline"
-            >
-              <BellRing aria-hidden="true" />
-              Invia notifica ai mancanti
-            </Button>
-            <Button
-              disabled={!missing.length}
-              onClick={() => void copyWhatsAppMessage()}
-              size="sm"
-              variant="outline"
-            >
-              <Copy aria-hidden="true" />
-              Copia messaggio WhatsApp
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {!closed && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Chi deve ancora scegliere</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {missing.length
+                ? missing.map(playerShortName).join(", ")
+                : "Tutti i giocatori in rosa hanno indicato le preferenze."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={busy || !missing.length}
+                onClick={() => void remind()}
+                size="sm"
+                variant="outline"
+              >
+                <BellRing aria-hidden="true" />
+                Invia notifica ai mancanti
+              </Button>
+              <Button
+                disabled={!missing.length}
+                onClick={() => void copyWhatsAppMessage()}
+                size="sm"
+                variant="outline"
+              >
+                <Copy aria-hidden="true" />
+                Copia messaggio WhatsApp
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {proposal.conflicts.length > 0 && (
         <Card>
@@ -541,6 +552,7 @@ export function JerseyAssignmentManager() {
                         <ChoiceChips
                           avoidNumbers={avoidNumbers}
                           choices={row.choices}
+                          noPreference={row.noPreference}
                         />
                       </div>
                     </div>
@@ -584,6 +596,7 @@ export function JerseyAssignmentManager() {
                           <ChoiceChips
                             avoidNumbers={version.avoidNumbers}
                             choices={version.choices}
+                            noPreference={version.noPreference}
                           />
                         </li>
                       ))}
@@ -651,8 +664,8 @@ export function JerseyAssignmentManager() {
               {pending === "PUBLISH"
                 ? `Tutti i giocatori vedranno il riepilogo in app e riceveranno una notifica.${
                     unassigned ? ` ${unassigned} giocatori restano senza numero.` : ""
-                  }`
-                : "I numeri della bozza pubblicata diventano quelli ufficiali della stagione e compaiono in rosa, profilo e storico."}
+                  }${closed ? " La scelta dei numeri si riapre finché non confermi di nuovo." : ""}`
+                : "I numeri della bozza pubblicata diventano quelli ufficiali della stagione e compaiono in rosa, profilo e storico. I giocatori non potranno più modificare le preferenze."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

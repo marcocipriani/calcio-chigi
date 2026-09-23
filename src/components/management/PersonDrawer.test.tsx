@@ -1,10 +1,21 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { PersonDrawer } from "@/components/management/PersonDrawer"
 import type { ManagementPerson } from "@/lib/management"
 
 vi.mock("@/lib/supabaseBrowser", () => ({ supabaseBrowser: {} }))
+const jerseyApi = vi.hoisted(() => ({
+  fetchJerseyHistory: vi.fn().mockResolvedValue([
+    {
+      seasonId: "season-2025",
+      seasonName: "Stagione 2025–2026",
+      startsOn: "2025-08-01",
+      jerseyNumber: 8,
+    },
+  ]),
+}))
+vi.mock("@/lib/jersey-api", () => jerseyApi)
 
 const person: ManagementPerson = {
   id: "membership-1",
@@ -87,5 +98,19 @@ describe("PersonDrawer", () => {
         scrollArea.contains(screen.getByRole("heading", { name: section })),
       ).toBe(true)
     }
+  })
+
+  it("mostra lo storico dei numeri di maglia", async () => {
+    renderDrawer()
+
+    const history = await screen.findByRole("region", { name: "Storico maglie" })
+    expect(
+      await within(history).findByText("Stagione 2025–2026"),
+    ).toBeInTheDocument()
+    expect(history).toHaveTextContent("#8")
+    expect(jerseyApi.fetchJerseyHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      "profile-1",
+    )
   })
 })

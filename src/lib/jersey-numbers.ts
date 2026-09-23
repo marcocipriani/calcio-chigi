@@ -14,6 +14,7 @@ export type JerseyPlayer = {
   membershipId: string
   name: string
   choices: JerseyChoice[]
+  noPreference: boolean
   avoidNumbers: number[]
   previousNumber: number | null
 }
@@ -63,8 +64,10 @@ export function isValidJerseyNumber(value: number) {
 export function validateJerseyPreferences(
   choices: JerseyChoice[],
   avoidNumbers: number[],
+  noPreference = false,
 ): string | null {
-  if (choices.length < 1 || choices.length > MAX_JERSEY_CHOICES) {
+  if (noPreference) choices = []
+  else if (choices.length < 1 || choices.length > MAX_JERSEY_CHOICES) {
     return `Indica da 1 a ${MAX_JERSEY_CHOICES} numeri`
   }
   const numbers = choices.map(({ number }) => number)
@@ -77,7 +80,7 @@ export function validateJerseyPreferences(
   if (duplicate !== undefined) {
     return `Il numero ${duplicate} è indicato più volte`
   }
-  if (!choices.some(({ level }) => level === "PREFERRED")) {
+  if (!noPreference && !choices.some(({ level }) => level === "PREFERRED")) {
     return "Serve almeno un numero preferito"
   }
   if (new Set(avoidNumbers).size > MAX_AVOIDED_NUMBERS) {
@@ -109,6 +112,9 @@ export function parseJerseyChoices(value: unknown): JerseyChoice[] {
  * 3. Chi resta senza numero scende sugli accettabili liberi, in ordine; un
  *    accettabile voluto da più giocatori ancora senza numero è a sua volta un
  *    conflitto.
+ *
+ * 4. Chi non ha preferenze riceve il numero libero più basso che nessuno ha
+ *    indicato, esclusi i suoi numeri da evitare.
  *
  * Per ogni conflitto la proposta indica le soluzioni praticabili: chi può
  * prendere il numero mentre gli altri restano sul loro ripiego.
@@ -185,6 +191,28 @@ export function proposeJerseyAssignment(
       } else {
         contestedAcceptable.set(number, claims)
       }
+    }
+  }
+
+  const chosenNumbers = new Set(
+    players.flatMap(({ choices }) => choices.map(({ number }) => number)),
+  )
+  for (const player of players) {
+    if (!player.noPreference || assignment[player.membershipId] !== null) {
+      continue
+    }
+    // ponytail: scansione lineare 1-99, la rosa non arriva mai a cento
+    for (let number = JERSEY_MIN; number <= JERSEY_MAX; number++) {
+      if (
+        assignedNumbers.has(number) ||
+        chosenNumbers.has(number) ||
+        player.avoidNumbers.includes(number)
+      ) {
+        continue
+      }
+      assignment[player.membershipId] = number
+      assignedNumbers.add(number)
+      break
     }
   }
 

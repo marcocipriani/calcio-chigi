@@ -31,18 +31,25 @@ function toChoices(draft: DraftChoice[]): JerseyChoice[] {
 
 export function JerseyPreferencesForm({
   initialChoices,
+  initialNoPreference,
   initialAvoidNumbers,
   suggestedFromPreviousSeason,
   others,
   onSave,
 }: {
   initialChoices: JerseyChoice[]
+  initialNoPreference: boolean
   initialAvoidNumbers: number[]
   suggestedFromPreviousSeason: boolean
   others: JerseyBoardRow[]
-  onSave: (choices: JerseyChoice[], avoidNumbers: number[]) => Promise<void>
+  onSave: (
+    choices: JerseyChoice[],
+    avoidNumbers: number[],
+    noPreference: boolean,
+  ) => Promise<void>
 }) {
   const [choices, setChoices] = useState(() => toDraft(initialChoices))
+  const [noPreference, setNoPreference] = useState(initialNoPreference)
   const [avoidNumbers, setAvoidNumbers] = useState(initialAvoidNumbers)
   const [avoidInput, setAvoidInput] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -87,13 +94,17 @@ export function JerseyPreferencesForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const nextChoices = toChoices(choices)
-    const validation = validateJerseyPreferences(nextChoices, avoidNumbers)
+    const validation = validateJerseyPreferences(
+      nextChoices,
+      avoidNumbers,
+      noPreference,
+    )
     setError(validation)
     if (validation) return
 
     setSaving(true)
     try {
-      await onSave(nextChoices, avoidNumbers)
+      await onSave(nextChoices, avoidNumbers, noPreference)
     } finally {
       setSaving(false)
     }
@@ -110,7 +121,26 @@ export function JerseyPreferencesForm({
 
   return (
     <form className="space-y-4" noValidate onSubmit={submit}>
-      <fieldset className="space-y-2">
+      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-violet-400 has-[:checked]:bg-violet-50 dark:has-[:checked]:border-violet-800 dark:has-[:checked]:bg-violet-950/40">
+        <input
+          checked={noPreference}
+          className="mt-0.5 size-4 shrink-0 accent-violet-600"
+          onChange={(event) => {
+            setNoPreference(event.target.checked)
+            setError(null)
+          }}
+          type="checkbox"
+        />
+        <span>
+          <span className="block font-semibold">Non ho preferenze</span>
+          <span className="block text-xs text-muted-foreground">
+            Ti verrà proposto il numero libero più basso che nessuno ha scelto,
+            evitando quelli che escludi qui sotto.
+          </span>
+        </span>
+      </label>
+
+      <fieldset className="space-y-2" hidden={noPreference}>
         <legend className="text-sm font-bold">
           I tuoi numeri, in ordine di preferenza
         </legend>

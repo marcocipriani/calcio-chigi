@@ -38,6 +38,7 @@ function row(
     jerseyNumber: null,
     previousJerseyNumber: null,
     choices,
+    noPreference: false,
     updatedAt: choices.length ? "2026-09-20T10:00:00Z" : null,
     ...extra,
   }
@@ -127,6 +128,37 @@ describe("JerseyAssignmentManager", () => {
     expect(
       screen.getByRole("button", { name: /Rendi definitivi/ }),
     ).toBeEnabled()
+  })
+
+  it("proposes the lowest unchosen number to players with no preference", async () => {
+    api.fetchJerseyBoard.mockResolvedValue([
+      row("anna", "Anna", [{ number: 1, level: "PREFERRED" }]),
+      row("dario", "Dario", [], {
+        noPreference: true,
+        updatedAt: "2026-09-20T10:00:00Z",
+      }),
+    ])
+    render(<JerseyAssignmentManager />)
+
+    expect(await screen.findByLabelText("Numero di Dario Test")).toHaveValue("2")
+    expect(
+      screen.getByText("Nessuna preferenza: numero libero più basso"),
+    ).toBeVisible()
+    expect(screen.getByText("Chi deve ancora scegliere").closest("[data-slot=card]"))
+      .toHaveTextContent("Tutti i giocatori in rosa hanno indicato le preferenze.")
+  })
+
+  it("hides the reminders once the numbers are confirmed", async () => {
+    api.fetchJerseyDraft.mockResolvedValue({
+      seasonId: "season-1",
+      assignment: { anna: 14, bruno: 21, carlo: null },
+      publishedAt: "2026-09-19T10:00:00Z",
+      confirmedAt: "2026-09-21T10:00:00Z",
+    })
+    render(<JerseyAssignmentManager />)
+
+    expect(await screen.findByText(/Numeri definitivi dal/)).toBeVisible()
+    expect(screen.queryByText("Chi deve ancora scegliere")).toBeNull()
   })
 
   it("sends the push reminder to players without preferences", async () => {

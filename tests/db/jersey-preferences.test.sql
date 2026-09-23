@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(28);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -185,11 +185,31 @@ select throws_ok(
   'only managers publish drafts'
 );
 
+select lives_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      null,
+      array[13],
+      true
+    )$$,
+  'a player can declare no preference'
+);
+
+select is(
+  (select jsonb_array_length(choices) || ':' || no_preference::text
+     from public.jersey_preference_board board
+     join public.seasons season on season.id = board.season_id
+    where board.profile_id = '10000000-0000-0000-0000-000000000a03'
+      and season.slug = '2026-2027'),
+  '0:true',
+  'no preference is stored without numbers and shown on the board'
+);
+
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a01', true);
 
 select is(
   (select count(*)::integer from public.jersey_preferences),
-  1,
+  2,
   'managers read every preference'
 );
 
@@ -257,6 +277,30 @@ select is(
     where season.slug = '2025-2026'),
   array[10, 7]::integer[],
   'previous seasons keep their numbers as history'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a02', true);
+
+select throws_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"number": 9, "level": "PREFERRED"}]',
+      '{}'
+    )$$,
+  'P0001',
+  'La scelta dei numeri di questa stagione è conclusa',
+  'preferences are locked once the numbers are confirmed'
+);
+
+select throws_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[]',
+      '{}'
+    )$$,
+  'P0001',
+  'La scelta dei numeri di questa stagione è conclusa',
+  'the lock is checked before validating the input'
 );
 
 select * from finish();

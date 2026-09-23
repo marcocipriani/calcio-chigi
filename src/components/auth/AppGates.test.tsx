@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("sonner", () => ({
   toast: Object.assign(notifications.toast, {
+    dismiss: vi.fn(),
     error: vi.fn(),
     success: vi.fn(),
   }),
@@ -154,7 +155,7 @@ describe("AppGates", () => {
     await waitFor(() => expect(signOut).toHaveBeenCalled())
   })
 
-  it("reminds players in the roster to pick their jersey numbers once a day", async () => {
+  it("keeps the jersey reminder up until dismissed, then skips the rest of the day", async () => {
     window.localStorage.clear()
     const client = fakeClient({
       profile: {
@@ -192,9 +193,12 @@ describe("AppGates", () => {
         "Scegli il tuo numero di maglia",
         expect.objectContaining({
           action: expect.objectContaining({ label: "Scegli" }),
+          closeButton: true,
+          duration: Infinity,
         }),
       ),
     )
+    notifications.toast.mock.calls[0][1].onDismiss()
     unmount()
     notifications.toast.mockClear()
 

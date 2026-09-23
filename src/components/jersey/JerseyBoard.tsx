@@ -45,7 +45,8 @@ export function JerseyBoard({
   highlightMembershipId?: string | null
 }) {
   const claims = jerseyClaimsByNumber(rows)
-  const missing = rows.filter(({ choices }) => !choices.length)
+  const missing = rows.filter(({ updatedAt }) => !updatedAt)
+  const indifferent = rows.filter(({ noPreference }) => noPreference)
 
   return (
     <div className="space-y-3">
@@ -106,6 +107,14 @@ export function JerseyBoard({
         </p>
       )}
 
+      {indifferent.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Nessuna preferenza ({indifferent.length}):
+          </span>{" "}
+          {indifferent.map(playerShortName).join(", ")}
+        </p>
+      )}
       {missing.length > 0 && (
         <p className="text-xs text-muted-foreground">
           <span className="font-semibold text-foreground">

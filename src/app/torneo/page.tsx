@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PageContainer } from "@/components/layout/PageContainer"
 import {
     CommunicationsAction,
+    RegulationAction,
     TournamentSelector,
 } from "@/components/tournament/TournamentSelector"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
@@ -356,6 +357,8 @@ export default function TorneoPage() {
                         </div>
                     </DialogContent>
                 </Dialog>
+
+                <RegulationAction />
 
                 {isManager && (
                     <Button 

@@ -1,6 +1,7 @@
 "use client"
 
-import { FileText } from "lucide-react"
+import Link from "next/link"
+import { BookOpen, FileText } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -107,6 +108,22 @@ export function CommunicationsAction(): React.JSX.Element {
     >
       <FileText aria-hidden="true" className="h-5 w-5" />
       <span className="hidden sm:inline">Comunicati</span>
+    </Button>
+  )
+}
+
+export function RegulationAction(): React.JSX.Element {
+  return (
+    <Button
+      asChild
+      className="h-11 w-11 rounded-full sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
+      size="icon"
+      variant="outline"
+    >
+      <Link aria-label="Regolamento" href="/torneo/regolamento" title="Regolamento">
+        <BookOpen aria-hidden="true" className="h-5 w-5" />
+        <span className="hidden sm:inline">Regolamento</span>
+      </Link>
     </Button>
   )
 }

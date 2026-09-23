@@ -67,12 +67,20 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
   agli allenamenti (solo check-in ufficiali, al netto degli allenamenti
   saltati per infortunio).
 - **Formazione personale** esportabile e condivisibile.
+- **Numeri di maglia**: a inizio stagione ogni giocatore indica fino a 5
+  numeri in ordine (preferiti o accettabili) e quelli da evitare; vede chi ha
+  già scelto e la bozza pubblicata dal manager. Il numero ufficiale è
+  storicizzato per stagione nel profilo.
 
 ### 🛡️ Dirigenti (Manager)
 
 - **Gestione squadra**: viste operative Persone, Presenze, Quote,
   Tesseramenti, Certificati e Account, con ricerca, filtri, ordinamento,
   operazioni massive e colonne persistenti per account.
+- **Assegnazione maglie**: proposta automatica con conflitti tra preferiti
+  segnalati (e risolvibili con gli accettabili), possibili riconferme,
+  modifiche dopo la bozza, versioni giornaliere delle preferenze, promemoria
+  push ai mancanti, pubblicazione della bozza e conferma definitiva.
 - **Gestione eventi**: creazione, modifica e annullamento di partite e
   allenamenti.
 - **Formazione interattiva**: campo con **drag & drop** ([dnd-kit](https://dndkit.com/)), moduli 4-4-2 / 4-3-3 / 3-5-2 / 4-2-3-1, capitano/vice, colore maglia, controllo quota U35 in campo e totale.

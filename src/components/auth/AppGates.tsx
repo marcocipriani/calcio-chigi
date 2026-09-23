@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { Archive, Check, Search, UserRoundCheck, WalletCards } from "lucide-react"
 import { toast } from "sonner"
 
@@ -306,6 +307,68 @@ function OpenPaymentsPrompt() {
   )
 }
 
+/**
+ * Promemoria giornaliero, non bloccante, per chi è in rosa e non ha ancora
+ * indicato i numeri di maglia della stagione.
+ */
+function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
+  const { isAssociated, membership, targetSeason } = useAppSession()
+  const pathname = usePathname()
+  const router = useRouter()
+  const membershipId =
+    isAssociated &&
+    membership?.category === "PLAYER" &&
+    membership.status === "YES"
+      ? membership.id
+      : null
+  const seasonId = targetSeason?.id
+  const onJerseyPage = pathname === "/maglie"
+
+  useEffect(() => {
+    if (!membershipId || !seasonId || onJerseyPage) return
+    const today = new Date().toISOString().slice(0, 10)
+    const key = `jersey-preferences:${seasonId}:${today}`
+    try {
+      if (window.localStorage.getItem(key)) return
+    } catch {
+      return
+    }
+
+    let active = true
+    void Promise.all([
+      client
+        .from("jersey_preferences")
+        .select("membership_id")
+        .eq("membership_id", membershipId)
+        .maybeSingle(),
+      client
+        .from("jersey_assignment_drafts")
+        .select("confirmed_at")
+        .eq("season_id", seasonId)
+        .maybeSingle(),
+    ]).then(([preferences, draft]) => {
+      if (!active || preferences.error || draft.error) return
+      if (preferences.data || draft.data?.confirmed_at) return
+      try {
+        window.localStorage.setItem(key, "seen")
+      } catch {
+        // Senza storage il promemoria torna alla prossima apertura.
+      }
+      toast("Scegli il tuo numero di maglia", {
+        description: "Indica in app i numeri che preferisci per la stagione.",
+        duration: 10000,
+        action: { label: "Scegli", onClick: () => router.push("/maglie") },
+      })
+    })
+
+    return () => {
+      active = false
+    }
+  }, [client, membershipId, onJerseyPage, router, seasonId])
+
+  return null
+}
+
 export function AppGates({
   client = supabaseBrowser,
 }: {
@@ -317,6 +380,7 @@ export function AppGates({
       <AccountAssociationPrompt client={client} />
       <ArchivedMemberNotice client={client} />
       <OpenPaymentsPrompt />
+      <JerseyPreferencePrompt client={client} />
     </>
   )
 }

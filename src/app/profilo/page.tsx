@@ -1,10 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Camera,
   Check,
+  ChevronRight,
   CreditCard,
   Download,
   FileBadge,
@@ -24,6 +26,7 @@ import { it } from "date-fns/locale"
 import { toast } from "sonner"
 
 import { AppCredits } from "@/components/AppCredits"
+import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,6 +44,11 @@ import {
 } from "@/components/ui/tooltip"
 import { BOMBER_TAGS } from "@/lib/constants"
 import { fetchOwnProfile } from "@/lib/api"
+import {
+  fetchJerseyHistory,
+  fetchOwnJerseyPreferences,
+  type JerseyHistoryEntry,
+} from "@/lib/jersey-api"
 import {
   canEditPassportPhoto,
   certificateStatusLabel,
@@ -146,6 +154,8 @@ export default function ProfilePage() {
   const [membership, setMembership] = useState<Membership | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
+  const [hasJerseyPreferences, setHasJerseyPreferences] = useState(false)
   const [form, setForm] = useState<ProfileForm>(emptyForm)
   const [initialForm, setInitialForm] = useState<ProfileForm>(emptyForm)
   const [certificateForm, setCertificateForm] = useState({
@@ -192,6 +202,15 @@ export default function ProfilePage() {
       latestMembership = data as Membership | null
     }
 
+    const [history, jerseyPreferences] = await Promise.all([
+      fetchJerseyHistory(supabase, ownProfile.id).catch(() => []),
+      latestMembership?.category === "PLAYER"
+        ? fetchOwnJerseyPreferences(supabase, latestMembership.id).catch(
+            () => null,
+          )
+        : Promise.resolve(null),
+    ])
+
     if (latestMembership) {
       const [{ data: paymentRows }, { data: certificateRows }] = await Promise.all([
         supabase
@@ -225,6 +244,8 @@ export default function ProfilePage() {
     setMembership(latestMembership)
     setPayments(ownPayments)
     setCertificates(ownCertificates)
+    setJerseyHistory(history)
+    setHasJerseyPreferences(jerseyPreferences !== null)
     setForm(nextForm)
     setInitialForm(nextForm)
     setLoading(false)
@@ -761,8 +782,30 @@ export default function ProfilePage() {
               <p className="pt-2 text-xs text-muted-foreground">
                 Ruolo, maglia e tessera ASI sono modificabili solo dai manager.
               </p>
+              {membership?.category === "PLAYER" && membership.status === "YES" && (
+                <Link
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-semibold hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  href="/maglie"
+                >
+                  <span>
+                    Preferenze numero di maglia
+                    <span
+                      className={`block text-xs font-medium ${
+                        hasJerseyPreferences
+                          ? "text-muted-foreground"
+                          : "text-amber-700 dark:text-amber-300"
+                      }`}
+                    >
+                      {hasJerseyPreferences ? "Indicate · modifica" : "Da indicare"}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              )}
             </CardContent>
           </Card>
+
+          <JerseyHistory entries={jerseyHistory} />
 
           <Card>
             <CardHeader className="pb-3">

@@ -132,6 +132,12 @@ const database = vi.hoisted(() => {
   }
 })
 
+const jerseyApi = vi.hoisted(() => ({
+  fetchJerseyHistory: vi.fn(),
+}))
+
+vi.mock("@/lib/jersey-api", () => jerseyApi)
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: navigation.replace }),
 }))
@@ -206,11 +212,48 @@ function approvedSession(
   }
 }
 
+describe("jersey history on the player page", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    database.responses.clear()
+    jerseyApi.fetchJerseyHistory.mockResolvedValue([
+      {
+        seasonId: "season-2026",
+        seasonName: "Stagione 2026–2027",
+        startsOn: "2026-08-01",
+        jerseyNumber: 7,
+      },
+      {
+        seasonId: "season-2025",
+        seasonName: "Stagione 2025–2026",
+        startsOn: "2025-08-01",
+        jerseyNumber: 10,
+      },
+    ])
+    session.useAppSession.mockReturnValue(approvedSession())
+  })
+
+  it("lists the official number of every season", async () => {
+    renderPlayerPage()
+
+    const history = await screen.findByRole("region", {
+      name: "Storico maglie",
+    })
+    expect(history).toHaveTextContent("Stagione 2026–2027#7")
+    expect(history).toHaveTextContent("Stagione 2025–2026#10")
+    expect(jerseyApi.fetchJerseyHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      "player-1",
+    )
+  })
+})
+
 describe("protected player page", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] })
     vi.setSystemTime(new Date("2026-07-29T10:00:00+02:00"))
     vi.clearAllMocks()
+    jerseyApi.fetchJerseyHistory.mockResolvedValue([])
     database.responses.clear()
     database.filters.length = 0
     database.rpcResults.length = 0

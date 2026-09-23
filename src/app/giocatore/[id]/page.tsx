@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { AttendanceRing } from "@/components/stats/AttendanceRing"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchSafePlayerProfile } from "@/lib/api"
+import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import { romeDateKey } from "@/lib/season"
 import type { SafePlayerProfile } from "@/lib/season-statistics"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
@@ -111,6 +113,7 @@ export default function PlayerPage({
     useState<PrivateData>(emptyPrivateData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
 
   const isSelf = viewerProfile?.id === id
   const canViewPrivate = isSelf || isManager
@@ -298,6 +301,21 @@ export default function PlayerPage({
     userId,
   ])
 
+  useEffect(() => {
+    if (sessionLoading || !isAssociated) return
+    let active = true
+    fetchJerseyHistory(supabaseBrowser, id)
+      .then((entries) => {
+        if (active) setJerseyHistory(entries)
+      })
+      .catch(() => {
+        if (active) setJerseyHistory([])
+      })
+    return () => {
+      active = false
+    }
+  }, [id, isAssociated, sessionLoading])
+
   const training = useMemo(
     () =>
       privateData.events.filter(({ tipo }) => tipo === "ALLENAMENTO"),
@@ -406,6 +424,8 @@ export default function PlayerPage({
             ))}
           </dl>
         </section>
+
+        <JerseyHistory entries={jerseyHistory} />
 
         {privateData.membership && (
           <section className="rounded-xl border bg-card p-4">

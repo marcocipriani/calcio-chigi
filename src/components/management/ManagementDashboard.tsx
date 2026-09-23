@@ -12,6 +12,7 @@ import {
   Plus,
   Rows3,
   Search,
+  Shirt,
   UsersRound,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -730,22 +731,41 @@ export function ManagementDashboard() {
     <div className="min-h-screen space-y-3">
       <PageTitleBar
         actions={
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="Aggiungi persona"
-                className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                onClick={() => setAddOpen(true)}
-                size="sm"
-              >
-                <Plus aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">Persona</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="sm:hidden">
-              Aggiungi persona
-            </TooltipContent>
-          </Tooltip>
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Numeri di maglia"
+                  asChild
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  size="sm"
+                  variant="outline"
+                >
+                  <Link href="/gestione/maglie">
+                    <Shirt aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only">Maglie</span>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Numeri di maglia</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label="Aggiungi persona"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={() => setAddOpen(true)}
+                  size="sm"
+                >
+                  <Plus aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Persona</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">
+                Aggiungi persona
+              </TooltipContent>
+            </Tooltip>
+          </>
         }
         context={
           <select

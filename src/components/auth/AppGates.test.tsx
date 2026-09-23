@@ -1,6 +1,25 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
+const navigation = vi.hoisted(() => ({
+  pathname: "/",
+  push: vi.fn(),
+}))
+
+const notifications = vi.hoisted(() => ({ toast: vi.fn() }))
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ push: navigation.push }),
+}))
+
+vi.mock("sonner", () => ({
+  toast: Object.assign(notifications.toast, {
+    error: vi.fn(),
+    success: vi.fn(),
+  }),
+}))
+
 import { AppGates } from "@/components/auth/AppGates"
 import { AppSessionProvider } from "@/components/auth/AppSessionProvider"
 
@@ -133,5 +152,58 @@ describe("AppGates", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Esci" }))
     await waitFor(() => expect(signOut).toHaveBeenCalled())
+  })
+
+  it("reminds players in the roster to pick their jersey numbers once a day", async () => {
+    window.localStorage.clear()
+    const client = fakeClient({
+      profile: {
+        id: "profile-1",
+        nome: "Marco",
+        cognome: "Rossi",
+        is_manager: false,
+      },
+      associationStatus: "ACTIVE",
+      membership: { id: "membership-1", status: "YES", category: "PLAYER" },
+      targetSeason: {
+        id: "season-1",
+        slug: "2026-2027",
+        name: "Stagione 2026–2027",
+        starts_on: "2026-08-01",
+        ends_on: "2027-07-31",
+      },
+      unreadNotifications: 0,
+    })
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    client.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({ maybeSingle }),
+      }),
+    } as never)
+
+    const { unmount } = render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    await waitFor(() =>
+      expect(notifications.toast).toHaveBeenCalledWith(
+        "Scegli il tuo numero di maglia",
+        expect.objectContaining({
+          action: expect.objectContaining({ label: "Scegli" }),
+        }),
+      ),
+    )
+    unmount()
+    notifications.toast.mockClear()
+
+    render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+    await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(2))
+    expect(notifications.toast).not.toHaveBeenCalled()
   })
 })

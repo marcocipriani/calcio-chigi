@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(32);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -48,6 +48,18 @@ select lives_ok(
       set uniform_size = 'M'
     where id = '30000000-0000-0000-0000-000000000a03'$$,
   'updates that keep the number are not rechecked'
+);
+
+select lives_ok(
+  $$insert into public.season_memberships (
+      profile_id, season_id, category, jersey_number, status
+    )
+    select '10000000-0000-0000-0000-000000000a03', season.id, 'PLAYER', 7, 'YES'
+    from public.seasons season
+    where season.slug = '2026-2027'
+    on conflict (profile_id, season_id) do update
+    set jersey_number = excluded.jersey_number$$,
+  'a roster re-import upsert keeping the same number is accepted'
 );
 
 select set_config('request.jwt.claim.role', 'authenticated', true);

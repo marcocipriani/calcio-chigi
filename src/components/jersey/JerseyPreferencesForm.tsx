@@ -35,6 +35,7 @@ export function JerseyPreferencesForm({
   initialAvoidNumbers,
   suggestedFromPreviousSeason,
   others,
+  onBehalf = false,
   onSave,
 }: {
   initialChoices: JerseyChoice[]
@@ -42,6 +43,8 @@ export function JerseyPreferencesForm({
   initialAvoidNumbers: number[]
   suggestedFromPreviousSeason: boolean
   others: JerseyBoardRow[]
+  // Compilato dal manager al posto del giocatore: cambia solo i testi.
+  onBehalf?: boolean
   onSave: (
     choices: JerseyChoice[],
     avoidNumbers: number[],
@@ -78,7 +81,10 @@ export function JerseyPreferencesForm({
       setError("I numeri vanno da 1 a 99")
       return
     }
-    if (avoidNumbers.length >= MAX_AVOIDED_NUMBERS) {
+    if (
+      !avoidNumbers.includes(number) &&
+      avoidNumbers.length >= MAX_AVOIDED_NUMBERS
+    ) {
       setError(`Puoi escludere al massimo ${MAX_AVOIDED_NUMBERS} numeri`)
       return
     }
@@ -132,17 +138,19 @@ export function JerseyPreferencesForm({
           type="checkbox"
         />
         <span>
-          <span className="block font-semibold">Non ho preferenze</span>
+          <span className="block font-semibold">
+            {onBehalf ? "Nessuna preferenza" : "Non ho preferenze"}
+          </span>
           <span className="block text-xs text-muted-foreground">
-            Ti verrà proposto il numero libero più basso che nessuno ha scelto,
-            evitando quelli che escludi qui sotto.
+            {onBehalf ? "Riceverà" : "Ti verrà proposto"} il numero libero più
+            basso che nessuno ha scelto, evitando quelli esclusi qui sotto.
           </span>
         </span>
       </label>
 
       <fieldset className="space-y-2" hidden={noPreference}>
         <legend className="text-sm font-bold">
-          I tuoi numeri, in ordine di preferenza
+          {onBehalf ? "Numeri" : "I tuoi numeri"}, in ordine di preferenza
         </legend>
         <p className="text-xs text-muted-foreground">
           Fino a {MAX_JERSEY_CHOICES} numeri da 1 a 99, almeno uno preferito.
@@ -282,10 +290,11 @@ export function JerseyPreferencesForm({
       <fieldset className="space-y-2">
         <legend className="flex items-center gap-1.5 text-sm font-bold">
           <Ban aria-hidden="true" className="size-4 text-muted-foreground" />
-          Numeri che non vorresti
+          {onBehalf ? "Numeri da evitare" : "Numeri che non vorresti"}
         </legend>
         <p className="text-xs text-muted-foreground">
-          Facoltativo, visibili solo a te e ai manager.
+          Facoltativo, visibili solo {onBehalf ? "al giocatore" : "a te"} e ai
+          manager.
         </p>
         <div className="flex gap-2">
           <Input

@@ -169,7 +169,7 @@ describe("JerseyAssignmentManager", () => {
     })
     expect(dialog).toHaveTextContent("inserisci al posto del giocatore")
     fireEvent.click(
-      within(dialog).getByRole("checkbox", { name: /Non ho preferenze/ }),
+      within(dialog).getByRole("checkbox", { name: /Nessuna preferenza/ }),
     )
     fireEvent.click(
       within(dialog).getByRole("button", { name: /Salva preferenze/ }),

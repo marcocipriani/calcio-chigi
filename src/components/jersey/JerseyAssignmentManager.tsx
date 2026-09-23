@@ -740,6 +740,7 @@ export function JerseyAssignmentManager() {
               )}
               initialNoPreference={editing.noPreference}
               key={editing.membershipId}
+              onBehalf
               onSave={(choices, avoidNumbers, noPreference) =>
                 saveOnBehalf(editing, choices, avoidNumbers, noPreference)
               }

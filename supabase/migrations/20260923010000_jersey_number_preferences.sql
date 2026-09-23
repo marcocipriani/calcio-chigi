@@ -152,6 +152,9 @@ grant select on public.jersey_preference_board to authenticated;
 
 -- Un numero per stagione. Si controllano solo inserimenti e cambi di numero:
 -- eventuali doppioni storici restano leggibili senza bloccare altre modifiche.
+-- Negli upsert (import rosa: on conflict (profile_id, season_id)) il BEFORE
+-- INSERT scatta prima del conflitto con una riga dallo stesso profilo: quella
+-- riga non conta e, se ha già lo stesso numero, il numero non cambia.
 create or replace function public.guard_unique_season_jersey()
 returns trigger
 language plpgsql
@@ -169,12 +172,23 @@ begin
     return new;
   end if;
 
+  if tg_op = 'INSERT' and exists (
+    select 1
+    from public.season_memberships same
+    where same.season_id = new.season_id
+      and same.profile_id = new.profile_id
+      and same.jersey_number = new.jersey_number
+  ) then
+    return new;
+  end if;
+
   if exists (
     select 1
     from public.season_memberships other
     where other.season_id = new.season_id
       and other.jersey_number = new.jersey_number
       and other.id <> new.id
+      and other.profile_id <> new.profile_id
   ) then
     raise exception 'Il numero % è già assegnato in questa stagione',
       new.jersey_number

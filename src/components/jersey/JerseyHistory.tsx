@@ -1,3 +1,4 @@
+import { useId } from "react"
 import { History } from "lucide-react"
 
 import type { JerseyHistoryEntry } from "@/lib/jersey-api"
@@ -7,14 +8,15 @@ export function JerseyHistory({
 }: {
   entries: JerseyHistoryEntry[]
 }) {
+  const titleId = useId()
   return (
     <section
-      aria-labelledby="jersey-history-title"
+      aria-labelledby={titleId}
       className="rounded-xl border bg-card p-4"
     >
       <div className="flex items-center gap-2">
         <History aria-hidden="true" className="size-4 text-primary" />
-        <h2 className="font-bold" id="jersey-history-title">
+        <h2 className="font-bold" id={titleId}>
           Storico maglie
         </h2>
       </div>

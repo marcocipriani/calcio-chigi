@@ -45,6 +45,7 @@ import {
 import { BOMBER_TAGS } from "@/lib/constants"
 import { fetchOwnProfile } from "@/lib/api"
 import {
+  fetchJerseyDraft,
   fetchJerseyHistory,
   fetchOwnJerseyPreferences,
   type JerseyHistoryEntry,
@@ -156,6 +157,7 @@ export default function ProfilePage() {
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
   const [hasJerseyPreferences, setHasJerseyPreferences] = useState(false)
+  const [jerseyChoiceClosed, setJerseyChoiceClosed] = useState(false)
   const [form, setForm] = useState<ProfileForm>(emptyForm)
   const [initialForm, setInitialForm] = useState<ProfileForm>(emptyForm)
   const [certificateForm, setCertificateForm] = useState({
@@ -202,10 +204,16 @@ export default function ProfilePage() {
       latestMembership = data as Membership | null
     }
 
-    const [history, jerseyPreferences] = await Promise.all([
+    const isPlayer = latestMembership?.category === "PLAYER"
+    const [history, jerseyPreferences, jerseyDraft] = await Promise.all([
       fetchJerseyHistory(supabase, ownProfile.id).catch(() => []),
-      latestMembership?.category === "PLAYER"
+      isPlayer && latestMembership
         ? fetchOwnJerseyPreferences(supabase, latestMembership.id).catch(
+            () => null,
+          )
+        : Promise.resolve(null),
+      isPlayer && latestMembership
+        ? fetchJerseyDraft(supabase, latestMembership.season_id).catch(
             () => null,
           )
         : Promise.resolve(null),
@@ -246,6 +254,7 @@ export default function ProfilePage() {
     setCertificates(ownCertificates)
     setJerseyHistory(history)
     setHasJerseyPreferences(jerseyPreferences !== null)
+    setJerseyChoiceClosed(Boolean(jerseyDraft?.confirmedAt))
     setForm(nextForm)
     setInitialForm(nextForm)
     setLoading(false)
@@ -788,15 +797,21 @@ export default function ProfilePage() {
                   href="/maglie"
                 >
                   <span>
-                    Preferenze numero di maglia
+                    {jerseyChoiceClosed
+                      ? "Numeri di maglia"
+                      : "Preferenze numero di maglia"}
                     <span
                       className={`block text-xs font-medium ${
-                        hasJerseyPreferences
+                        hasJerseyPreferences || jerseyChoiceClosed
                           ? "text-muted-foreground"
                           : "text-amber-700 dark:text-amber-300"
                       }`}
                     >
-                      {hasJerseyPreferences ? "Indicate · modifica" : "Da indicare"}
+                      {jerseyChoiceClosed
+                        ? "Numeri assegnati · vedi"
+                        : hasJerseyPreferences
+                          ? "Indicate · modifica"
+                          : "Da indicare"}
                     </span>
                   </span>
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />

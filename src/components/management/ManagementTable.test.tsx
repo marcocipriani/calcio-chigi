@@ -109,7 +109,7 @@ function SortableTable({
 function renderPeopleTable() {
   render(
     <SortableTable
-      columns={["person", "phone", "account"]}
+      columns={["person", "role", "phone", "tags"]}
       people={people}
       view="PEOPLE"
     />,
@@ -164,8 +164,13 @@ describe("ManagementTable", () => {
     expect(
       screen.queryByRole("columnheader", { name: /conferma/i }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("columnheader", { name: /tag/i }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole("columnheader", { name: /account/i }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByText("Dipartimento")).not.toBeInTheDocument()
-    expect(screen.queryByText("Tag")).not.toBeInTheDocument()
     expect(screen.getByLabelText("Numero maglia 8")).toBeVisible()
   })
 
@@ -326,7 +331,7 @@ describe("ManagementTable", () => {
     expect(container.querySelector("button button")).toBeNull()
   })
 
-  it("opens the mobile profile only from its explicit control", () => {
+  it("opens the profile from the whole card and its explicit control", () => {
     const { onOpen, player } = renderAttendanceTable()
     const table = screen.getByRole("table")
     const mobileOpenControl = screen
@@ -334,11 +339,58 @@ describe("ManagementTable", () => {
       .find((control) => !table.contains(control))
 
     fireEvent.click(screen.getByText("Ultimi allenamenti:"))
-    expect(onOpen).not.toHaveBeenCalled()
+    expect(onOpen).toHaveBeenLastCalledWith(player)
 
     fireEvent.click(mobileOpenControl!)
+    expect(onOpen).toHaveBeenCalledTimes(2)
+    expect(onOpen).toHaveBeenLastCalledWith(player)
+  })
+
+  it("filters people by role and tags", () => {
+    const accessors = getManagementColumnAccessors("PEOPLE")
+    const [player, staff] = people
+    const tagged = { ...player, isExternal: true, isAggregated: true }
+    const rows = [tagged, staff]
+
+    expect(applyTableState(rows, accessors, { tags: "AGG" }, null)).toEqual([tagged])
+    expect(applyTableState(rows, accessors, { tags: "EXT" }, null)).toEqual([tagged])
+    expect(applyTableState(rows, accessors, { tags: "NONE" }, null)).toEqual([staff])
+    expect(applyTableState(rows, accessors, { role: "DIFENSORE" }, null)).toEqual([tagged])
+    expect(applyTableState(rows, accessors, { role: "STAFF" }, null)).toEqual([staff])
+    expect(
+      applyTableState([{ ...player, role: null }], accessors, { role: "TBD" }, null),
+    ).toHaveLength(1)
+  })
+
+  it("shows role and tags as people columns", () => {
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "role", "tags"]}
+        people={[{ ...people[0], role: "DIFENSORE", trainingOnly: true }, people[1]]}
+        selected={new Set()}
+        view="PEOPLE"
+      />,
+    )
+    const table = screen.getByRole("table")
+
+    expect(within(table).getByText("Difensore")).toBeInTheDocument()
+    expect(within(table).getByText("Solo allenamenti")).toBeInTheDocument()
+    expect(within(table).getAllByText("Allenatrice").length).toBeGreaterThan(0)
+  })
+
+  it("opens the profile from the table row, not from its checkbox", () => {
+    const { onOpen, player } = renderAttendanceTable()
+    const table = screen.getByRole("table")
+
+    fireEvent.click(within(table).getByText("Luca Verdi"))
     expect(onOpen).toHaveBeenCalledOnce()
     expect(onOpen).toHaveBeenCalledWith(player)
+
+    fireEvent.click(
+      within(table).getByRole("checkbox", { name: "Seleziona Luca Verdi" }),
+    )
+    expect(onOpen).toHaveBeenCalledOnce()
   })
 
   it("keeps every visible column and the row action inside the card", () => {

@@ -186,6 +186,25 @@ function RegistrationState({ person }: { person: ManagementPerson }) {
   )
 }
 
+const roleFilterValue = (person: ManagementPerson) =>
+  person.category === "STAFF" ? "STAFF" : (person.role?.toUpperCase() ?? "TBD")
+
+function roleLabel(person: ManagementPerson) {
+  if (person.category === "STAFF") return person.staffFunction ?? "Staff"
+  if (!person.role) return "Da definire"
+  return person.role.charAt(0).toUpperCase() + person.role.slice(1).toLowerCase()
+}
+
+const tagDefinitions = [
+  ["EXT", "EXT", "isExternal"],
+  ["AGG", "AGG", "isAggregated"],
+  ["TRAINING_ONLY", "Solo allenamenti", "trainingOnly"],
+] as const
+
+function personTags(person: ManagementPerson) {
+  return tagDefinitions.filter(([, , key]) => person[key])
+}
+
 function percentage(value: number | undefined) {
   return `${Math.round(value ?? 0)}%`
 }
@@ -234,6 +253,8 @@ type ManagementColumn = {
     | "payment"
     | "registration"
     | "certificate"
+    | "role"
+    | "tags"
   render: (
     person: ManagementPerson,
     actions: ManagementTableActions,
@@ -258,6 +279,14 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
   PEOPLE: [
     personColumn,
     {
+      id: "role",
+      label: "Ruolo",
+      filter: "role",
+      filterValue: roleFilterValue,
+      sortValue: roleLabel,
+      render: (person) => <span className="text-xs">{roleLabel(person)}</span>,
+    },
+    {
       id: "phone",
       label: "Telefono",
       filter: "text",
@@ -268,12 +297,28 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       ),
     },
     {
-      id: "account",
-      label: "Account",
-      filter: "account",
-      filterValue: (person) => person.accountStatus,
-      sortValue: (person) => person.accountStatus,
-      render: (person) => <AccountState person={person} />,
+      id: "tags",
+      label: "Tag",
+      filter: "tags",
+      // I filtri confrontano per sottostringa: "EXT AGG" risponde a entrambi.
+      filterValue: (person) =>
+        personTags(person).map(([id]) => id).join(" ") || "NONE",
+      sortValue: (person) =>
+        personTags(person).map(([, label]) => label).join(" "),
+      render: (person) => {
+        const tags = personTags(person)
+        return tags.length ? (
+          <span className="inline-flex flex-wrap justify-end gap-1">
+            {tags.map(([id, label]) => (
+              <Badge className="text-[10px]" key={id} variant="outline">
+                {label}
+              </Badge>
+            ))}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )
+      },
     },
   ],
   ATTENDANCE: [
@@ -600,6 +645,22 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
 }
 
 export const managementFilterOptions = {
+  role: [
+    ["", "Tutti"],
+    ["PORTIERE", "Portiere"],
+    ["DIFENSORE", "Difensore"],
+    ["CENTROCAMPISTA", "Centrocampista"],
+    ["ATTACCANTE", "Attaccante"],
+    ["TBD", "Da definire"],
+    ["STAFF", "Staff"],
+  ],
+  tags: [
+    ["", "Tutti"],
+    ["EXT", "EXT"],
+    ["AGG", "AGG"],
+    ["TRAINING_ONLY", "Solo allenamenti"],
+    ["NONE", "Nessuno"],
+  ],
   ageGroup: [
     ["", "Tutti"],
     ["U35", "U35"],
@@ -806,9 +867,10 @@ export function ManagementTable({
             <TableBody>
               {people.map((person) => (
                 <TableRow
-                  className="h-11 transition-colors"
+                  className="h-11 cursor-pointer transition-colors"
                   data-state={selected.has(person.id) ? "selected" : undefined}
                   key={person.id}
+                  onClick={() => onOpen(person)}
                 >
                   <TableCell>
                     <input
@@ -863,10 +925,11 @@ export function ManagementTable({
           return (
             <article
               className={cn(
-                "flex min-h-20 gap-3 rounded-lg border bg-card p-3 shadow-xs",
+                "flex min-h-20 cursor-pointer gap-3 rounded-lg border bg-card p-3 shadow-xs",
                 selected.has(person.id) && "border-violet-500 bg-violet-50/60 dark:bg-violet-950/20",
               )}
               key={person.id}
+              onClick={() => onOpen(person)}
             >
               <input
                 aria-label={`Seleziona ${person.nome} ${person.cognome}`}
@@ -880,7 +943,7 @@ export function ManagementTable({
                 <button
                   aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}
                   className="flex w-full min-w-0 items-center gap-2 rounded-md text-left transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
-                  onClick={() => onOpen(person)}
+                  // Il click risale all'article, che apre la scheda.
                   type="button"
                 >
                   <span className="min-w-0 flex-1">

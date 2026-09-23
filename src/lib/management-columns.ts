@@ -7,7 +7,7 @@ export type ManagementView =
   | "ACCOUNTS"
 
 export const DEFAULT_COLUMNS: Record<ManagementView, string[]> = {
-  PEOPLE: ["person", "phone", "account"],
+  PEOPLE: ["person", "role", "phone", "tags"],
   ATTENDANCE: ["person", "trainingStreak", "trainingRate"],
   PAYMENTS: ["person", "payments", "nextPayment", "dueOn", "paymentAction", "method"],
   REGISTRATIONS: ["person", "registration", "asiCard", "passportPhoto", "joinedOn", "completedOn"],

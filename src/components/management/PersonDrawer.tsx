@@ -12,7 +12,9 @@ import {
   ExternalLink,
   FileText,
   IdCard,
+  Trash2,
   Upload,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -32,6 +34,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -43,6 +46,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
+import { trashPerson } from "@/lib/management-api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 const selectClass =
@@ -83,12 +87,14 @@ export function PersonDrawer({
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState<"AVATAR" | "PASSPORT" | null>(null)
   const [pendingForm, setPendingForm] = useState<FormData | null>(null)
+  const [confirmTrash, setConfirmTrash] = useState(false)
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
 
   useEffect(() => {
     if (person) {
       setCategory(person.category)
       setPendingForm(null)
+      setConfirmTrash(false)
     }
   }, [person])
 
@@ -187,6 +193,26 @@ export function PersonDrawer({
     }
     toast.success("Scheda aggiornata")
     setPendingForm(null)
+    onOpenChange(false)
+    await onSaved()
+  }
+
+  async function moveToTrash() {
+    setBusy(true)
+    try {
+      await trashPerson(supabaseBrowser, currentPerson.profileId)
+    } catch (error) {
+      toast.error("Eliminazione non riuscita", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      return
+    } finally {
+      setBusy(false)
+    }
+    toast.success(`${currentPerson.nome} ${currentPerson.cognome} nel cestino`, {
+      description: "Puoi ripristinarlo dal cestino entro 30 giorni.",
+    })
+    setConfirmTrash(false)
     onOpenChange(false)
     await onSaved()
   }
@@ -300,8 +326,11 @@ export function PersonDrawer({
           onOpenChange(open)
         }}
       >
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="shrink-0 border-b p-4 text-left">
+        <DialogContent
+          className="flex h-dvh max-h-dvh max-w-full flex-col gap-0 overflow-hidden rounded-none border-0 p-0 pt-[env(safe-area-inset-top)] sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl sm:rounded-lg sm:border sm:pt-0"
+          showCloseButton={false}
+        >
+        <DialogHeader className="shrink-0 border-b p-4 pr-2 text-left">
           <div className="flex items-center gap-3">
             <Avatar className="size-12 shrink-0 ring-1 ring-border">
               <AvatarImage
@@ -327,9 +356,9 @@ export function PersonDrawer({
                 Scheda stagione · account {accountLabels[person.accountStatus]}
               </DialogDescription>
             </div>
-            <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
+            <label className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background text-sm sm:h-9 sm:w-auto sm:px-3 font-medium transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
               <Camera aria-hidden="true" className="size-4" />
-              <span className="hidden sm:inline">
+              <span className="sr-only sm:not-sr-only">
                 {uploading === "AVATAR" ? "Caricamento…" : "Avatar"}
               </span>
               <input
@@ -340,6 +369,18 @@ export function PersonDrawer({
                 type="file"
               />
             </label>
+            {/* Nel flusso dell'header, non assoluta: su iPhone resta sotto la
+                safe area e non copre il pulsante avatar. */}
+            <DialogClose asChild>
+              <Button
+                aria-label="Chiudi"
+                className="size-11 shrink-0"
+                size="icon"
+                variant="ghost"
+              >
+                <X aria-hidden="true" className="size-5" />
+              </Button>
+            </DialogClose>
           </div>
         </DialogHeader>
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
@@ -736,15 +777,20 @@ export function PersonDrawer({
               </div>
             </section>
           </div>
-          <DialogFooter className="shrink-0 border-t p-4">
-            <Button
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              Chiudi
-            </Button>
-            <Button disabled={busy} type="submit">
+          <DialogFooter className="shrink-0 flex-row items-center border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+            {!person.isManager && (
+              <Button
+                className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={busy}
+                onClick={() => setConfirmTrash(true)}
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 aria-hidden="true" />
+                Elimina
+              </Button>
+            )}
+            <Button className="ml-auto" disabled={busy} type="submit">
               {busy ? "Salvataggio…" : "Salva modifiche"}
             </Button>
           </DialogFooter>
@@ -774,6 +820,38 @@ export function PersonDrawer({
               }}
             >
               Conferma e salva
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmTrash}
+        onOpenChange={(open) => !open && setConfirmTrash(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Eliminare {person.nome} {person.cognome}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esce da tutte le stagioni e perde l’account collegato. Resta nel
+              cestino per 30 giorni, poi viene cancellato per sempre con
+              presenze, statistiche e pagamenti. Per chi lascia solo la
+              squadra usa l’archiviazione.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={busy}
+              onClick={(event) => {
+                event.preventDefault()
+                void moveToTrash()
+              }}
+            >
+              Sposta nel cestino
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

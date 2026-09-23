@@ -115,7 +115,7 @@ export async function fetchManagementPeople(
     .map((membership): ManagementPerson | null => {
       const profileId = String(membership.profile_id)
       const profile = profilesById.get(profileId)
-      if (!profile) return null
+      if (!profile || profile.deleted_at) return null
       const details = privateByProfile.get(profileId)
       const request = requestsByProfile.get(profileId)
       const latestCertificate =
@@ -195,6 +195,46 @@ export async function fetchManagementPeople(
         "it",
       ),
     )
+}
+
+export type TrashedPerson = {
+  profileId: string
+  nome: string
+  cognome: string
+  avatarUrl: string | null
+  deletedAt: string
+}
+
+export async function fetchTrashedPeople(
+  client: SupabaseClient,
+): Promise<TrashedPerson[]> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("id, nome, cognome, avatar_url, deleted_at")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    profileId: String(row.id),
+    nome: String(row.nome),
+    cognome: String(row.cognome),
+    avatarUrl: asText(row.avatar_url),
+    deletedAt: String(row.deleted_at),
+  }))
+}
+
+export async function trashPerson(client: SupabaseClient, profileId: string) {
+  const { error } = await client.rpc("manager_trash_person", {
+    p_profile_id: profileId,
+  })
+  if (error) throw error
+}
+
+export async function restorePerson(client: SupabaseClient, profileId: string) {
+  const { error } = await client.rpc("manager_restore_person", {
+    p_profile_id: profileId,
+  })
+  if (error) throw error
 }
 
 export async function fetchManagementColumnPreferences(

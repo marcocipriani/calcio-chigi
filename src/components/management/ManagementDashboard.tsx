@@ -13,6 +13,7 @@ import {
   Rows3,
   Search,
   Shirt,
+  Trash2,
   UsersRound,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -33,6 +34,7 @@ import {
 import { NotificationComposer } from "@/components/management/NotificationComposer"
 import type { PassportPhotoState } from "@/components/management/PassportPhotoPreview"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
+import { TrashDialog } from "@/components/management/TrashDialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -187,6 +189,7 @@ export function ManagementDashboard() {
   const [addOpen, setAddOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [trashOpen, setTrashOpen] = useState(false)
   const [quickDialog, setQuickDialog] = useState<QuickDialog | null>(null)
   const [quickValue, setQuickValue] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<
@@ -752,6 +755,21 @@ export function ManagementDashboard() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  aria-label="Cestino"
+                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  onClick={() => setTrashOpen(true)}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Trash2 aria-hidden="true" />
+                  <span className="sr-only sm:not-sr-only">Cestino</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="sm:hidden">Cestino</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
                   aria-label="Aggiungi persona"
                   className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                   onClick={() => setAddOpen(true)}
@@ -1108,6 +1126,11 @@ export function ManagementDashboard() {
         onOpenChange={(open) => !open && setOpenPerson(null)}
         onSaved={load}
         person={openPerson}
+      />
+      <TrashDialog
+        onOpenChange={setTrashOpen}
+        onRestored={load}
+        open={trashOpen}
       />
 
       <Dialog

@@ -64,6 +64,8 @@ export function AttendanceStreak({
                     "size-3 rounded-sm border-0 p-0",
                     statusClass[item.status],
                   )}
+                  // Riga e scheda aprono la persona: il pallino mostra solo il dettaglio.
+                  onClick={(event) => event.stopPropagation()}
                   tabIndex={0}
                   type="button"
                 />

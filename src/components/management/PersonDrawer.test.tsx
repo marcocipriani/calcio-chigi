@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { PersonDrawer } from "@/components/management/PersonDrawer"
@@ -16,6 +16,10 @@ const jerseyApi = vi.hoisted(() => ({
   ]),
 }))
 vi.mock("@/lib/jersey-api", () => jerseyApi)
+const managementApi = vi.hoisted(() => ({
+  trashPerson: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock("@/lib/management-api", () => managementApi)
 
 const person: ManagementPerson = {
   id: "membership-1",
@@ -37,12 +41,14 @@ const person: ManagementPerson = {
   certificateStatus: "MISSING",
 }
 
-function renderDrawer() {
+function renderDrawer(overrides: Partial<ManagementPerson> = {}) {
+  const onOpenChange = vi.fn()
+  const onSaved = vi.fn().mockResolvedValue(undefined)
   render(
     <PersonDrawer
-      onOpenChange={vi.fn()}
-      onSaved={vi.fn().mockResolvedValue(undefined)}
-      person={person}
+      onOpenChange={onOpenChange}
+      onSaved={onSaved}
+      person={{ ...person, ...overrides }}
     />,
   )
   const content = screen.getByRole("dialog")
@@ -51,7 +57,7 @@ function renderDrawer() {
     '[data-slot="dialog-footer"]',
   )
   if (!scrollArea || !footer) throw new Error("Scheda persona senza corpo o footer")
-  return { content, footer, scrollArea }
+  return { content, footer, onOpenChange, onSaved, scrollArea }
 }
 
 describe("PersonDrawer", () => {
@@ -60,11 +66,13 @@ describe("PersonDrawer", () => {
 
     // Il contenitore deve essere una colonna flex: con `grid` le tracce non si
     // stringono sotto `max-height` e il corpo sfora invece di scorrere.
+    // Su mobile occupa lo schermo intero; da `sm` torna finestra centrata.
     expect(content).toHaveClass(
       "flex",
       "flex-col",
       "overflow-hidden",
-      "max-h-[calc(100dvh-1rem)]",
+      "h-dvh",
+      "sm:max-h-[calc(100dvh-2rem)]",
     )
     expect(
       content.querySelector('[data-slot="dialog-header"]'),
@@ -98,6 +106,44 @@ describe("PersonDrawer", () => {
         scrollArea.contains(screen.getByRole("heading", { name: section })),
       ).toBe(true)
     }
+  })
+
+  it("chiude dall'header senza sovrapporsi al pulsante avatar", () => {
+    const { content, onOpenChange } = renderDrawer()
+    const header = content.querySelector('[data-slot="dialog-header"]')!
+
+    const close = within(content).getByRole("button", { name: "Chiudi" })
+    expect(header.contains(close)).toBe(true)
+    expect(close).toHaveClass("size-11")
+    fireEvent.click(close)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it("sposta nel cestino solo dopo conferma", async () => {
+    const { onOpenChange, onSaved } = renderDrawer()
+
+    fireEvent.click(screen.getByRole("button", { name: "Elimina" }))
+    expect(managementApi.trashPerson).not.toHaveBeenCalled()
+    const confirm = screen.getByRole("alertdialog", {
+      name: "Eliminare Luca Verdi?",
+    })
+    expect(confirm).toHaveTextContent("30 giorni")
+
+    fireEvent.click(
+      within(confirm).getByRole("button", { name: "Sposta nel cestino" }),
+    )
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(managementApi.trashPerson).toHaveBeenCalledWith(
+      expect.anything(),
+      "profile-1",
+    )
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it("non offre l'eliminazione per i manager", () => {
+    renderDrawer({ isManager: true })
+
+    expect(screen.queryByRole("button", { name: "Elimina" })).toBeNull()
   })
 
   it("mostra lo storico dei numeri di maglia", async () => {

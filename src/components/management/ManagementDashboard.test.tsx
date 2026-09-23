@@ -619,12 +619,12 @@ describe("ManagementDashboard operational state", () => {
     ).not.toBeInTheDocument()
 
     preferenceLoad.resolve({
-      PEOPLE: ["person", "phone", "account"],
+      PEOPLE: ["person", "phone", "tags"],
     })
     await waitFor(() => expect(columnsButton).toBeEnabled())
     fireEvent.click(columnsButton)
     fireEvent.click(screen.getByRole("checkbox", { name: "Telefono" }))
-    fireEvent.click(screen.getByRole("checkbox", { name: "Account" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "Tag" }))
 
     await waitFor(() => {
       expect(api.saveManagementColumnPreferences).toHaveBeenCalledTimes(1)

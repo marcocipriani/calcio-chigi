@@ -299,7 +299,8 @@ async function main() {
   const [{ data: profiles, error: profilesError }, excelRows] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id,nome,cognome,data_nascita,avatar_url,ruolo,is_staff"),
+      .select("id,nome,cognome,data_nascita,avatar_url,ruolo,is_staff")
+      .is("deleted_at", null),
     readRosterWorkbook(options.file),
   ])
 

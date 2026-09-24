@@ -239,11 +239,12 @@ describe("ManagementDashboard operational state", () => {
     })
   })
 
-  it("switches the desktop layout from the list to the cards", async () => {
+  it("switches the desktop layout from the view menu and saves it", async () => {
     render(<ManagementDashboard />)
     await screen.findByRole("table")
 
-    fireEvent.click(screen.getByRole("button", { name: "Vista schede" }))
+    fireEvent.click(screen.getByRole("button", { name: "Impostazioni vista" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Vista schede" }))
 
     await waitFor(() => {
       expect(screen.queryByRole("table")).not.toBeInTheDocument()
@@ -252,6 +253,55 @@ describe("ManagementDashboard operational state", () => {
     expect(
       screen.getByRole("button", { name: "Vista schede" }),
     ).toHaveAttribute("aria-pressed", "true")
+    await waitFor(() => {
+      expect(api.saveManagementDisplayPreferences).toHaveBeenLastCalledWith(
+        expect.anything(),
+        "manager-1",
+        expect.objectContaining({ layouts: { PEOPLE: "CARDS" } }),
+      )
+    })
+  })
+
+  it("creates, renames and deletes a custom view without touching defaults", async () => {
+    render(<ManagementDashboard />)
+    await screen.findByRole("table")
+
+    fireEvent.click(screen.getByRole("button", { name: "Impostazioni vista" }))
+    expect(
+      await screen.findByRole("button", { name: "Ripristina predefinita" }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole("button", { name: /Elimina vista/ }),
+    ).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Salva come nuova vista"), {
+      target: { value: "Da contattare" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Crea" }))
+
+    const tab = await screen.findByRole("tab", { name: "Da contattare" })
+    expect(tab).toHaveAttribute("aria-selected", "true")
+
+    fireEvent.click(screen.getByRole("button", { name: "Impostazioni vista" }))
+    fireEvent.change(await screen.findByLabelText("Nome della vista"), {
+      target: { value: "Richiamare" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Rinomina" }))
+    expect(await screen.findByRole("tab", { name: "Richiamare" })).toBeVisible()
+
+    fireEvent.click(screen.getByRole("button", { name: "Impostazioni vista" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Elimina vista" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Conferma eliminazione" }),
+    )
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("tab", { name: "Richiamare" }),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole("tab", { name: /Persone/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
   })
 
   it("offers the mass actions only next to an existing selection", async () => {

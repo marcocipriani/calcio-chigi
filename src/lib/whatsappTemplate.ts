@@ -1,10 +1,11 @@
 import { format, subMinutes, isToday, isTomorrow } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { isU35At } from '@/lib/utils';
+import { isMatchEvent, isU35At } from '@/lib/utils';
+import type { EventType } from '@/lib/types';
 
 type WhatsAppEvent = {
     data_ora: string | null;
-    tipo: 'PARTITA' | 'ALLENAMENTO';
+    tipo: EventType;
     squadra_casa?: string | null;
     squadra_ospite?: string | null;
     luogo?: string | null;
@@ -23,7 +24,7 @@ type WhatsAppAttendance = {
 export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendance[]) {
     if (!evento.data_ora) return 'Evento senza data: impossibile generare il messaggio.';
     const dataEvento = new Date(evento.data_ora);
-    const isPartita = evento.tipo === 'PARTITA';
+    const isPartita = isMatchEvent(evento.tipo);
     
     let avversario = '';
     let inCasa = false;
@@ -43,7 +44,7 @@ export function genMsgWhatsApp(evento: WhatsAppEvent, presenze: WhatsAppAttendan
     const orarioRitrovo = format(subMinutes(dataEvento, 60), 'HH:mm');
 
     const header = isPartita 
-        ? `⚽ INFO PARTITA per ${dataFormattata} vs ${avversario}` 
+        ? `⚽ INFO ${evento.tipo} per ${dataFormattata} vs ${avversario}` 
         : `🏃‍♂️ INFO ALLENAMENTO per ${dataFormattata}`;
 
     const infoLuogo = isPartita 

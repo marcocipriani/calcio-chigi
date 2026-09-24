@@ -33,11 +33,14 @@ export type EventFase =
     | 'FASE_2_PROFESSIONISTI'
     | 'COPPA_LAZIO_PROFESSIONISTI';
 
+// AMICHEVOLE: gestita come partita (avversario, formazione) ma fuori da classifica e statistiche.
+export type EventType = 'ALLENAMENTO' | 'PARTITA' | 'AMICHEVOLE';
+
 export interface Event {
     id: string;
     created_at: string;
     season_id: string;
-    tipo: 'ALLENAMENTO' | 'PARTITA';
+    tipo: EventType;
     data_ora: string | null;
     data_fine_ora?: string | null;
     luogo: string;

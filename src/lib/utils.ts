@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { differenceInYears, isAfter, isValid, parseISO } from "date-fns"
-import { Event, Team, StandingRow } from "./types"
+import { Event, EventType, Team, StandingRow } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -33,6 +33,27 @@ export const isU35 = (dob?: string | null) => isU35At(dob, new Date())
 // Team names arrive UPPERCASE from the sync script but teams.nome may be stored in any case:
 // normalize both sides so the standings/form never silently drop matches on a casing mismatch.
 export const normKey = (s?: string | null) => (s ?? '').toLowerCase().trim();
+
+export const isMatchEvent = (tipo?: EventType | null) => tipo === 'PARTITA' || tipo === 'AMICHEVOLE';
+
+export const EVENT_TYPE_LABEL: Record<EventType, string> = {
+    PARTITA: 'Partita',
+    AMICHEVOLE: 'Amichevole',
+    ALLENAMENTO: 'Allenamento',
+};
+
+export const HOME_PLACE = 'SS Romulea';
+
+// Il nostro campo sempre primo, poi alfabetico; varianti di maiuscole collassate.
+export const sortPlaces = (places: (string | null | undefined)[]) => {
+    const unique = new Map<string, string>();
+    for (const place of places) {
+        const trimmed = place?.trim();
+        if (trimmed && !unique.has(normKey(trimmed))) unique.set(normKey(trimmed), trimmed);
+    }
+    unique.delete(normKey(HOME_PLACE));
+    return [HOME_PLACE, ...[...unique.values()].sort((a, b) => a.localeCompare(b, 'it'))];
+};
 
 function buildMiniStats(teamNames: string[], matches: Event[]) {
     const mini: Record<string, { punti: number; diff: number; golFatti: number }> = {};

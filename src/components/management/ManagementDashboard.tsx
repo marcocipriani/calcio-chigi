@@ -8,9 +8,7 @@ import {
   BellPlus,
   CalendarClock,
   CircleDollarSign,
-  LayoutGrid,
   Plus,
-  Rows3,
   Search,
   Shirt,
   Trash2,
@@ -23,6 +21,7 @@ import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { AddPersonDialog } from "@/components/management/AddPersonDialog"
 import { BulkPaymentDialog } from "@/components/management/BulkPaymentDialog"
 import { ColumnCustomizer } from "@/components/management/ColumnCustomizer"
+import { ViewMenu } from "@/components/management/ViewMenu"
 import {
   ColumnFilters,
   SortControl,
@@ -87,6 +86,8 @@ import {
   nextSort,
   normalizeColumnPreferences,
   normalizeDisplayPreferences,
+  isBuiltInView,
+  type CustomView,
   type DisplayPreferences,
   type ManagementColumnFilters,
   type ManagementLayout,
@@ -108,14 +109,6 @@ const views = [
   { id: "ACCOUNTS", label: "Account" },
 ] satisfies Array<{ id: ManagementView; label: string }>
 
-const layouts = [
-  { id: "TABLE", label: "Vista elenco", icon: Rows3 },
-  { id: "CARDS", label: "Vista schede", icon: LayoutGrid },
-] satisfies Array<{
-  id: ManagementLayout
-  label: string
-  icon: typeof Rows3
-}>
 
 const emptyFilters: ManagementFilters = {
   query: "",
@@ -154,6 +147,19 @@ function attendanceRosterSignature(people: ManagementPerson[]) {
     .join("|")
 }
 
+function forgetViewSettings(
+  display: DisplayPreferences,
+  id: string,
+): DisplayPreferences {
+  const layouts = { ...display.layouts }
+  const sorts = { ...display.sorts }
+  const widths = { ...display.widths }
+  delete layouts[id]
+  delete sorts[id]
+  delete widths[id]
+  return { ...display, layouts, sorts, widths }
+}
+
 export function ManagementDashboard() {
   const {
     associationStatus,
@@ -171,7 +177,9 @@ export function ManagementDashboard() {
   const [rosterLoadError, setRosterLoadError] =
     useState<RosterLoadError | null>(null)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<ManagementView>("PEOPLE")
+  const [display, setDisplay] = useState<DisplayPreferences>(() =>
+    normalizeDisplayPreferences(null),
+  )
   const [filters, setFilters] = useState(emptyFilters)
   const [columnPreferences, setColumnPreferences] = useState(() =>
     normalizeColumnPreferences(null),
@@ -183,11 +191,9 @@ export function ManagementDashboard() {
   const [passportPhotoStates, setPassportPhotoStates] = useState<
     Map<string, PassportPhotoState>
   >(new Map())
-  const [layout, setLayout] = useState<ManagementLayout>("TABLE")
-  const [sort, setSort] = useState<TableSort>(null)
-  const [columnFilters, setColumnFilters] = useState<ManagementColumnFilters>(
-    {},
-  )
+  // Filtri delle viste predefinite: temporanei. Le personalizzate li salvano.
+  const [transientFilters, setTransientFilters] =
+    useState<ManagementColumnFilters>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openPerson, setOpenPerson] = useState<ManagementPerson | null>(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -206,9 +212,7 @@ export function ManagementDashboard() {
   const passportPhotoRequestId = useRef(0)
   const preferencesLoadGeneration = useRef(0)
   const columnPreferencesRef = useRef(columnPreferences)
-  const displayPreferencesRef = useRef<DisplayPreferences>(
-    normalizeDisplayPreferences(null),
-  )
+  const displayPreferencesRef = useRef(display)
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
@@ -268,9 +272,7 @@ export function ManagementDashboard() {
         columnPreferencesRef.current = next
         setColumnPreferences(next)
         displayPreferencesRef.current = display
-        setView(display.view)
-        setLayout(display.layout)
-        setSort(display.sorts[display.view] ?? null)
+        setDisplay(display)
       } catch {
         if (generation !== preferencesLoadGeneration.current) return
         const fallback = normalizeColumnPreferences(null)
@@ -289,6 +291,21 @@ export function ManagementDashboard() {
       }
     }
   }, [profile?.id])
+
+  const customView =
+    display.customViews.find(({ id }) => id === display.view) ?? null
+  // Una personalizzata eliminata altrove ricade sulla vista Persone.
+  const view: string =
+    customView || isBuiltInView(display.view) ? display.view : "PEOPLE"
+  const builtInView = isBuiltInView(view) ? view : null
+  const visibleColumnIds = customView
+    ? customView.columns
+    : columnPreferences[builtInView ?? "PEOPLE"]
+  const layout: ManagementLayout = display.layouts[view] ?? "TABLE"
+  const sort: TableSort = display.sorts[view] ?? null
+  const columnWidths = display.widths[view] ?? {}
+  const columnFilters = customView ? customView.filters : transientFilters
+  const showsPassportPhotos = visibleColumnIds.includes("passportPhoto")
 
   const currentRosterLoaded =
     !loading &&
@@ -377,11 +394,7 @@ export function ManagementDashboard() {
 
   useEffect(() => {
     const requestId = ++passportPhotoRequestId.current
-    if (
-      view !== "REGISTRATIONS" ||
-      loading ||
-      loadedSeasonSlug !== seasonSlug
-    ) {
+    if (!showsPassportPhotos || loading || loadedSeasonSlug !== seasonSlug) {
       setPassportPhotoStates(new Map())
       return
     }
@@ -433,7 +446,7 @@ export function ManagementDashboard() {
         ),
       )
     })()
-  }, [currentPeople, loadedSeasonSlug, loading, seasonSlug, view])
+  }, [currentPeople, loadedSeasonSlug, loading, seasonSlug, showsPassportPhotos])
 
   const tablePeople = useMemo(
     () =>
@@ -447,10 +460,9 @@ export function ManagementDashboard() {
     [filters, tablePeople],
   )
   const availableColumns = useMemo(
-    () => getAvailableManagementColumns(view),
-    [view],
+    () => getAvailableManagementColumns(),
+    [],
   )
-  const visibleColumnIds = columnPreferences[view]
   const visibleColumns = useMemo(() => {
     const byId = new Map(availableColumns.map((column) => [column.id, column]))
     return visibleColumnIds.flatMap((id) => {
@@ -466,7 +478,7 @@ export function ManagementDashboard() {
     () => visibleColumns.filter(({ action }) => !action),
     [visibleColumns],
   )
-  const accessors = useMemo(() => getManagementColumnAccessors(view), [view])
+  const accessors = useMemo(() => getManagementColumnAccessors(), [])
   const appliedFilters = useMemo(
     () => activeColumnFilters(columnFilters, visibleColumnIds),
     [columnFilters, visibleColumnIds],
@@ -513,9 +525,13 @@ export function ManagementDashboard() {
   }
 
   function updateColumns(nextColumns: string[]) {
+    if (customView) {
+      updateCustomView(customView.id, { columns: nextColumns })
+      return
+    }
     const next = {
       ...columnPreferencesRef.current,
-      [view]: nextColumns,
+      [builtInView ?? "PEOPLE"]: nextColumns,
     }
     columnPreferencesRef.current = next
     setColumnPreferences(next)
@@ -536,9 +552,12 @@ export function ManagementDashboard() {
     )
   }
 
-  function updateDisplay(patch: Partial<DisplayPreferences>) {
-    const next = { ...displayPreferencesRef.current, ...patch }
+  function updateDisplay(
+    change: (current: DisplayPreferences) => DisplayPreferences,
+  ) {
+    const next = change(displayPreferencesRef.current)
     displayPreferencesRef.current = next
+    setDisplay(next)
     if (!profile?.id) return
     const profileId = profile.id
     preferenceSaveQueue.current = preferenceSaveQueue.current.then(
@@ -557,15 +576,78 @@ export function ManagementDashboard() {
   }
 
   function changeSort(next: TableSort) {
-    setSort(next)
-    updateDisplay({
-      sorts: { ...displayPreferencesRef.current.sorts, [view]: next },
-    })
+    updateDisplay((current) => ({
+      ...current,
+      sorts: { ...current.sorts, [view]: next },
+    }))
   }
 
   function changeLayout(next: ManagementLayout) {
-    setLayout(next)
-    updateDisplay({ layout: next })
+    updateDisplay((current) => ({
+      ...current,
+      layouts: { ...current.layouts, [view]: next },
+    }))
+  }
+
+  function resizeColumn(columnId: string, width: number | null) {
+    updateDisplay((current) => {
+      const viewWidths = { ...(current.widths[view] ?? {}) }
+      if (width === null) delete viewWidths[columnId]
+      else viewWidths[columnId] = width
+      return { ...current, widths: { ...current.widths, [view]: viewWidths } }
+    })
+  }
+
+  function updateCustomView(
+    id: string,
+    patch: Partial<Omit<CustomView, "id">>,
+  ) {
+    updateDisplay((current) => ({
+      ...current,
+      customViews: current.customViews.map((item) =>
+        item.id === id ? { ...item, ...patch } : item,
+      ),
+    }))
+  }
+
+  function changeColumnFilters(next: ManagementColumnFilters) {
+    if (customView) updateCustomView(customView.id, { filters: next })
+    else setTransientFilters(next)
+  }
+
+  /** Nuova vista personalizzata a partire da quello che si sta guardando. */
+  function createView(label: string) {
+    const id = `custom-${crypto.randomUUID()}`
+    const filters = Object.fromEntries(
+      Object.entries(columnFilters).filter(([, value]) => value),
+    )
+    updateDisplay((current) => ({
+      ...current,
+      view: id,
+      customViews: [
+        ...current.customViews,
+        { id, label, columns: [...visibleColumnIds], filters },
+      ],
+      layouts: { ...current.layouts, [id]: layout },
+      sorts: { ...current.sorts, [id]: sort },
+      widths: { ...current.widths, [id]: { ...columnWidths } },
+    }))
+    setTransientFilters({})
+  }
+
+  function deleteView(id: string) {
+    updateDisplay((current) => ({
+      ...forgetViewSettings(current, id),
+      view: current.view === id ? "PEOPLE" : current.view,
+      customViews: current.customViews.filter((item) => item.id !== id),
+    }))
+  }
+
+  /** Predefinita come appena installata: colonne, layout, ordine, larghezze. */
+  function resetBuiltInView(id: ManagementView) {
+    updateColumns([...DEFAULT_COLUMNS[id]])
+    setTransientFilters({})
+    updateDisplay((current) => forgetViewSettings(current, id))
   }
 
   if (sessionLoading) {
@@ -607,14 +689,12 @@ export function ManagementDashboard() {
     )
   }
 
-  function selectView(nextView: ManagementView) {
+  function selectView(nextView: string) {
     if (nextView === view) return
-    setView(nextView)
-    // I filtri appartengono alle colonne della vista; l'ordinamento salvato
-    // per quella vista torna com'era.
-    setSort(displayPreferencesRef.current.sorts[nextView] ?? null)
-    setColumnFilters({})
-    updateDisplay({ view: nextView })
+    // I filtri temporanei valgono per la vista che si lascia; ordinamento,
+    // layout e larghezze salvati tornano com'erano.
+    setTransientFilters({})
+    updateDisplay((current) => ({ ...current, view: nextView }))
   }
 
   function toggleSelection(membershipId: string) {
@@ -853,9 +933,10 @@ export function ManagementDashboard() {
       />
 
       <div className="sticky top-16 z-20 min-w-0 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
+        <div className="flex min-w-0 items-start gap-1">
         <div
           aria-label="Viste dashboard"
-          className="grid min-w-0 grid-cols-3 gap-0.5 sm:flex sm:overflow-x-auto"
+          className="grid min-w-0 flex-1 grid-cols-3 gap-0.5 sm:flex sm:overflow-x-auto"
           role="tablist"
         >
           {views.map((item) => (
@@ -884,6 +965,42 @@ export function ManagementDashboard() {
               </span>
             </button>
           ))}
+          {display.customViews.map((item) => (
+            <button
+              aria-selected={view === item.id}
+              className={cn(
+                "inline-flex min-h-8 min-w-0 shrink-0 items-center justify-center rounded-md border border-dashed px-2 text-xs font-semibold sm:justify-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                view === item.id
+                  ? "border-transparent bg-operative text-operative-foreground hover:bg-operative/90"
+                  : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
+              )}
+              key={item.id}
+              onClick={() => selectView(item.id)}
+              role="tab"
+              type="button"
+            >
+              <span className="truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+        <ViewMenu
+          custom={Boolean(customView)}
+          disabled={!columnPreferencesReady}
+          key={view}
+          layout={layout}
+          onCreate={createView}
+          onDelete={() => customView && deleteView(customView.id)}
+          onLayoutChange={changeLayout}
+          onRename={(label) =>
+            customView && updateCustomView(customView.id, { label })
+          }
+          onReset={() => builtInView && resetBuiltInView(builtInView)}
+          viewLabel={
+            customView?.label ??
+            views.find(({ id }) => id === builtInView)?.label ??
+            "Vista"
+          }
+        />
         </div>
         <div
           aria-label="Strumenti dashboard"
@@ -959,12 +1076,9 @@ export function ManagementDashboard() {
             columns={filterableColumns}
             disabled={!columnPreferencesReady}
             onChange={(columnId, value) =>
-              setColumnFilters((current) => ({
-                ...current,
-                [columnId]: value,
-              }))
+              changeColumnFilters({ ...columnFilters, [columnId]: value })
             }
-            onReset={() => setColumnFilters({})}
+            onReset={() => changeColumnFilters({})}
             values={columnFilters}
           />
           <ColumnCustomizer
@@ -972,7 +1086,11 @@ export function ManagementDashboard() {
             columns={visibleColumnIds}
             disabled={!columnPreferencesReady}
             onChange={updateColumns}
-            onReset={() => updateColumns([...DEFAULT_COLUMNS[view]])}
+            onReset={() =>
+              updateColumns([
+                ...DEFAULT_COLUMNS[builtInView ?? "PEOPLE"],
+              ])
+            }
           />
           <SortControl
             className={cn("shrink-0", layout === "TABLE" && "md:hidden")}
@@ -980,29 +1098,6 @@ export function ManagementDashboard() {
             onChange={changeSort}
             sort={appliedSort}
           />
-          <div
-            aria-label="Disposizione risultati"
-            className="hidden shrink-0 items-center gap-0.5 rounded-md border p-0.5 md:flex"
-            role="group"
-          >
-            {layouts.map((item) => (
-              <button
-                aria-label={item.label}
-                aria-pressed={layout === item.id}
-                className={cn(
-                  "inline-flex size-6 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  layout === item.id
-                    ? "bg-operative text-operative-foreground"
-                    : "text-muted-foreground hover:bg-muted",
-                )}
-                key={item.id}
-                onClick={() => changeLayout(item.id)}
-                type="button"
-              >
-                <item.icon aria-hidden="true" className="size-4" />
-              </button>
-            ))}
-          </div>
           <span className="hidden shrink-0 whitespace-nowrap pl-1 text-xs tabular-nums text-muted-foreground lg:inline">
             {visiblePeople.length} risultati · {selectedPeople.length}{" "}
             selezionati
@@ -1085,8 +1180,9 @@ export function ManagementDashboard() {
           passportPhotoStates={passportPhotoStates}
           people={visiblePeople}
           selected={selected}
+          onResizeColumn={resizeColumn}
           sort={appliedSort}
-          view={view}
+          widths={columnWidths}
         />
       )}
 

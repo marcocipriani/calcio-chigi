@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Event } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, isMatchEvent } from "@/lib/utils";
 
 interface EventProps {
   event: Event;
@@ -18,7 +18,7 @@ type EventAttendancePreview = NonNullable<Event["attendance"]>[number];
 
 export function EventCard({ event, opponentLogo, className }: EventProps) {
   const date = event.data_ora ? new Date(event.data_ora) : null;
-  const isMatch = event.tipo === 'PARTITA';
+  const isMatch = isMatchEvent(event.tipo);
   const isPlayed = event.giocata === true;
   const isCancelled = event.cancellato === true;
 

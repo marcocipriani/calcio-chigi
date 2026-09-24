@@ -58,17 +58,18 @@ describe("SiteHeader", () => {
     expect(profileAvatar).not.toHaveClass("ring-emerald-500")
   })
 
-  it("keeps a compact app title visible on mobile", () => {
+  it("shows one app title and only zooms the logo on hover", () => {
     render(<SiteHeader />)
 
-    expect(screen.getByRole("img", { name: "Logo Circolo Chigi" })).toHaveAttribute(
+    const logo = screen.getByRole("img", { name: "Logo Circolo Chigi" })
+    expect(logo).toHaveAttribute(
       "src",
       expect.stringContaining("logo-circolo-chigi-mark"),
     )
-    expect(screen.getByText("Calcio Chigi", { exact: true })).toHaveClass(
-      "sm:hidden",
-    )
-    expect(screen.getByText("Calcio Circolo Chigi")).toHaveClass("sm:inline")
+    expect(logo).toHaveClass("motion-safe:group-hover:scale-105")
+    expect(logo.className).not.toMatch(/rotate/)
+    expect(screen.getByText("Calcio Chigi", { exact: true })).toBeVisible()
+    expect(screen.queryByText("Calcio Circolo Chigi")).not.toBeInTheDocument()
   })
 
   it("uses consistent mobile touch targets for header actions", () => {

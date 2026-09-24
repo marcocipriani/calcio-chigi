@@ -35,6 +35,8 @@ import {
 import { romeDateKey } from "@/lib/season"
 import type { SafePlayerProfile } from "@/lib/season-statistics"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import type { EventType } from "@/lib/types"
+import { EVENT_TYPE_LABEL } from "@/lib/utils"
 
 type Membership = {
   id: string
@@ -66,7 +68,7 @@ type OperationalContacts = {
 
 type EventRow = {
   id: string
-  tipo: "ALLENAMENTO" | "PARTITA"
+  tipo: EventType
   data_ora: string | null
   avversario: string | null
 }
@@ -586,9 +588,9 @@ export default function PlayerPage({
                 >
                   <span className="min-w-0">
                     <strong className="block truncate text-xs">
-                      {event.tipo === "PARTITA"
-                        ? event.avversario ?? "Partita"
-                        : "Allenamento"}
+                      {event.tipo === "ALLENAMENTO"
+                        ? "Allenamento"
+                        : event.avversario ?? EVENT_TYPE_LABEL[event.tipo]}
                     </strong>
                     <span className="text-[10px] text-muted-foreground">
                       {event.data_ora

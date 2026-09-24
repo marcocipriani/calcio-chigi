@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { ageGroupAt, isU35At } from "@/lib/utils"
+import { ageGroupAt, isU35At, sortPlaces } from "@/lib/utils"
 
 describe("U35 eligibility", () => {
   const referenceDate = new Date("2026-07-31T12:00:00+02:00")
@@ -16,5 +16,13 @@ describe("U35 eligibility", () => {
     expect(ageGroupAt("invalid", referenceDate)).toBeNull()
     expect(ageGroupAt("2026-08-01", referenceDate)).toBeNull()
     expect(ageGroupAt("1991-07-31", new Date("invalid"))).toBeNull()
+  })
+})
+
+describe("sortPlaces", () => {
+  it("puts SS Romulea first, then alphabetical, without duplicates", () => {
+    expect(
+      sortPlaces(["VIGOR PERCONTI", null, "ss romulea", "C.S. CAVALIERI", "Vigor Perconti ", ""]),
+    ).toEqual(["SS Romulea", "C.S. CAVALIERI", "VIGOR PERCONTI"])
   })
 })

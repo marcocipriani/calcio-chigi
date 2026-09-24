@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { sortPlaces } from './utils'
 import type { Event, Team, EventFase, FullProfile } from './types'
 import type {
     PhaseFilter,
@@ -88,6 +89,12 @@ export async function fetchCalendarEvents(supabase: SupabaseClient): Promise<Eve
     return data ?? []
 }
 
+export async function fetchPlaces(supabase: SupabaseClient): Promise<string[]> {
+    const { data, error } = await supabase.from('events').select('luogo').not('luogo', 'is', null)
+    if (error) throw error
+    return sortPlaces((data ?? []).map(({ luogo }) => luogo))
+}
+
 /**
  * Fetches a single event by ID.
  */
@@ -174,7 +181,7 @@ export async function fetchAvailableGiornate(supabase: SupabaseClient): Promise<
 }
 
 /**
- * Fetches the next upcoming Chigi match (nearest future date).
+ * Fetches the next upcoming Chigi match or friendly (nearest future date).
  * Returns null when no upcoming match exists.
  */
 export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Event | null> {
@@ -182,7 +189,7 @@ export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Eve
     const { data } = await supabase
         .from('events')
         .select('*')
-        .eq('tipo', 'PARTITA')
+        .in('tipo', ['PARTITA', 'AMICHEVOLE'])
         .eq('cancellato', false)
         .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%')
         .gte('data_ora', now)

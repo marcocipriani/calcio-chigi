@@ -9,8 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
-import { Event, EventFase } from "@/lib/types"
+import { Event, EventFase, EventType } from "@/lib/types"
 import { toast } from "sonner"
+import { supabaseBrowser as supabase } from "@/lib/supabaseBrowser"
+import { fetchPlaces } from "@/lib/api"
+import { HOME_PLACE, isMatchEvent } from "@/lib/utils"
+
+const OTHER_PLACE = "__other__"
 
 interface EventDialogProps {
   open: boolean
@@ -22,11 +27,13 @@ interface EventDialogProps {
 export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDialogProps) {
   const [loading, setLoading] = useState(false)
   
-  const [tipo, setTipo] = useState<'ALLENAMENTO' | 'PARTITA'>('ALLENAMENTO')
+  const [tipo, setTipo] = useState<EventType>('ALLENAMENTO')
   const [dateStr, setDateStr] = useState('')
   const [timeStr, setTimeStr] = useState('')
   const [endTimeStr, setEndTimeStr] = useState('')
   const [luogo, setLuogo] = useState('')
+  const [places, setPlaces] = useState<string[]>([HOME_PLACE])
+  const [customPlace, setCustomPlace] = useState(false)
   const [tipoCampo, setTipoCampo] = useState<'a8' | 'a11' | null>(null)
   const [avversario, setAvversario] = useState('')
   const [note, setNote] = useState('')
@@ -53,7 +60,15 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
   };
 
   useEffect(() => {
+    if (!open) return
+    fetchPlaces(supabase)
+        .then(setPlaces)
+        .catch(() => toast.error("Impossibile caricare l'elenco dei campi"))
+  }, [open])
+
+  useEffect(() => {
     if (open) {
+        setCustomPlace(false)
         if (eventToEdit) {
             try {
                 const { date, time } = parseDateTimeSafe(eventToEdit.data_ora ?? '');
@@ -91,8 +106,8 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             setDateStr(date)
             setTimeStr('21:00')
             setEndTimeStr('')
-            setLuogo('C.S. CAVALIERI')
-            setTipoCampo(null)
+            setLuogo(HOME_PLACE)
+            setTipoCampo('a11')
             setAvversario('')
             setNote('')
             setGiocata(false)
@@ -146,12 +161,12 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             cancellato
         }
 
-        if (tipo === 'PARTITA') {
+        if (isMatchEvent(tipo)) {
             payload.avversario = avversario || "Avversario";
             payload.squadra_casa = squadraCasa || null;
             payload.squadra_ospite = squadraOspite || null;
-            payload.fase = fase || null;
-            payload.giornata = giornata ? parseInt(giornata, 10) : null;
+            payload.fase = tipo === 'PARTITA' ? fase || null : null;
+            payload.giornata = tipo === 'PARTITA' && giornata ? parseInt(giornata, 10) : null;
             if (giocata) {
                 payload.gol_casa = safeInt(golNostri);
                 payload.gol_ospite = safeInt(golAvversario);
@@ -196,10 +211,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
                 <Label htmlFor="event-type">Tipo</Label>
-                <Select value={tipo} onValueChange={(v: 'ALLENAMENTO'|'PARTITA') => setTipo(v)}>
+                <Select value={tipo} onValueChange={(v: EventType) => setTipo(v)}>
                     <SelectTrigger id="event-type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="PARTITA">Partita</SelectItem>
+                        <SelectItem value="AMICHEVOLE">Amichevole</SelectItem>
                         <SelectItem value="ALLENAMENTO">Allenamento</SelectItem>
                     </SelectContent>
                 </Select>
@@ -231,7 +247,24 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
 
           <div className="space-y-2">
             <Label htmlFor="event-place">Luogo</Label>
-            <Input id="event-place" name="place" value={luogo} onChange={(e) => setLuogo(e.target.value)} required />
+            <Select
+                value={customPlace || !places.includes(luogo) ? OTHER_PLACE : luogo}
+                onValueChange={(v) => {
+                    setCustomPlace(v === OTHER_PLACE)
+                    setLuogo(v === OTHER_PLACE ? '' : v)
+                    // Alla Romulea ci alleniamo sempre sul campo a 11.
+                    if (v === HOME_PLACE) setTipoCampo('a11')
+                }}
+            >
+                <SelectTrigger id="event-place"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    {places.map((place) => <SelectItem key={place} value={place}>{place}</SelectItem>)}
+                    <SelectItem value={OTHER_PLACE}>Altro…</SelectItem>
+                </SelectContent>
+            </Select>
+            {(customPlace || !places.includes(luogo)) && (
+                <Input aria-label="Nuovo campo" name="place" value={luogo} onChange={(e) => setLuogo(e.target.value)} placeholder="Nome del campo" required />
+            )}
           </div>
 
           {tipo === 'ALLENAMENTO' && (
@@ -250,7 +283,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
               </div>
           )}
 
-          {tipo === 'PARTITA' && (
+          {isMatchEvent(tipo) && (
              <div className="space-y-4 border rounded-lg p-3 bg-muted/30 mt-2">
                 <div className="space-y-2">
                     <Label htmlFor="event-opponent">Avversario / Titolo</Label>
@@ -268,7 +301,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {tipo === 'PARTITA' && <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                         <Label className="text-xs" htmlFor="event-phase">Fase torneo</Label>
                         <Select value={fase} onValueChange={(v) => setFase(v as EventFase | '')}>
@@ -286,7 +319,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                         <Label className="text-xs" htmlFor="event-round">Giornata</Label>
                         <Input id="event-round" name="round" type="number" inputMode="numeric" value={giornata} onChange={(e) => setGiornata(e.target.value)} placeholder="Es. 1" className="text-xs h-8" min={1} />
                     </div>
-                </div>
+                </div>}
 
                 <div className="flex items-center justify-between">
                     <Label htmlFor="played-switch">Partita Giocata?</Label>

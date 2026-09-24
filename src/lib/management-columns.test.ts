@@ -85,26 +85,53 @@ describe("management columns", () => {
 })
 
 describe("normalizeDisplayPreferences", () => {
-  it("keeps valid choices and drops anything unknown", () => {
+  it("keeps valid per-view settings and custom views, drops the rest", () => {
     expect(
       normalizeDisplayPreferences({
-        view: "PAYMENTS",
-        layout: "CARDS",
+        view: "custom-1",
+        layouts: { PAYMENTS: "CARDS", BOGUS: "CARDS" },
         sorts: {
           PAYMENTS: { columnId: "dueOn", direction: "desc" },
           PEOPLE: { columnId: "person", direction: "sideways" },
-          BOGUS: { columnId: "x", direction: "asc" },
         },
+        widths: { "custom-1": { phone: 10, notes: 9999, role: "wide" } },
+        customViews: [
+          {
+            id: "custom-1",
+            label: " Da contattare ",
+            columns: ["phone", "nope"],
+            filters: { phone: "333", role: "" },
+          },
+          { id: "PEOPLE", label: "Non può sostituire una predefinita" },
+          { id: "custom-2", label: "  " },
+        ],
       }),
     ).toEqual({
-      view: "PAYMENTS",
-      layout: "CARDS",
+      view: "custom-1",
+      layouts: { PAYMENTS: "CARDS" },
       sorts: { PAYMENTS: { columnId: "dueOn", direction: "desc" } },
+      widths: { "custom-1": { phone: 64, notes: 640 } },
+      customViews: [
+        {
+          id: "custom-1",
+          label: "Da contattare",
+          columns: ["person", "phone"],
+          filters: { phone: "333" },
+        },
+      ],
     })
+  })
+
+  it("falls back to People and reads the old single layout", () => {
+    expect(
+      normalizeDisplayPreferences({ view: "custom-gone", layout: "CARDS" }),
+    ).toMatchObject({ view: "PEOPLE", layouts: { PEOPLE: "CARDS" } })
     expect(normalizeDisplayPreferences("garbage")).toEqual({
       view: "PEOPLE",
-      layout: "TABLE",
+      layouts: {},
       sorts: {},
+      widths: {},
+      customViews: [],
     })
   })
 })

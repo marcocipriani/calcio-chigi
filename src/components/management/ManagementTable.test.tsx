@@ -3,11 +3,13 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
+  getAvailableManagementColumns,
   getManagementColumnAccessors,
   ManagementTable,
 } from "@/components/management/ManagementTable"
 import type { ManagementPerson } from "@/lib/management"
 import {
+  ALL_COLUMN_IDS,
   applyTableState,
   nextSort,
   type ManagementView,
@@ -93,7 +95,7 @@ function SortableTable({
       }
       people={applyTableState(
         rows,
-        getManagementColumnAccessors(view),
+        getManagementColumnAccessors(),
         {},
         sort,
       )}
@@ -150,6 +152,37 @@ function renderAttendanceTable(onOpen = vi.fn()) {
 }
 
 describe("ManagementTable", () => {
+  it("offers every person field as a column, matching the saved-prefs list", () => {
+    const ids = getAvailableManagementColumns().map(({ id }) => id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect([...ids].sort()).toEqual([...ALL_COLUMN_IDS].sort())
+  })
+
+  it("resizes a column from the keyboard and resets it on double click", () => {
+    const onResizeColumn = vi.fn()
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "phone"]}
+        onResizeColumn={onResizeColumn}
+        people={people}
+        selected={new Set()}
+        widths={{ phone: 200 }}
+      />,
+    )
+    const handle = screen.getByRole("separator", {
+      name: "Ridimensiona colonna Telefono",
+    })
+    expect(
+      screen.getByRole("columnheader", { name: /telefono/i }),
+    ).toHaveStyle({ width: "200px" })
+
+    fireEvent.keyDown(handle, { key: "ArrowRight" })
+    expect(onResizeColumn).toHaveBeenLastCalledWith("phone", 216)
+    fireEvent.doubleClick(handle)
+    expect(onResizeColumn).toHaveBeenLastCalledWith("phone", null)
+  })
+
   it("renders only the ordered People columns and the jersey number", () => {
     renderPeopleTable()
 
@@ -206,7 +239,7 @@ describe("ManagementTable", () => {
       },
       people[1],
     ]
-    const accessors = getManagementColumnAccessors("PEOPLE")
+    const accessors = getManagementColumnAccessors()
 
     expect(
       applyTableState(agePeople, accessors, { person: "U35" }, null).map(
@@ -345,7 +378,7 @@ describe("ManagementTable", () => {
   })
 
   it("filters people by role and tags", () => {
-    const accessors = getManagementColumnAccessors("PEOPLE")
+    const accessors = getManagementColumnAccessors()
     const [player, staff] = people
     const tagged = { ...player, isExternal: true, isAggregated: true }
     const rows = [tagged, staff]
@@ -424,8 +457,8 @@ describe("ManagementTable", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
     const card = screen.getByRole("article")
     expect(within(card).getByText("Quote:")).toBeVisible()
-    expect(within(card).getByText("Scadenza:")).toBeVisible()
-    expect(within(card).getByText("Metodo:")).toBeVisible()
+    expect(within(card).getByText("Scadenza quota:")).toBeVisible()
+    expect(within(card).getByText("Metodo pagamento:")).toBeVisible()
     expect(within(card).queryByText("Azione:")).not.toBeInTheDocument()
 
     fireEvent.click(

@@ -31,6 +31,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { PageTitleBar } from "@/components/layout/PageTitleBar";
 import { Event, Team } from "@/lib/types";
 import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
+import { EVENT_TYPE_LABEL, isMatchEvent } from "@/lib/utils";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
@@ -152,7 +153,7 @@ export default function Home() {
   const processedEvents = useMemo(() => {
     return events.map(e => {
         let opponent = e.avversario;
-        if (e.tipo === 'PARTITA' && e.squadra_casa && e.squadra_ospite) {
+        if (isMatchEvent(e.tipo) && e.squadra_casa && e.squadra_ospite) {
             if (e.squadra_casa.toLowerCase().includes('chigi')) {
                 opponent = e.squadra_ospite;
             } else if (e.squadra_ospite.toLowerCase().includes('chigi')) {
@@ -182,7 +183,8 @@ export default function Home() {
 
   const applyTypeFilter = (list: Event[]) => {
     if (filter === 'ALL') return list;
-    return list.filter(e => e.tipo === filter);
+    // Le amichevoli stanno sotto "Partite".
+    return list.filter(e => filter === 'PARTITA' ? isMatchEvent(e.tipo) : e.tipo === filter);
   };
 
   const filteredEvents = applyTypeFilter(processedEvents);
@@ -274,11 +276,11 @@ export default function Home() {
 
                               <div className="flex w-full justify-center gap-0.5">
                                   {dayEvents.map((evt) => {
-                                      const isMatch = evt.tipo === 'PARTITA';
+                                      const isMatch = isMatchEvent(evt.tipo);
                                       const isCancelled = evt.cancellato;
                                       const opponentLogo = isMatch ? getLogo(evt.avversario) : null;
                                       const accessibleLabel = `${isCancelled ? 'Annullato: ' : ''}${
-                                          isMatch ? `Partita contro ${evt.avversario ?? 'avversario'}` : 'Allenamento'
+                                          isMatch ? `${EVENT_TYPE_LABEL[evt.tipo]} contro ${evt.avversario ?? 'avversario'}` : 'Allenamento'
                                       }, ${format(new Date(evt.data_ora!), 'd MMMM yyyy, HH:mm', { locale: it })}`;
                                       
                                       return (
@@ -327,7 +329,7 @@ export default function Home() {
                                                 </TooltipTrigger>
                                                 <TooltipContent className="text-xs bg-slate-900 text-white border-slate-800 p-2">
                                                     <div className="font-bold mb-0.5">
-                                                        {isCancelled ? 'ANNULLATO' : (isMatch ? 'PARTITA' : 'ALLENAMENTO')}
+                                                        {isCancelled ? 'ANNULLATO' : EVENT_TYPE_LABEL[evt.tipo].toUpperCase()}
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-80">
                                                         <Clock className="h-3 w-3" /> {evt.data_ora ? format(new Date(evt.data_ora), 'HH:mm') : '—'}
@@ -442,10 +444,10 @@ export default function Home() {
                                   </div>
                                   <div className="space-y-0.5">
                                       {dayEvents.map((event) => {
-                                          const isMatch = event.tipo === 'PARTITA';
+                                          const isMatch = isMatchEvent(event.tipo);
                                           const opponentLogo = isMatch ? getLogo(event.avversario) : null;
                                           const accessibleLabel = `${event.cancellato ? 'Annullato: ' : ''}${
-                                              isMatch ? `Partita contro ${event.avversario ?? 'avversario'}` : 'Allenamento'
+                                              isMatch ? `${EVENT_TYPE_LABEL[event.tipo]} contro ${event.avversario ?? 'avversario'}` : 'Allenamento'
                                           }, ${format(new Date(event.data_ora!), 'd MMMM yyyy, HH:mm', { locale: it })}`;
                                           return (
                                               <Link
@@ -517,7 +519,7 @@ export default function Home() {
                           <div className="space-y-2">
                               {agenda.map((event) => {
                                   const date = new Date(event.data_ora!);
-                                  const isMatch = event.tipo === 'PARTITA';
+                                  const isMatch = isMatchEvent(event.tipo);
                                   const isNext = event.id === nextMatch?.id;
                                   return (
                                       <Link

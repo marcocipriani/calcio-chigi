@@ -32,6 +32,14 @@ const TEAM_ALIASES = new Map([
   ['vvf', 'VVF'],
 ]);
 
+// Stessi nomi canonici della migration events_amichevole_places: il dropdown dei campi non si duplica.
+const PLACE_ALIASES = new Map([
+  ['romulea', 'SS Romulea'],
+  ['ss romulea', 'SS Romulea'],
+  ['cs cavalieri', 'C.S. CAVALIERI'],
+  ['c.s. cavalieri', 'C.S. CAVALIERI'],
+]);
+
 const PHASE_ALIASES = [
   { includes: 'coppa lazio', value: 'COPPA_LAZIO_PROFESSIONISTI' },
   { includes: 'professionisti nel pallone', value: 'FASE_2_PROFESSIONISTI' },
@@ -126,7 +134,7 @@ function parseMatches(sourceHtml) {
 
     const groupName = normalizeSpaces(decodeHtml(stripTags(block.match(/<div class='left'>[\s\S]*?<b>([\s\S]*?)<\/b>/)?.[1] || ''))) || null;
     const dateText = normalizeSpaces(decodeHtml(stripTags(block.match(/<div class='center'>([\s\S]*?)<\/div>/)?.[1] || ''))) || null;
-    const place = normalizeSpaces(decodeHtml(stripTags(block.match(/<div class='right'>([\s\S]*?)<\/div>/)?.[1] || ''))) || null;
+    const place = normalizePlace(normalizeSpaces(decodeHtml(stripTags(block.match(/<div class='right'>([\s\S]*?)<\/div>/)?.[1] || ''))));
     const dataOra = dateText ? parseItalianDate(dateText) : null;
     const phase = phaseFromGroup(groupName);
     const isChigi = homeTeam === MY_TEAM || awayTeam === MY_TEAM;
@@ -169,6 +177,13 @@ function normalizeTeam(value) {
 function canonicalTeam(value) {
   const key = normalizeSpaces(decodeHtml(String(value).replace(/\u00a0/g, ' '))).toLowerCase();
   return TEAM_ALIASES.get(key) || key.toUpperCase();
+}
+
+// Enjore aggiunge il tipo di campo al nome (" - 11", " - *"): lo togliamo.
+function normalizePlace(value) {
+  if (!value) return null;
+  const place = value.replace(/\s+-\s+(\d+|\*)$/, '');
+  return PLACE_ALIASES.get(place.toLowerCase()) || place;
 }
 
 function phaseFromGroup(groupName) {

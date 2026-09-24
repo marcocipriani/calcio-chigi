@@ -36,6 +36,11 @@ export function isFormationBenchSlot(positionKey: string): boolean {
   return /^P[1-9]$/.test(positionKey)
 }
 
+// Regolamento 2026/27: fino a 5 Under 35 convocati (portiere escluso), di cui
+// al massimo 3 in campo insieme. Stesso limite in publish_official_formation.
+export const U35_FIELD_MAX = 3
+export const U35_SQUAD_MAX = 5
+
 export function u35Quota(entries: U35QuotaEntry[], matchDate: Date) {
   const eligible = entries.filter(
     ({ birthDate, positionKey, role }) =>
@@ -47,8 +52,8 @@ export function u35Quota(entries: U35QuotaEntry[], matchDate: Date) {
     ({ positionKey }) => !isFormationBenchSlot(positionKey),
   ).length
   const total = eligible.length
-  const fieldExceeded = field > 3
-  const totalExceeded = total > 4
+  const fieldExceeded = field > U35_FIELD_MAX
+  const totalExceeded = total > U35_SQUAD_MAX
   return {
     field,
     total,

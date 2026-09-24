@@ -63,7 +63,20 @@ describe("u35Quota", () => {
         [under("DC1"), under("DC2"), under("CC1"), under("P1"), under("P2")],
         matchDate,
       ),
-    ).toMatchObject({ field: 3, total: 5, fieldExceeded: false, totalExceeded: true })
+    ).toMatchObject({ field: 3, total: 5, fieldExceeded: false, totalExceeded: false })
+    expect(
+      u35Quota(
+        [
+          under("DC1"),
+          under("DC2"),
+          under("CC1"),
+          under("P1"),
+          under("P2"),
+          under("P3"),
+        ],
+        matchDate,
+      ),
+    ).toMatchObject({ field: 3, total: 6, fieldExceeded: false, totalExceeded: true })
   })
 
   it("does not count U35 goalkeepers", () => {

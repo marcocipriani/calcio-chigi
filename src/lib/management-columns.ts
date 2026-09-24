@@ -47,58 +47,170 @@ export function activeColumnFilters(
   )
 }
 
-/** Come il manager guarda la dashboard: salvato per profilo, come le colonne. */
+// Ogni colonna è disponibile in ogni vista: l'elenco è la fonte di verità per
+// validare le preferenze salvate. Deve restare allineato alle definizioni in
+// ManagementTable (un test lo verifica).
+export const ALL_COLUMN_IDS = [
+  "person",
+  "role",
+  "status",
+  "birthDate",
+  "jerseyNumber",
+  "uniformSize",
+  "phone",
+  "email",
+  "department",
+  "tags",
+  "trainingStreak",
+  "trainingRate",
+  "payments",
+  "nextPayment",
+  "dueOn",
+  "method",
+  "paymentAction",
+  "registration",
+  "asiCard",
+  "passportPhoto",
+  "joinedOn",
+  "completedOn",
+  "certificate",
+  "expiresOn",
+  "document",
+  "certificateAction",
+  "account",
+  "accountAction",
+  "permission",
+  "nextContactOn",
+  "notes",
+] as const
+
+export const BUILT_IN_VIEWS = Object.keys(DEFAULT_COLUMNS) as ManagementView[]
+
+export function isBuiltInView(id: string): id is ManagementView {
+  return (BUILT_IN_VIEWS as string[]).includes(id)
+}
+
+/** Vista creata dal manager: colonne e filtri suoi, affiancata alle predefinite. */
+export type CustomView = {
+  id: string
+  label: string
+  columns: string[]
+  filters: ManagementColumnFilters
+}
+
+/**
+ * Come il manager guarda la dashboard, salvato per profilo. Layout,
+ * ordinamento e larghezze sono per vista (predefinita o personalizzata); le
+ * colonne delle viste predefinite restano in ColumnPreferences.
+ */
 export type DisplayPreferences = {
-  view: ManagementView
-  layout: ManagementLayout
-  sorts: Partial<Record<ManagementView, TableSort>>
+  view: string
+  layouts: Record<string, ManagementLayout>
+  sorts: Record<string, TableSort>
+  widths: Record<string, Record<string, number>>
+  customViews: CustomView[]
+}
+
+const MIN_COLUMN_WIDTH = 64
+const MAX_COLUMN_WIDTH = 640
+
+export function clampColumnWidth(width: number) {
+  return Math.round(
+    Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, width)),
+  )
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function normalizeColumns(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) return [...fallback]
+  const known = ALL_COLUMN_IDS as readonly string[]
+  const valid = [...new Set(value)].filter(
+    (column): column is string =>
+      typeof column === "string" && known.includes(column),
+  )
+  if (!valid.length) return [...fallback]
+  return valid.includes("person") ? valid : ["person", ...valid]
+}
+
+function normalizeSort(value: unknown): TableSort {
+  const sort = asRecord(value)
+  return typeof sort.columnId === "string" &&
+    (sort.direction === "asc" || sort.direction === "desc")
+    ? { columnId: sort.columnId, direction: sort.direction }
+    : null
 }
 
 export function normalizeDisplayPreferences(value: unknown): DisplayPreferences {
-  const source =
-    value && typeof value === "object" ? (value as Record<string, unknown>) : {}
-  const views = Object.keys(DEFAULT_COLUMNS) as ManagementView[]
-  const view = views.includes(source.view as ManagementView)
-    ? (source.view as ManagementView)
-    : "PEOPLE"
-  const layout = source.layout === "CARDS" ? "CARDS" : "TABLE"
-  const storedSorts =
-    source.sorts && typeof source.sorts === "object"
-      ? (source.sorts as Record<string, unknown>)
-      : {}
-  const sorts: DisplayPreferences["sorts"] = {}
-  for (const key of views) {
-    const sort = storedSorts[key] as { columnId?: unknown; direction?: unknown }
-    if (
-      sort &&
-      typeof sort.columnId === "string" &&
-      (sort.direction === "asc" || sort.direction === "desc")
-    ) {
-      sorts[key] = { columnId: sort.columnId, direction: sort.direction }
+  const source = asRecord(value)
+
+  const customViews: CustomView[] = (
+    Array.isArray(source.customViews) ? source.customViews : []
+  ).flatMap((item) => {
+    const view = asRecord(item)
+    const label = typeof view.label === "string" ? view.label.trim() : ""
+    if (typeof view.id !== "string" || !view.id || isBuiltInView(view.id) || !label) {
+      return []
     }
+    const filters = Object.fromEntries(
+      Object.entries(asRecord(view.filters)).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1] !== "",
+      ),
+    )
+    return [
+      {
+        id: view.id,
+        label: label.slice(0, 40),
+        columns: normalizeColumns(view.columns, DEFAULT_COLUMNS.PEOPLE),
+        filters,
+      },
+    ]
+  })
+  const viewIds = [...BUILT_IN_VIEWS, ...customViews.map(({ id }) => id)]
+
+  // Formato precedente: un solo layout per tutte le viste.
+  const legacyLayout: ManagementLayout | null =
+    source.layout === "CARDS" ? "CARDS" : null
+  const storedLayouts = asRecord(source.layouts)
+  const storedSorts = asRecord(source.sorts)
+  const storedWidths = asRecord(source.widths)
+  const layouts: DisplayPreferences["layouts"] = {}
+  const sorts: DisplayPreferences["sorts"] = {}
+  const widths: DisplayPreferences["widths"] = {}
+  for (const id of viewIds) {
+    const layout = storedLayouts[id] ?? legacyLayout
+    if (layout === "CARDS" || layout === "TABLE") layouts[id] = layout
+    const sort = normalizeSort(storedSorts[id])
+    if (sort) sorts[id] = sort
+    const viewWidths = Object.fromEntries(
+      Object.entries(asRecord(storedWidths[id])).flatMap(([column, width]) =>
+        typeof width === "number" && Number.isFinite(width)
+          ? [[column, clampColumnWidth(width)]]
+          : [],
+      ),
+    )
+    if (Object.keys(viewWidths).length) widths[id] = viewWidths
   }
-  return { view, layout, sorts }
+
+  const view =
+    typeof source.view === "string" && viewIds.includes(source.view)
+      ? source.view
+      : "PEOPLE"
+  return { view, layouts, sorts, widths, customViews }
 }
 
 export function normalizeColumnPreferences(value: unknown): ColumnPreferences {
-  const source =
-    value && typeof value === "object"
-      ? (value as Partial<Record<ManagementView, unknown>>)
-      : {}
-
+  const source = asRecord(value)
   return Object.fromEntries(
-    Object.entries(DEFAULT_COLUMNS).map(([view, defaults]) => {
-      const stored = source[view as ManagementView]
-      if (!Array.isArray(stored)) return [view, [...defaults]]
-
-      const valid = [...new Set(stored)].filter(
-        (column): column is string =>
-          typeof column === "string" && defaults.includes(column),
-      )
-      if (!valid.length) return [view, [...defaults]]
-
-      return [view, valid.includes("person") ? valid : ["person", ...valid]]
-    }),
+    BUILT_IN_VIEWS.map((view) => [
+      view,
+      normalizeColumns(source[view], DEFAULT_COLUMNS[view]),
+    ]),
   ) as ColumnPreferences
 }
 

@@ -39,7 +39,7 @@ import { Event, FullProfile } from "@/lib/types"
 import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
-import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot, u35Quota } from "@/lib/formations"
+import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot, U35_FIELD_MAX, U35_SQUAD_MAX, u35Quota } from "@/lib/formations"
 import { getAge, isU35At } from "@/lib/utils"
 
 type Player = FullProfile & { training_only?: boolean }
@@ -366,7 +366,9 @@ export function FormationBuilder({
     }
 
     const referenceDate = nextMatch?.data_ora ? new Date(nextMatch.data_ora) : new Date()
-    const quota = u35Quota(
+    // La quota Under 35 è una regola del torneo: in amichevole non vale.
+    const isFriendly = nextMatch?.tipo === 'AMICHEVOLE'
+    const u35Count = u35Quota(
         Object.entries(lineup).map(([positionKey, player]) => ({
             birthDate: player.data_nascita,
             positionKey,
@@ -374,6 +376,9 @@ export function FormationBuilder({
         })),
         referenceDate,
     )
+    const quota = isFriendly
+        ? { ...u35Count, exceeded: false, fieldExceeded: false, totalExceeded: false }
+        : u35Count
 
     const handleModuleChange = (newModule: string) => {
         const oldLineup = { ...lineup };
@@ -517,7 +522,7 @@ export function FormationBuilder({
             return
         }
         if (quota.exceeded) {
-            toast.error("Formazione oltre quota U35: massimo 3 in campo e 4 convocati.")
+            toast.error(`Formazione oltre quota Under 35: massimo ${U35_FIELD_MAX} in campo e ${U35_SQUAD_MAX} convocati.`)
             return
         }
         const { error } = await supabaseBrowser.rpc('publish_official_formation', {
@@ -678,25 +683,25 @@ export function FormationBuilder({
 
                     {showOfficialControls && quota.exceeded && (
                         <p className="text-xs font-medium text-red-700 dark:text-red-400" id={officialQuotaRequirementId}>
-                            Pubblicazione bloccata: massimo 3 U35 in campo e 4 convocati
+                            Pubblicazione bloccata: massimo {U35_FIELD_MAX} Under 35 in campo e {U35_SQUAD_MAX} convocati
                         </p>
                     )}
 
-                    <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${quota.exceeded ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
+                    {!isFriendly && <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${quota.exceeded ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
                         <div className="flex items-center gap-2">
                             <Users className={`h-4 w-4 ${quota.exceeded ? 'text-red-500' : 'text-primary'}`} />
                             <span className="text-xs font-bold uppercase tracking-wider text-foreground">Quota Under 35</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs font-medium">
                             <div className={quota.fieldExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
-                                Campo: <span className="text-foreground font-bold">{quota.field}</span>/3
+                                Campo: <span className="text-foreground font-bold">{quota.field}</span>/{U35_FIELD_MAX}
                             </div>
                             <div className="w-px h-3 bg-border" />
                             <div className={quota.totalExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
-                                Convocati: <span className="text-foreground font-bold">{quota.total}</span>/4
+                                Convocati: <span className="text-foreground font-bold">{quota.total}</span>/{U35_SQUAD_MAX}
                             </div>
                         </div>
-                    </div>
+                    </div>}
 
                     <div ref={fieldRef} className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                         <div className="relative flex-1 max-w-[450px] mx-auto aspect-[3/4] bg-gradient-to-b from-green-600 via-green-600 to-green-700 rounded-lg overflow-hidden shadow-2xl border-[3px] border-white/20 ring-1 ring-black/10">

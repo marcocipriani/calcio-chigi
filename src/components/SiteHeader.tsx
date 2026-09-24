@@ -34,18 +34,15 @@ export function SiteHeader() {
           <span className="relative size-10 shrink-0 sm:size-11">
             <Image
               alt="Logo Circolo Chigi"
-              className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
+              className="object-contain transition-transform duration-200 motion-safe:group-hover:scale-105"
               fill
               priority
               sizes="44px"
               src="/brand/logos/logo-circolo-chigi-mark.webp?v=2"
             />
           </span>
-          <span className="truncate text-sm font-black tracking-tight sm:hidden">
+          <span className="truncate text-sm font-black tracking-tight sm:text-base">
             Calcio Chigi
-          </span>
-          <span className="hidden truncate text-base font-black tracking-tight sm:inline">
-            Calcio Circolo Chigi
           </span>
         </Link>
 

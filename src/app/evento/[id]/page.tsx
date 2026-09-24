@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
 import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent } from '@/lib/api';
-import { ageGroupAt, isU35At } from '@/lib/utils';
+import { ageGroupAt, EVENT_TYPE_LABEL, isMatchEvent, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
 import { EventRosterPanel } from '@/components/events/EventRosterPanel';
@@ -150,13 +150,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
     if (eventData) {
         let opponentName = eventData.avversario;
-        if (eventData.tipo === 'PARTITA' && eventData.squadra_ospite && eventData.squadra_casa) {
+        if (isMatchEvent(eventData.tipo) && eventData.squadra_ospite && eventData.squadra_casa) {
             opponentName = eventData.squadra_casa.toLowerCase().includes('chigi') ? eventData.squadra_ospite : eventData.squadra_casa;
         }
         const processedEvent = { ...eventData, avversario: opponentName };
         setEvent(processedEvent);
 
-        if (processedEvent.tipo === 'PARTITA' && opponentName) {
+        if (isMatchEvent(processedEvent.tipo) && opponentName) {
             const logo = await fetchTeamLogoByName(supabase, opponentName);
             setOpponentLogo(logo);
         }
@@ -306,7 +306,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     </PageContainer>
   );
 
-  const isMatch = event.tipo === 'PARTITA';
+  const isMatch = isMatchEvent(event.tipo);
   const isCancelled = event.cancellato;
   const eventDate = event.data_ora ? new Date(event.data_ora) : new Date('invalid');
 
@@ -368,7 +368,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 <Button aria-label="Torna indietro" variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20"><ArrowLeft aria-hidden="true" className="h-6 w-6" /></Button>
                 <div>
                     <div className="flex items-center gap-2">
-                        <h1 className="font-bold text-lg leading-none">{isCancelled ? 'Annullato' : (isMatch ? 'Partita' : 'Allenamento')}</h1>
+                        <h1 className="font-bold text-lg leading-none">{isCancelled ? 'Annullato' : EVENT_TYPE_LABEL[event.tipo]}</h1>
                     </div>
                 </div>
             </div>

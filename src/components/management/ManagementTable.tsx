@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Check,
   ChevronDown,
@@ -30,13 +30,15 @@ import {
 } from "@/components/ui/table"
 import type { ManagementPerson } from "@/lib/management"
 import {
+  clampColumnWidth,
   DEFAULT_COLUMNS,
   type ManagementLayout,
   type ManagementView,
   type TableSort,
 } from "@/lib/management-columns"
 import { registrationStatusLabel } from "@/lib/profile-operations"
-import { ageGroupAt, cn } from "@/lib/utils"
+import { UNIFORM_SIZES } from "@/lib/domain"
+import { ageGroupAt, cn, getAge } from "@/lib/utils"
 
 const tone = {
   good: "bg-emerald-500",
@@ -202,6 +204,12 @@ function personTags(person: ManagementPerson) {
   return tagDefinitions.filter(([, , matches]) => matches(person))
 }
 
+const statusLabel: Record<ManagementPerson["status"], string> = {
+  YES: "In rosa",
+  TRAINING_ONLY: "Solo allenamenti",
+  NO: "Archiviato",
+}
+
 function percentage(value: number | undefined) {
   return `${Math.round(value ?? 0)}%`
 }
@@ -252,6 +260,8 @@ type ManagementColumn = {
     | "certificate"
     | "role"
     | "tags"
+    | "status"
+    | "uniformSize"
   render: (
     person: ManagementPerson,
     actions: ManagementTableActions,
@@ -272,9 +282,10 @@ const personColumn: ManagementColumn = {
   render: (person) => <PersonIdentity person={person} />,
 }
 
-const columnsByView: Record<ManagementView, ManagementColumn[]> = {
-  PEOPLE: [
-    personColumn,
+// Un solo registro: ogni colonna è disponibile in qualunque vista. Gli id
+// devono coincidere con ALL_COLUMN_IDS (verificato da un test).
+const managementColumns: ManagementColumn[] = [
+  personColumn,
     {
       id: "role",
       label: "Ruolo",
@@ -284,6 +295,58 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       render: (person) => <span className="text-xs">{roleLabel(person)}</span>,
     },
     {
+      id: "status",
+      label: "Stato",
+      filter: "status",
+      filterValue: (person) => person.status,
+      sortValue: (person) => statusLabel[person.status],
+      render: (person) => (
+        <span className="text-xs">{statusLabel[person.status]}</span>
+      ),
+    },
+    {
+      id: "birthDate",
+      label: "Nascita",
+      filter: "text",
+      filterValue: (person) => person.birthDate,
+      sortValue: (person) => person.birthDate,
+      render: (person) => (
+        <span className="text-xs tabular-nums">
+          {displayDate(person.birthDate)}
+          {person.birthDate && (
+            <span className="ml-1 text-muted-foreground">
+              ({getAge(person.birthDate)})
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      id: "jerseyNumber",
+      label: "Maglia",
+      filter: "text",
+      filterValue: (person) => person.jerseyNumber,
+      sortValue: (person) => person.jerseyNumber,
+      render: (person) => (
+        <span className="text-xs tabular-nums">{person.jerseyNumber ?? "—"}</span>
+      ),
+    },
+    {
+      id: "uniformSize",
+      label: "Taglia",
+      filter: "uniformSize",
+      filterValue: (person) => person.uniformSize ?? "NONE",
+      sortValue: (person) =>
+        person.uniformSize
+          ? UNIFORM_SIZES.indexOf(
+              person.uniformSize as (typeof UNIFORM_SIZES)[number],
+            )
+          : null,
+      render: (person) => (
+        <span className="text-xs">{person.uniformSize ?? "—"}</span>
+      ),
+    },
+    {
       id: "phone",
       label: "Telefono",
       filter: "text",
@@ -291,6 +354,26 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       sortValue: (person) => person.phone,
       render: (person) => (
         <span className="text-xs">{person.phone ?? "—"}</span>
+      ),
+    },
+    {
+      id: "email",
+      label: "Email",
+      filter: "text",
+      filterValue: (person) => person.operationalEmail,
+      sortValue: (person) => person.operationalEmail,
+      render: (person) => (
+        <span className="text-xs">{person.operationalEmail ?? "—"}</span>
+      ),
+    },
+    {
+      id: "department",
+      label: "Dipartimento",
+      filter: "text",
+      filterValue: (person) => person.department,
+      sortValue: (person) => person.department,
+      render: (person) => (
+        <span className="text-xs">{person.department ?? "—"}</span>
       ),
     },
     {
@@ -317,9 +400,6 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
         )
       },
     },
-  ],
-  ATTENDANCE: [
-    personColumn,
     {
       id: "trainingStreak",
       label: "Ultimi allenamenti",
@@ -345,9 +425,6 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
         </span>
       ),
     },
-  ],
-  PAYMENTS: [
-    personColumn,
     {
       id: "payments",
       label: "Quote",
@@ -372,7 +449,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "dueOn",
-      label: "Scadenza",
+      label: "Scadenza quota",
       filter: "text",
       filterValue: (person) => nextPayment(person)?.dueOn,
       sortValue: (person) => nextPayment(person)?.dueOn,
@@ -382,7 +459,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "paymentAction",
-      label: "Azione",
+      label: "Azione quota",
       action: true,
       actionable: (person) => {
         const next = nextPayment(person)
@@ -412,7 +489,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "method",
-      label: "Metodo",
+      label: "Metodo pagamento",
       filter: "text",
       filterValue: (person) => nextPayment(person)?.method,
       sortValue: (person) => nextPayment(person)?.method,
@@ -420,12 +497,9 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
         <span className="text-xs">{nextPayment(person)?.method ?? "—"}</span>
       ),
     },
-  ],
-  REGISTRATIONS: [
-    personColumn,
     {
       id: "registration",
-      label: "Stato",
+      label: "Tesseramento",
       filter: "registration",
       filterValue: (person) => person.registrationStatus,
       sortValue: (person) => person.registrationStatus,
@@ -471,7 +545,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "completedOn",
-      label: "Completato il",
+      label: "Tesserato il",
       filter: "text",
       filterValue: (person) => person.registrationCompletedOn,
       sortValue: (person) => person.registrationCompletedOn,
@@ -481,9 +555,6 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
         </span>
       ),
     },
-  ],
-  CERTIFICATES: [
-    personColumn,
     {
       id: "certificate",
       label: "Certificato",
@@ -500,7 +571,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "expiresOn",
-      label: "Scadenza",
+      label: "Scadenza certificato",
       filter: "text",
       filterValue: (person) => person.certificateExpiresOn,
       sortValue: (person) => person.certificateExpiresOn,
@@ -510,7 +581,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "document",
-      label: "Documento",
+      label: "Certificato PDF",
       filterValue: (person) => person.certificateDocumentPath,
       sortValue: (person) => person.certificateDocumentPath,
       render: (person) => (
@@ -521,7 +592,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
     },
     {
       id: "certificateAction",
-      label: "Azione",
+      label: "Azione certificato",
       action: true,
       actionable: (person) =>
         person.certificateStatus === "PENDING_REVIEW" &&
@@ -559,40 +630,17 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
           "—"
         ),
     },
-  ],
-  ACCOUNTS: [
-    personColumn,
     {
       id: "account",
-      label: "Stato",
+      label: "Account",
       filter: "account",
       filterValue: (person) => person.accountStatus,
       sortValue: (person) => person.accountStatus,
       render: (person) => <AccountState person={person} />,
     },
     {
-      id: "email",
-      label: "Email",
-      filter: "text",
-      filterValue: (person) => person.operationalEmail,
-      sortValue: (person) => person.operationalEmail,
-      render: (person) => (
-        <span className="text-xs">{person.operationalEmail ?? "—"}</span>
-      ),
-    },
-    {
-      id: "phone",
-      label: "Telefono",
-      filter: "text",
-      filterValue: (person) => person.phone,
-      sortValue: (person) => person.phone,
-      render: (person) => (
-        <span className="text-xs">{person.phone ?? "—"}</span>
-      ),
-    },
-    {
       id: "accountAction",
-      label: "Azioni",
+      label: "Azione account",
       action: true,
       actionable: (person) => Boolean(person.associationRequestId),
       filterValue: () => "",
@@ -638,8 +686,34 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
           "—"
         ),
     },
-  ],
-}
+    {
+      id: "nextContactOn",
+      label: "Prossimo contatto",
+      filter: "text",
+      filterValue: (person) => person.nextContactOn,
+      sortValue: (person) => person.nextContactOn,
+      render: (person) => (
+        <span className="text-xs">{displayDate(person.nextContactOn)}</span>
+      ),
+    },
+    {
+      id: "notes",
+      label: "Note",
+      wide: true,
+      filter: "text",
+      filterValue: (person) => person.operationalNotes,
+      sortValue: (person) => person.operationalNotes,
+      render: (person) => (
+        <span className="line-clamp-2 text-xs">
+          {person.operationalNotes ?? "—"}
+        </span>
+      ),
+    },
+]
+
+const columnsById = new Map(
+  managementColumns.map((column) => [column.id, column]),
+)
 
 export const managementFilterOptions = {
   role: [
@@ -658,9 +732,20 @@ export const managementFilterOptions = {
     ["TRAINING_ONLY", "Solo allenamenti"],
     ["NONE", "Nessuno"],
   ],
+  status: [
+    ["", "Tutti"],
+    ["YES", "In rosa"],
+    ["TRAINING_ONLY", "Solo allenamenti"],
+    ["NO", "Archiviato"],
+  ],
+  uniformSize: [
+    ["", "Tutte"],
+    ...UNIFORM_SIZES.map((size): [string, string] => [size, size]),
+    ["NONE", "Non indicata"],
+  ],
   ageGroup: [
     ["", "Tutti"],
-    ["U35", "U35"],
+    ["U35", "Under 35"],
     ["OVER_35", "Over 35"],
   ],
   account: [
@@ -703,10 +788,8 @@ export type ManagementColumnMeta = {
   filterOptions?: Array<[string, string]>
 }
 
-export function getAvailableManagementColumns(
-  view: ManagementView,
-): ManagementColumnMeta[] {
-  return columnsByView[view].map(({ id, label, required, action, filter }) => ({
+export function getAvailableManagementColumns(): ManagementColumnMeta[] {
+  return managementColumns.map(({ id, label, required, action, filter }) => ({
     id,
     label,
     required,
@@ -717,12 +800,85 @@ export function getAvailableManagementColumns(
   }))
 }
 
-export function getManagementColumnAccessors(view: ManagementView) {
+export function getManagementColumnAccessors() {
   return Object.fromEntries(
-    columnsByView[view].map((column) => [
+    managementColumns.map((column) => [
       column.id,
       { filterValue: column.filterValue, sortValue: column.sortValue },
     ]),
+  )
+}
+
+const RESIZE_KEY_STEP = 16
+
+/**
+ * Bordo destro trascinabile dell'intestazione. Frecce ←/→ per tastiera,
+ * doppio clic per tornare alla larghezza automatica.
+ */
+function ColumnResizeHandle({
+  label,
+  width,
+  onPreview,
+  onCommit,
+}: {
+  label: string
+  width: number | undefined
+  onPreview: (width: number) => void
+  onCommit: (width: number | null) => void
+}) {
+  const handleRef = useRef<HTMLSpanElement>(null)
+
+  function headerWidth() {
+    return (
+      width ??
+      handleRef.current?.parentElement?.getBoundingClientRect().width ??
+      120
+    )
+  }
+
+  return (
+    <span
+      aria-label={`Ridimensiona colonna ${label}`}
+      aria-orientation="vertical"
+      aria-valuenow={width ? Math.round(width) : undefined}
+      className="absolute inset-y-1 right-0 w-2 cursor-col-resize touch-none rounded-sm after:absolute after:inset-y-1 after:right-0.5 after:w-px after:bg-border hover:bg-operative/20 focus-visible:bg-operative/30 focus-visible:outline-none"
+      onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+        onCommit(null)
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+        event.preventDefault()
+        const step = event.key === "ArrowLeft" ? -RESIZE_KEY_STEP : RESIZE_KEY_STEP
+        onCommit(clampColumnWidth(headerWidth() + step))
+      }}
+      onPointerDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const startX = event.clientX
+        const startWidth = headerWidth()
+        let latest = startWidth
+        const target = event.currentTarget
+        target.setPointerCapture(event.pointerId)
+        const move = (moveEvent: PointerEvent) => {
+          latest = clampColumnWidth(startWidth + moveEvent.clientX - startX)
+          onPreview(latest)
+        }
+        const up = () => {
+          target.removeEventListener("pointermove", move)
+          target.removeEventListener("pointerup", up)
+          target.removeEventListener("pointercancel", up)
+          if (latest !== startWidth) onCommit(latest)
+        }
+        target.addEventListener("pointermove", move)
+        target.addEventListener("pointerup", up)
+        target.addEventListener("pointercancel", up)
+      }}
+      ref={handleRef}
+      role="separator"
+      tabIndex={0}
+    />
   )
 }
 
@@ -772,11 +928,13 @@ function SelectAllCheckbox({
 
 export function ManagementTable({
   people,
-  view,
+  view = "PEOPLE",
   columns = DEFAULT_COLUMNS[view],
   layout = "TABLE",
   selected,
   sort = null,
+  widths = {},
+  onResizeColumn,
   onSortChange,
   onSelect,
   onSelectAllVisible,
@@ -787,11 +945,15 @@ export function ManagementTable({
   passportPhotoStates = new Map(),
 }: {
   people: ManagementPerson[]
-  view: ManagementView
+  view?: ManagementView
   columns?: string[]
   layout?: ManagementLayout
   selected: Set<string>
   sort?: TableSort
+  /** Larghezze in px per colonna; assenti = automatiche. */
+  widths?: Record<string, number>
+  /** width null = torna automatica. */
+  onResizeColumn?: (columnId: string, width: number | null) => void
   onSortChange?: (columnId: string) => void
   onSelect: (membershipId: string) => void
   onSelectAllVisible?: (checked: boolean) => void
@@ -801,12 +963,13 @@ export function ManagementTable({
   onReviewCertificate: ManagementTableActions["onReviewCertificate"]
   passportPhotoStates?: Map<string, PassportPhotoState>
 }) {
-  const visibleColumns = useMemo(() => {
-    const byId = new Map(columnsByView[view].map((column) => [column.id, column]))
-    return columns
-      .map((id) => byId.get(id))
-      .filter((column): column is ManagementColumn => Boolean(column))
-  }, [columns, view])
+  const visibleColumns = useMemo(
+    () =>
+      columns
+        .map((id) => columnsById.get(id))
+        .filter((column): column is ManagementColumn => Boolean(column)),
+    [columns],
+  )
   const actions = useMemo(
     () => ({ onAccountAction, onReviewCertificate, onVerifyPayment }),
     [onAccountAction, onReviewCertificate, onVerifyPayment],
@@ -817,6 +980,17 @@ export function ManagementTable({
       column.id !== "person" && column.id !== "role" && !column.action,
   )
   const cardActionColumns = visibleColumns.filter((column) => column.action)
+  // Durante il trascinamento la larghezza vive qui; si salva al rilascio.
+  const [liveWidth, setLiveWidth] = useState<{
+    columnId: string
+    width: number
+  } | null>(null)
+  const widthOf = (columnId: string) =>
+    liveWidth?.columnId === columnId ? liveWidth.width : widths[columnId]
+  const widthStyle = (columnId: string) => {
+    const width = widthOf(columnId)
+    return width ? { width, minWidth: width, maxWidth: width } : undefined
+  }
   const allVisibleSelected =
     people.length > 0 && people.every(({ id }) => selected.has(id))
   const someVisibleSelected = people.some(({ id }) => selected.has(id))
@@ -845,19 +1019,33 @@ export function ManagementTable({
                         : "none"
                     }
                     className={cn(
-                      "whitespace-nowrap",
-                      column.id === "person" && "min-w-56",
+                      "relative whitespace-nowrap",
+                      column.id === "person" && !widthOf(column.id) && "min-w-56",
                     )}
                     key={column.id}
+                    style={widthStyle(column.id)}
                   >
                     <button
-                      className="inline-flex min-h-8 items-center gap-1 rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex min-h-8 max-w-full items-center gap-1 overflow-hidden rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => onSortChange?.(column.id)}
                       type="button"
                     >
-                      {column.label}
+                      <span className="truncate">{column.label}</span>
                       <SortIcon columnId={column.id} sort={sort} />
                     </button>
+                    {onResizeColumn && (
+                      <ColumnResizeHandle
+                        label={column.label}
+                        onCommit={(width) => {
+                          setLiveWidth(null)
+                          onResizeColumn(column.id, width)
+                        }}
+                        onPreview={(width) =>
+                          setLiveWidth({ columnId: column.id, width })
+                        }
+                        width={widthOf(column.id)}
+                      />
+                    )}
                   </TableHead>
                 ))}
                 <TableHead className="w-10" />
@@ -882,7 +1070,11 @@ export function ManagementTable({
                     />
                   </TableCell>
                   {visibleColumns.map((column) => (
-                    <TableCell key={column.id}>
+                    <TableCell
+                      className={widthOf(column.id) ? "overflow-hidden" : undefined}
+                      key={column.id}
+                      style={widthStyle(column.id)}
+                    >
                       {column.render(person, actions, passportPhotoStates)}
                     </TableCell>
                   ))}

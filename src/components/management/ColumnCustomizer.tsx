@@ -70,7 +70,7 @@ export function ColumnCustomizer({
           </Button>
         </div>
 
-        <div className="space-y-1">
+        <div className="-mx-1 max-h-[min(60vh,28rem)] space-y-1 overflow-y-auto px-1">
           {columns.map((id, index) => {
             const column = availableById.get(id)
             if (!column) return null
@@ -111,6 +111,9 @@ export function ColumnCustomizer({
               </div>
             )
           })}
+          <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Altri campi
+          </p>
           {availableColumns
             .filter((column) => !columns.includes(column.id))
             .map((column) => (

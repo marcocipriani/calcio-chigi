@@ -235,6 +235,8 @@ export function applyTableState<T>(
     {
       filterValue: (row: T) => string | number | null | undefined
       sortValue: (row: T) => string | number | null | undefined
+      /** Valori chiusi dove uno contiene l'altro (L/XL/XXL): confronto esatto. */
+      exact?: boolean
     }
   >,
   filters: Record<string, string>,
@@ -243,7 +245,9 @@ export function applyTableState<T>(
   const filtered = rows.filter((row) =>
     Object.entries(filters).every(([id, query]) => {
       if (!query) return true
-      return String(accessors[id]?.filterValue(row) ?? "")
+      const value = String(accessors[id]?.filterValue(row) ?? "")
+      if (accessors[id]?.exact) return value === query
+      return value
         .toLocaleLowerCase("it")
         .includes(query.toLocaleLowerCase("it"))
     }),

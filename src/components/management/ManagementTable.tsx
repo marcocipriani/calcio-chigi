@@ -804,7 +804,11 @@ export function getManagementColumnAccessors() {
   return Object.fromEntries(
     managementColumns.map((column) => [
       column.id,
-      { filterValue: column.filterValue, sortValue: column.sortValue },
+      {
+        filterValue: column.filterValue,
+        sortValue: column.sortValue,
+        exact: column.filter === "uniformSize" || column.filter === "status",
+      },
     ]),
   )
 }

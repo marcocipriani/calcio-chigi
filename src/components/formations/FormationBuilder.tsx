@@ -274,7 +274,8 @@ export function FormationBuilder({
     }, [lineup])
 
     useEffect(() => {
-        let result = players.filter((player) => !player.is_staff && !player.training_only);
+        // ponytail: get_event_roster esclude già i TRAINING_ONLY dalle partite; in amichevole giocano.
+        let result = players.filter((player) => !player.is_staff);
         const lowerTerm = searchTerm.toLowerCase();
         if (lowerTerm) result = result.filter(p => p.nome?.toLowerCase().includes(lowerTerm) || p.cognome?.toLowerCase().includes(lowerTerm));
         setFilteredPlayers(result);

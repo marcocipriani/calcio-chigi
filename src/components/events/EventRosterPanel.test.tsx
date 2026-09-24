@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest"
 const supabase = vi.hoisted(() => ({
   from: vi.fn(() => ({
     select: () => ({
-      eq: async () => ({ data: [], error: null }),
+      eq: () =>
+        Object.assign(Promise.resolve({ data: [], error: null }), {
+          maybeSingle: async () => ({ data: null, error: null }),
+        }),
     }),
   })),
   rpc: vi.fn(async () => ({ error: null })),
@@ -59,16 +62,16 @@ const roster = [
   },
 ]
 
-function renderPanel(isManager = true) {
+function renderPanel(isManager = true, isMatch = false, players = roster) {
   return render(
     <EventRosterPanel
       eventDate={new Date("2026-08-31T18:00:00.000Z")}
       eventId="event-1"
       isManager={isManager}
-      isMatch={false}
+      isMatch={isMatch}
       managerProfileId="manager-1"
       namesByProfileId={{}}
-      roster={roster}
+      roster={players}
     />,
   )
 }
@@ -117,6 +120,23 @@ describe("EventRosterPanel", () => {
       expect(
         screen.queryByRole("button", { name: "Segna presenti" }),
       ).not.toBeInTheDocument(),
+    )
+  })
+
+  it("lets training-only members check in when the server lists them (friendlies)", async () => {
+    supabase.rpc.mockClear()
+    renderPanel(true, true, [
+      { ...roster[1], id: "trainee-1", nome: "Tito", cognome: "Allenamenti", training_only: true },
+    ])
+
+    fireEvent.click(await screen.findByLabelText("Check-in Tito Allenamenti"))
+
+    await waitFor(() =>
+      expect(supabase.rpc).toHaveBeenCalledWith("set_event_checkin", {
+        p_event_id: "event-1",
+        p_profile_id: "trainee-1",
+        p_status: "PRESENT",
+      }),
     )
   })
 })

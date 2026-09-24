@@ -7,6 +7,13 @@ process.env.NEXT_PUBLIC_SUPABASE_KEY ??= "test-anon-key"
 
 HTMLElement.prototype.scrollIntoView ??= () => {}
 
+// Radix Switch misura il thumb con ResizeObserver, assente in jsdom.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 // Node ≥ 25 espone un localStorage globale (undefined senza
 // --localstorage-file) che copre quello di jsdom.
 const jsdomWindow = (globalThis as { jsdom?: { window: Window } }).jsdom?.window

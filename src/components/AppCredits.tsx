@@ -14,7 +14,7 @@ interface AppCreditsProps {
 }
 
 export function AppCredits({ uid }: AppCreditsProps) {
-  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.1.0";
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.1.1";
 
   return (
     <div className="mt-8 flex w-full flex-col items-center justify-center gap-3 border-t border-border/50 py-8">

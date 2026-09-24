@@ -13,7 +13,7 @@ import { Event, EventFase, EventType } from "@/lib/types"
 import { toast } from "sonner"
 import { supabaseBrowser as supabase } from "@/lib/supabaseBrowser"
 import { fetchPlaces } from "@/lib/api"
-import { HOME_PLACE, isMatchEvent } from "@/lib/utils"
+import { HOME_PLACE, isMatchEvent, normKey } from "@/lib/utils"
 
 const OTHER_PLACE = "__other__"
 
@@ -121,6 +121,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
         }
     }
   }, [eventToEdit, open])
+
+  // sortPlaces collassa le varianti di maiuscole: confronto sulla chiave normalizzata.
+  const knownPlace = places.find((place) => normKey(place) === normKey(luogo))
+  const showCustomPlace = customPlace || !knownPlace
+  const placeSelectValue = showCustomPlace ? OTHER_PLACE : knownPlace
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -248,8 +253,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
           <div className="space-y-2">
             <Label htmlFor="event-place">Luogo</Label>
             <Select
-                value={customPlace || !places.includes(luogo) ? OTHER_PLACE : luogo}
+                value={placeSelectValue}
                 onValueChange={(v) => {
+                    // Radix rilancia onValueChange quando il valore cambia da prop mentre
+                    // l'elenco campi si carica (anche con ''): senza guardia svuoterebbe il luogo.
+                    if (!v || v === placeSelectValue) return
                     setCustomPlace(v === OTHER_PLACE)
                     setLuogo(v === OTHER_PLACE ? '' : v)
                     // Alla Romulea ci alleniamo sempre sul campo a 11.
@@ -262,7 +270,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                     <SelectItem value={OTHER_PLACE}>Altro…</SelectItem>
                 </SelectContent>
             </Select>
-            {(customPlace || !places.includes(luogo)) && (
+            {showCustomPlace && (
                 <Input aria-label="Nuovo campo" name="place" value={luogo} onChange={(e) => setLuogo(e.target.value)} placeholder="Nome del campo" required />
             )}
           </div>

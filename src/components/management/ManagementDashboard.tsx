@@ -618,9 +618,8 @@ export function ManagementDashboard() {
   /** Nuova vista personalizzata a partire da quello che si sta guardando. */
   function createView(label: string) {
     const id = `custom-${crypto.randomUUID()}`
-    const filters = Object.fromEntries(
-      Object.entries(columnFilters).filter(([, value]) => value),
-    )
+    // Solo i filtri visibili e valorizzati: uno su colonna nascosta tornerebbe attivo di nascosto.
+    const filters = { ...appliedFilters }
     updateDisplay((current) => ({
       ...current,
       view: id,

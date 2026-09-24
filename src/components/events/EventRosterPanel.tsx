@@ -175,11 +175,9 @@ export function EventRosterPanel({
 
   const checkable = useMemo(
     () =>
-      roster.filter(
-        (player) =>
-          !player.is_staff && !(isMatch && player.training_only),
-      ),
-    [isMatch, roster],
+      // get_event_roster esclude già i TRAINING_ONLY dalle partite; in amichevole giocano.
+      roster.filter((player) => !player.is_staff),
+    [roster],
   )
   const present = useMemo(
     () => checkable.filter(({ id }) => checkins[id] === "PRESENT"),
@@ -389,8 +387,7 @@ export function EventRosterPanel({
         {roster.map((player) => {
           const tone = availabilityTone(player.status, isMatch)
           const checkin = checkins[player.id]
-          const canCheckin =
-            !player.is_staff && !(isMatch && player.training_only)
+          const canCheckin = !player.is_staff
           const voteTime = player.vote_time
             ? format(new Date(player.vote_time), "dd/MM HH:mm")
             : ""

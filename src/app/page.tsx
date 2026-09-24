@@ -195,11 +195,11 @@ export default function Home() {
       if (!e.data_ora) return e.giocata === true; // forfeit: no date, show in archive if played
       const isPast = new Date(e.data_ora) < yesterday;
       if (!isPast) return false;
-      if (e.tipo === 'PARTITA') return e.giocata === true;
+      if (isMatchEvent(e.tipo)) return e.giocata === true;
       return true;
   }).reverse();
 
-  const nextMatch = filteredEvents.find(e => e.tipo === 'PARTITA' && e.data_ora != null && new Date(e.data_ora) > now);
+  const nextMatch = filteredEvents.find(e => isMatchEvent(e.tipo) && e.data_ora != null && new Date(e.data_ora) > now);
   
   const getCountdownLabel = (dateStr: string) => {
       const matchDate = new Date(dateStr);
@@ -579,7 +579,7 @@ export default function Home() {
               <div className="flex justify-end">
                 <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-black text-secondary-foreground shadow-sm">
                   <Clock aria-hidden="true" className="h-3 w-3" />
-                  Prossima partita {getCountdownLabel(nextMatch.data_ora!)}
+                  Prossima {EVENT_TYPE_LABEL[nextMatch.tipo].toLowerCase()} {getCountdownLabel(nextMatch.data_ora!)}
                 </span>
               </div>
             ) : null}

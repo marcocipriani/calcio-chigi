@@ -62,6 +62,19 @@ describe("management columns", () => {
     ).toEqual([{ name: "Anna", status: "MAYBE" }])
   })
 
+  it("matches closed values exactly when the accessor asks for it", () => {
+    const rows = [{ size: "L" }, { size: "XL" }, { size: "XXL" }]
+    const size = (row: { size: string }) => row.size
+    expect(
+      applyTableState(
+        rows,
+        { size: { filterValue: size, sortValue: size, exact: true } },
+        { size: "L" },
+        null,
+      ),
+    ).toEqual([{ size: "L" }])
+  })
+
   it("cycles a column through ascending, descending and no order", () => {
     const ascending = nextSort(null, "person")
     expect(ascending).toEqual({ columnId: "person", direction: "asc" })

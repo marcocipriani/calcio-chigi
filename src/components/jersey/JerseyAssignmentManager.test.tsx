@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   fetchSeasonAvoidedNumbers: vi.fn(),
   publishJerseyDraft: vi.fn(),
   saveJerseyPreferences: vi.fn(),
+  saveUniformSize: vi.fn(),
   sendJerseyPreferenceReminder: vi.fn(),
 }))
 
@@ -37,6 +38,7 @@ function row(
     avatarUrl: null,
     role: null,
     jerseyNumber: null,
+    uniformSize: null,
     previousJerseyNumber: null,
     choices,
     noPreference: false,

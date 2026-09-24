@@ -26,7 +26,7 @@ export type AppProfile = {
 
 export type AppMembership = {
   id: string
-  status: "YES" | "NO"
+  status: "YES" | "TRAINING_ONLY" | "NO"
   [key: string]: unknown
 }
 

@@ -94,7 +94,6 @@ function person(
     joinedOn: "2026-07-01",
     isExternal: false,
     isAggregated: false,
-    trainingOnly: false,
     registrationStatus: "ACTIVE",
     profileUpdatedAt: "2026-07-25T00:00:00.000Z",
     membershipUpdatedAt: "2026-07-25T00:00:00.000Z",

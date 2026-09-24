@@ -71,14 +71,7 @@ export function ageBand(
 }
 
 export function canJoinMatchFormation(
-  membership: Pick<
-    SeasonMembership,
-    "category" | "status" | "training_only"
-  >,
+  membership: Pick<SeasonMembership, "category" | "status">,
 ) {
-  return (
-    membership.category === "PLAYER" &&
-    membership.status === "YES" &&
-    !membership.training_only
-  )
+  return membership.category === "PLAYER" && membership.status === "YES"
 }

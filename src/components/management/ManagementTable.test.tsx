@@ -38,7 +38,6 @@ const people: ManagementPerson[] = [
     phone: "333 1111111",
     isExternal: false,
     isAggregated: false,
-    trainingOnly: false,
     registrationStatus: "TODO",
     profileUpdatedAt: "2026-07-25T00:00:00.000Z",
     membershipUpdatedAt: "2026-07-25T00:00:00.000Z",
@@ -57,7 +56,6 @@ const people: ManagementPerson[] = [
     phone: "333 2222222",
     isExternal: false,
     isAggregated: false,
-    trainingOnly: false,
     registrationStatus: "ACTIVE",
     profileUpdatedAt: "2026-07-25T00:00:00.000Z",
     membershipUpdatedAt: "2026-07-25T00:00:00.000Z",
@@ -367,7 +365,10 @@ describe("ManagementTable", () => {
       <ManagementTable
         {...actions}
         columns={["person", "role", "tags"]}
-        people={[{ ...people[0], role: "DIFENSORE", trainingOnly: true }, people[1]]}
+        people={[
+          { ...people[0], role: "DIFENSORE", status: "TRAINING_ONLY" },
+          people[1],
+        ]}
         selected={new Set()}
         view="PEOPLE"
       />,

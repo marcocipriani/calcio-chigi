@@ -129,14 +129,16 @@ export function AddPersonDialog({
             <Label htmlFor="new-joined">Data ingresso in squadra</Label>
             <Input id="new-joined" name="joinedOn" type="date" />
           </div>
-          <label className="flex min-h-10 items-center gap-2 self-end text-sm">
-            <input
-              className="size-4 accent-primary"
-              name="trainingOnly"
-              type="checkbox"
-            />
-            Solo allenamenti
-          </label>
+          {category === "PLAYER" && (
+            <label className="flex min-h-10 items-center gap-2 self-end text-sm">
+              <input
+                className="size-4 accent-primary"
+                name="trainingOnly"
+                type="checkbox"
+              />
+              Solo allenamenti
+            </label>
+          )}
           <DialogFooter className="sm:col-span-2">
             <Button
               onClick={() => onOpenChange(false)}

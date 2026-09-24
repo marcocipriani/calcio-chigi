@@ -298,8 +298,9 @@ export function ManagementDashboard() {
       : undefined
 
   useEffect(() => {
+    // Caricate sempre (non solo nella vista "Presenze"): la scheda persona
+    // le mostra da qualunque vista si apra.
     if (
-      view !== "ATTENDANCE" ||
       loading ||
       loadedSeasonSlug !== seasonSlug ||
       cachedAttendanceState?.signature === rosterSignature
@@ -353,7 +354,6 @@ export function ManagementDashboard() {
     currentPeople,
     rosterSignature,
     seasonSlug,
-    view,
   ])
 
   const peopleWithAttendance = useMemo(() => {
@@ -861,6 +861,7 @@ export function ManagementDashboard() {
                   }))
                 }
                 placeholder="Nome o telefono"
+                type="search"
                 value={filters.query}
               />
             </label>

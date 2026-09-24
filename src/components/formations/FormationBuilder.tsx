@@ -758,7 +758,7 @@ export function FormationBuilder({
                             <div className="relative flex-1">
                                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                                 <Label className="sr-only" htmlFor="formation-player-search">Cerca giocatore</Label>
-                                <Input id="formation-player-search" name="playerSearch" autoComplete="off" placeholder="Cerca giocatore…" className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                <Input id="formation-player-search" name="playerSearch" type="search" autoComplete="off" placeholder="Cerca giocatore…" className="pl-8 h-8 text-xs bg-muted/50 border-transparent focus:bg-background" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
 
                         </div>

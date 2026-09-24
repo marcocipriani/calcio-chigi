@@ -39,7 +39,6 @@ export type ManagementPerson = {
   uniformSize?: string | null
   isExternal: boolean
   isAggregated: boolean
-  trainingOnly: boolean
   operationalNotes?: string | null
   nextContactOn?: string | null
   registrationStatus: RegistrationStatus
@@ -119,8 +118,9 @@ export function managementKpis(allPeople: ManagementPerson[]) {
       payments.some(({ status }) => status !== "PAID"),
     ).length,
     certificatesOpen: people.filter(
-      ({ category, certificateStatus }) =>
+      ({ category, status, certificateStatus }) =>
         category === "PLAYER" &&
+        status === "YES" &&
         certificateStatus !== "VALID",
     ).length,
     accountsOpen: people.filter(

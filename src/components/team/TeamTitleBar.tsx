@@ -1,7 +1,8 @@
 "use client"
 
 import { useId } from "react"
-import { ClipboardList, Radio } from "lucide-react"
+import Link from "next/link"
+import { ClipboardList, Radio, Settings2 } from "lucide-react"
 
 import {
   NextMatchCapsule,
@@ -40,6 +41,14 @@ export function TeamTitleBar({
 
   const actions = (
     <>
+        {isManager && (
+          <Button asChild size="sm" variant="outline">
+            <Link href="/gestione">
+              <Settings2 aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only">Gestione</span>
+            </Link>
+          </Button>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

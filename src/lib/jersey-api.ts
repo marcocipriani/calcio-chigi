@@ -14,6 +14,7 @@ export type JerseyBoardRow = {
   avatarUrl: string | null
   role: string | null
   jerseyNumber: number | null
+  uniformSize: string | null
   previousJerseyNumber: number | null
   choices: JerseyChoice[]
   noPreference: boolean
@@ -75,7 +76,7 @@ export async function fetchJerseyBoard(
   const { data, error } = await client
     .from("jersey_preference_board")
     .select(
-      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, previous_jersey_number, choices, no_preference, updated_at, updated_by_manager",
+      "membership_id, profile_id, nome, cognome, avatar_url, role, jersey_number, uniform_size, previous_jersey_number, choices, no_preference, updated_at, updated_by_manager",
     )
     .eq("season_id", seasonId)
     .order("cognome", { ascending: true })
@@ -89,6 +90,7 @@ export async function fetchJerseyBoard(
     avatarUrl: asText(row.avatar_url),
     role: asText(row.role),
     jerseyNumber: asNumber(row.jersey_number),
+    uniformSize: asText(row.uniform_size),
     previousJerseyNumber: asNumber(row.previous_jersey_number),
     choices: parseJerseyChoices(row.choices),
     noPreference: row.no_preference === true,
@@ -217,6 +219,18 @@ export async function publishJerseyDraft(
     p_season_id: seasonId,
     p_assignments: assignmentPayload(assignment),
   })
+  if (error) throw error
+}
+
+export async function saveUniformSize(
+  client: SupabaseClient,
+  membershipId: string,
+  uniformSize: string,
+) {
+  const { error } = await client
+    .from("season_memberships")
+    .update({ uniform_size: uniformSize.trim() || null })
+    .eq("id", membershipId)
   if (error) throw error
 }
 

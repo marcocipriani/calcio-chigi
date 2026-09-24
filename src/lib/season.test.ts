@@ -29,19 +29,15 @@ describe("ageBand", () => {
 describe("canJoinMatchFormation", () => {
   it("accepts confirmed players", () => {
     expect(
-      canJoinMatchFormation({
-        category: "PLAYER",
-        status: "YES",
-        training_only: false,
-      }),
+      canJoinMatchFormation({ category: "PLAYER", status: "YES" }),
     ).toBe(true)
   })
 
   it.each([
-    { category: "STAFF", status: "YES", training_only: false },
-    { category: "PLAYER", status: "NO", training_only: false },
-    { category: "PLAYER", status: "YES", training_only: true },
-  ] as const)("rejects $category/$status/training=$training_only", (membership) => {
+    { category: "STAFF", status: "YES" },
+    { category: "PLAYER", status: "NO" },
+    { category: "PLAYER", status: "TRAINING_ONLY" },
+  ] as const)("rejects $category/$status", (membership) => {
     expect(canJoinMatchFormation(membership)).toBe(false)
   })
 })

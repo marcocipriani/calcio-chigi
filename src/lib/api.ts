@@ -361,7 +361,7 @@ type EventRosterRpcRow = {
     role: string | null
     staff_function: string | null
     jersey_number: number | null
-    training_only: boolean
+    status: 'YES' | 'TRAINING_ONLY' | 'NO'
     department: string | null
     is_external: boolean
     is_aggregated: boolean
@@ -389,7 +389,7 @@ export async function fetchRosterForEvent(
             ...(row.is_aggregated ? ['AGG'] : []),
         ],
         is_staff: row.category === 'STAFF',
-        training_only: row.training_only,
+        training_only: row.status === 'TRAINING_ONLY',
     }))
 }
 

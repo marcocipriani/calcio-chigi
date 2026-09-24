@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from "vitest"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
 import type { ManagementPerson } from "@/lib/management"
 
+vi.mock("@/components/auth/AppSessionProvider", () => ({
+  useAppSession: () => ({ profile: { id: "manager-1" } }),
+}))
 vi.mock("@/lib/supabaseBrowser", () => ({ supabaseBrowser: {} }))
 const jerseyApi = vi.hoisted(() => ({
   fetchJerseyHistory: vi.fn().mockResolvedValue([
@@ -32,7 +35,6 @@ const person: ManagementPerson = {
   jerseyNumber: 8,
   isExternal: false,
   isAggregated: false,
-  trainingOnly: false,
   registrationStatus: "TODO",
   profileUpdatedAt: "2026-07-25T00:00:00.000Z",
   membershipUpdatedAt: "2026-07-25T00:00:00.000Z",

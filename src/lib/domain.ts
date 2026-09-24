@@ -1,5 +1,7 @@
-// 'YES' = in rosa, 'NO' = archiviato. Nessuno stato intermedio.
-export type MembershipStatus = "YES" | "NO"
+// 'YES' = in rosa, 'TRAINING_ONLY' = fa solo allenamenti (giocatore a tutti
+// gli effetti ma senza tesseramento/numero), 'NO' = archiviato (sparito).
+// Stati mutuamente esclusivi: non più un flag training_only combinabile.
+export type MembershipStatus = "YES" | "TRAINING_ONLY" | "NO"
 
 export type MembershipCategory = "PLAYER" | "STAFF"
 export type RegistrationStatus = "TODO" | "SUBMITTED" | "ACTIVE"
@@ -28,7 +30,6 @@ export interface SeasonMembership {
   season_id?: string
   category: MembershipCategory
   status: MembershipStatus
-  training_only: boolean
   role?: string | null
   staff_function?: string | null
   jersey_number?: number | null
@@ -56,5 +57,4 @@ export interface PublicRosterMember {
   jersey_number: number | null
   category: MembershipCategory
   status: Extract<MembershipStatus, "YES">
-  training_only: boolean
 }

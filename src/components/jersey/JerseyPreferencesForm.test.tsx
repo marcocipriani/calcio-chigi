@@ -12,6 +12,7 @@ const teammate: JerseyBoardRow = {
   avatarUrl: null,
   role: null,
   jerseyNumber: null,
+  uniformSize: null,
   previousJerseyNumber: null,
   choices: [{ number: 10, level: "PREFERRED" }],
   noPreference: false,

@@ -18,7 +18,9 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
+import { AttendanceStreak } from "@/components/management/AttendanceStreak"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +83,7 @@ export function PersonDrawer({
   onOpenChange: (open: boolean) => void
   onSaved: () => Promise<void>
 }) {
+  const { profile } = useAppSession()
   const [category, setCategory] = useState<"PLAYER" | "STAFF">(
     person?.category ?? "PLAYER",
   )
@@ -89,12 +92,21 @@ export function PersonDrawer({
   const [pendingForm, setPendingForm] = useState<FormData | null>(null)
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
+  const [certDialogOpen, setCertDialogOpen] = useState(false)
+  const [certBusy, setCertBusy] = useState(false)
+  const [certForm, setCertForm] = useState({
+    visitOn: "",
+    expiresOn: "",
+    laboratory: "",
+  })
 
   useEffect(() => {
     if (person) {
       setCategory(person.category)
       setPendingForm(null)
       setConfirmTrash(false)
+      setCertDialogOpen(false)
+      setCertForm({ visitOn: "", expiresOn: "", laboratory: "" })
     }
   }, [person])
 
@@ -166,7 +178,6 @@ export function PersonDrawer({
         uniform_size: String(form.get("uniformSize") ?? ""),
         is_external: form.get("isExternal") === "on",
         is_aggregated: form.get("isAggregated") === "on",
-        training_only: form.get("trainingOnly") === "on",
         operational_notes: String(form.get("operationalNotes") ?? ""),
         next_contact_on: String(form.get("nextContactOn") ?? ""),
         registration_status: String(form.get("registrationStatus")),
@@ -313,6 +324,67 @@ export function PersonDrawer({
       return
     }
     toast.success("Fototessera aggiornata")
+    onOpenChange(false)
+    await onSaved()
+  }
+
+  async function submitCertificate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const fileInput = event.currentTarget.elements.namedItem(
+      "certificate-file",
+    ) as HTMLInputElement
+    const file = fileInput.files?.[0]
+    if (!file) {
+      toast.error("Seleziona il PDF del certificato")
+      return
+    }
+    if (file.type !== "application/pdf") {
+      toast.error("Il certificato deve essere un PDF")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Il PDF non può superare 10 MB")
+      return
+    }
+    if (!certForm.visitOn || !certForm.expiresOn || !certForm.laboratory.trim()) {
+      toast.error("Compila data visita, scadenza e laboratorio")
+      return
+    }
+
+    setCertBusy(true)
+    const certificateId = crypto.randomUUID()
+    const path = `${currentPerson.profileId}/${currentPerson.id}/${certificateId}.pdf`
+    const { error: uploadError } = await supabaseBrowser.storage
+      .from("medical-certificates")
+      .upload(path, file, { contentType: "application/pdf" })
+    if (uploadError) {
+      toast.error(uploadError.message)
+      setCertBusy(false)
+      return
+    }
+
+    const { error } = await supabaseBrowser.from("medical_certificates").insert({
+      id: certificateId,
+      membership_id: currentPerson.id,
+      document_path: path,
+      competitive_declared: true,
+      visit_on: certForm.visitOn,
+      expires_on: certForm.expiresOn,
+      laboratory: certForm.laboratory.trim(),
+      status: "VALID",
+      verified_by: profile?.id ?? null,
+      verified_at: new Date().toISOString(),
+      updated_by: profile?.id ?? null,
+    })
+    setCertBusy(false)
+
+    if (error) {
+      await supabaseBrowser.storage.from("medical-certificates").remove([path])
+      toast.error("Certificato non salvato", { description: error.message })
+      return
+    }
+    toast.success("Certificato registrato")
+    setCertDialogOpen(false)
     onOpenChange(false)
     await onSaved()
   }
@@ -496,6 +568,9 @@ export function PersonDrawer({
                     name="status"
                   >
                     <option value="YES">In rosa</option>
+                    {category === "PLAYER" && (
+                      <option value="TRAINING_ONLY">Solo allenamenti</option>
+                    )}
                     <option value="NO">Archiviato</option>
                   </select>
                 </div>
@@ -561,7 +636,6 @@ export function PersonDrawer({
                 {[
                   ["isExternal", "EXT", person.isExternal],
                   ["isAggregated", "AGG", person.isAggregated],
-                  ["trainingOnly", "Solo allenamenti", person.trainingOnly],
                 ].map(([name, label, checked]) => (
                   <label
                     className="flex min-h-10 items-center gap-2 text-sm"
@@ -583,6 +657,26 @@ export function PersonDrawer({
               <div className="md:col-span-2">
                 <JerseyHistory entries={jerseyHistory} />
               </div>
+            )}
+
+            {person.attendance && (
+              <section className="grid content-start gap-2 md:col-span-2">
+                <h3 className="text-sm font-semibold">Presenze</h3>
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+                  <span className="text-sm">
+                    <strong className="text-base tabular-nums">
+                      {Math.round(person.attendance.training.percentage)}%
+                    </strong>{" "}
+                    <span className="text-muted-foreground">
+                      ({person.attendance.training.present}/
+                      {person.attendance.training.total} allenamenti)
+                    </span>
+                  </span>
+                  <AttendanceStreak
+                    items={person.attendance.recentTraining}
+                  />
+                </div>
+              </section>
             )}
 
             <section className="grid content-start gap-3 md:col-span-2">
@@ -674,6 +768,15 @@ export function PersonDrawer({
                       <ExternalLink aria-hidden="true" />
                     </Button>
                   )}
+                  <Button
+                    aria-label="Carica o correggi certificato"
+                    onClick={() => setCertDialogOpen(true)}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Upload aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
             </section>
@@ -856,6 +959,72 @@ export function PersonDrawer({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog onOpenChange={setCertDialogOpen} open={certDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Certificato agonistico</DialogTitle>
+            <DialogDescription>
+              Carica il PDF e i dati: viene registrato come già verificato.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-3" onSubmit={submitCertificate}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cert-visit">Data visita</Label>
+                <Input
+                  id="cert-visit"
+                  onChange={(event) =>
+                    setCertForm({ ...certForm, visitOn: event.target.value })
+                  }
+                  type="date"
+                  value={certForm.visitOn}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cert-expiry">Scadenza</Label>
+                <Input
+                  id="cert-expiry"
+                  onChange={(event) =>
+                    setCertForm({ ...certForm, expiresOn: event.target.value })
+                  }
+                  type="date"
+                  value={certForm.expiresOn}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cert-lab">Laboratorio</Label>
+              <Input
+                id="cert-lab"
+                onChange={(event) =>
+                  setCertForm({ ...certForm, laboratory: event.target.value })
+                }
+                value={certForm.laboratory}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cert-file">PDF certificato</Label>
+              <Input
+                accept="application/pdf"
+                id="cert-file"
+                name="certificate-file"
+                type="file"
+              />
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button disabled={certBusy} type="button" variant="outline">
+                  Annulla
+                </Button>
+              </DialogClose>
+              <Button disabled={certBusy} type="submit">
+                {certBusy ? "Salvataggio…" : "Salva certificato"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -190,14 +190,16 @@ function roleLabel(person: ManagementPerson) {
   return person.role.charAt(0).toUpperCase() + person.role.slice(1).toLowerCase()
 }
 
-const tagDefinitions = [
-  ["EXT", "EXT", "isExternal"],
-  ["AGG", "AGG", "isAggregated"],
-  ["TRAINING_ONLY", "Solo allenamenti", "trainingOnly"],
-] as const
+const tagDefinitions: Array<
+  readonly [string, string, (person: ManagementPerson) => boolean]
+> = [
+  ["EXT", "EXT", (person) => person.isExternal],
+  ["AGG", "AGG", (person) => person.isAggregated],
+  ["TRAINING_ONLY", "Solo allenamenti", (person) => person.status === "TRAINING_ONLY"],
+]
 
 function personTags(person: ManagementPerson) {
-  return tagDefinitions.filter(([, , key]) => person[key])
+  return tagDefinitions.filter(([, , matches]) => matches(person))
 }
 
 function percentage(value: number | undefined) {

@@ -160,6 +160,7 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Cerca nome o cognome"
                 className="h-10 pl-9"
+                type="search"
               />
             </label>
 

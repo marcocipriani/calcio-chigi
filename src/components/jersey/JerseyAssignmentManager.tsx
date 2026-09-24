@@ -53,6 +53,7 @@ import {
   fetchSeasonAvoidedNumbers,
   publishJerseyDraft,
   saveJerseyPreferences,
+  saveUniformSize,
   sendJerseyPreferenceReminder,
   type JerseyBoardRow,
   type JerseyDraft,
@@ -281,6 +282,26 @@ export function JerseyAssignmentManager() {
       ...current,
       [membershipId]: digits && isValidJerseyNumber(number) ? number : null,
     }))
+  }
+
+  async function handleUniformSize(membershipId: string, value: string) {
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            board: current.board.map((row) =>
+              row.membershipId === membershipId
+                ? { ...row, uniformSize: value.trim() || null }
+                : row,
+            ),
+          }
+        : current,
+    )
+    try {
+      await saveUniformSize(supabaseBrowser, membershipId, value)
+    } catch {
+      toast.error("Taglia non salvata")
+    }
   }
 
   async function runPending() {
@@ -575,6 +596,19 @@ export function JerseyAssignmentManager() {
                       }
                       placeholder="—"
                       value={number ?? ""}
+                    />
+                    <Input
+                      aria-label={`Taglia di ${row.nome} ${row.cognome}`}
+                      className="h-10 w-16 shrink-0 text-center text-xs"
+                      defaultValue={row.uniformSize ?? ""}
+                      key={`${row.membershipId}:${row.uniformSize ?? ""}`}
+                      onBlur={(event) =>
+                        void handleUniformSize(
+                          row.membershipId,
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Taglia"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">

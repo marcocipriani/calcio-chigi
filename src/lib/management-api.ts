@@ -150,7 +150,6 @@ export async function fetchManagementPeople(
         uniformSize: asText(membership.uniform_size),
         isExternal: Boolean(membership.is_external),
         isAggregated: Boolean(membership.is_aggregated),
-        trainingOnly: Boolean(membership.training_only),
         operationalNotes: asText(membership.operational_notes),
         nextContactOn: asText(membership.next_contact_on),
         registrationStatus:
@@ -381,11 +380,10 @@ export async function createManagementPerson(
     p_nome: input.nome,
     p_cognome: input.cognome,
     p_category: input.category,
-    p_status: "YES",
+    p_status: input.trainingOnly ? "TRAINING_ONLY" : "YES",
     p_phone: input.phone || null,
     p_role: input.role || null,
     p_staff_function: input.staffFunction || null,
-    p_training_only: Boolean(input.trainingOnly),
     p_joined_on: input.joinedOn || null,
   })
   if (error) throw error

@@ -45,9 +45,15 @@ export function ColumnCustomizer({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button disabled={disabled} size="sm" variant="outline">
+        <Button
+          aria-label="Colonne"
+          className="shrink-0 px-2"
+          disabled={disabled}
+          size="sm"
+          variant="outline"
+        >
           <Columns3 aria-hidden="true" />
-          Colonne
+          <span className="sr-only lg:not-sr-only">Colonne</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-3">

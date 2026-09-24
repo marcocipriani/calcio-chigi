@@ -42,7 +42,11 @@ export function TeamTitleBar({
   const actions = (
     <>
         {isManager && (
-          <Button asChild size="sm" variant="outline">
+          <Button
+            asChild
+            className="bg-operative text-operative-foreground hover:bg-operative/90"
+            size="sm"
+          >
             <Link href="/gestione">
               <Settings2 aria-hidden="true" />
               <span className="sr-only sm:not-sr-only">Gestione</span>

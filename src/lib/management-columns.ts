@@ -47,6 +47,39 @@ export function activeColumnFilters(
   )
 }
 
+/** Come il manager guarda la dashboard: salvato per profilo, come le colonne. */
+export type DisplayPreferences = {
+  view: ManagementView
+  layout: ManagementLayout
+  sorts: Partial<Record<ManagementView, TableSort>>
+}
+
+export function normalizeDisplayPreferences(value: unknown): DisplayPreferences {
+  const source =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+  const views = Object.keys(DEFAULT_COLUMNS) as ManagementView[]
+  const view = views.includes(source.view as ManagementView)
+    ? (source.view as ManagementView)
+    : "PEOPLE"
+  const layout = source.layout === "CARDS" ? "CARDS" : "TABLE"
+  const storedSorts =
+    source.sorts && typeof source.sorts === "object"
+      ? (source.sorts as Record<string, unknown>)
+      : {}
+  const sorts: DisplayPreferences["sorts"] = {}
+  for (const key of views) {
+    const sort = storedSorts[key] as { columnId?: unknown; direction?: unknown }
+    if (
+      sort &&
+      typeof sort.columnId === "string" &&
+      (sort.direction === "asc" || sort.direction === "desc")
+    ) {
+      sorts[key] = { columnId: sort.columnId, direction: sort.direction }
+    }
+  }
+  return { view, layout, sorts }
+}
+
 export function normalizeColumnPreferences(value: unknown): ColumnPreferences {
   const source =
     value && typeof value === "object"

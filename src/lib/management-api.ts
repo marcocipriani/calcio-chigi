@@ -14,7 +14,10 @@ import {
   type ManagementPerson,
 } from "@/lib/management"
 import { aggregateManagementAttendance } from "@/lib/management-attendance"
-import type { ColumnPreferences } from "@/lib/management-columns"
+import type {
+  ColumnPreferences,
+  DisplayPreferences,
+} from "@/lib/management-columns"
 
 type UnknownRow = Record<string, unknown>
 
@@ -256,6 +259,31 @@ export async function saveManagementColumnPreferences(
 ) {
   const { error } = await client.from("profile_ui_preferences").upsert(
     { profile_id: profileId, management_columns: preferences },
+    { onConflict: "profile_id" },
+  )
+  if (error) throw error
+}
+
+export async function fetchManagementDisplayPreferences(
+  client: SupabaseClient,
+  profileId: string,
+) {
+  const { data, error } = await client
+    .from("profile_ui_preferences")
+    .select("management_display")
+    .eq("profile_id", profileId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.management_display ?? null
+}
+
+export async function saveManagementDisplayPreferences(
+  client: SupabaseClient,
+  profileId: string,
+  preferences: DisplayPreferences,
+) {
+  const { error } = await client.from("profile_ui_preferences").upsert(
+    { profile_id: profileId, management_display: preferences },
     { onConflict: "profile_id" },
   )
   if (error) throw error

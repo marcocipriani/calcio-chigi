@@ -22,7 +22,7 @@ export function BottomNav() {
   ]
 
   return (
-    <nav aria-label="Navigazione principale" className="bottom-nav-safe fixed inset-x-2 z-40 rounded-full border border-border bg-background/95 p-1 shadow-md backdrop-blur-md md:inset-x-auto md:right-auto md:bottom-4 md:left-1/2 md:-translate-x-1/2">
+    <nav aria-label="Navigazione principale" className="bottom-nav-safe fixed inset-x-2 z-40 rounded-full border border-border bg-background/95 p-1 shadow-md backdrop-blur-md md:inset-x-auto md:right-auto md:bottom-4 md:left-[calc(50%-var(--removed-body-scroll-bar-size,0px)/2)] md:-translate-x-1/2">
       <div className="mx-auto flex h-14 max-w-lg items-center justify-around md:max-w-none">
         {links.map(({ href, label, icon: Icon }) => {
           // Logica attiva: Home esatta oppure sottopagina (es. /torneo/classifica)

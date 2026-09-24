@@ -3,6 +3,9 @@
 // Stati mutuamente esclusivi: non più un flag training_only combinabile.
 export type MembershipStatus = "YES" | "TRAINING_ONLY" | "NO"
 
+// Allineato al check constraint season_memberships_uniform_size_check.
+export const UNIFORM_SIZES = ["S", "M", "L", "XL", "XXL"] as const
+
 export type MembershipCategory = "PLAYER" | "STAFF"
 export type RegistrationStatus = "TODO" | "SUBMITTED" | "ACTIVE"
 export type PaymentStatus = "DUE" | "PENDING_REVIEW" | "PAID"

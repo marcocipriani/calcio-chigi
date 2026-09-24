@@ -15,6 +15,7 @@ import {
   Shirt,
   Trash2,
   UsersRound,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -57,7 +58,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
 import {
@@ -74,8 +74,10 @@ import {
 import {
   fetchManagementAttendance,
   fetchManagementColumnPreferences,
+  fetchManagementDisplayPreferences,
   fetchManagementPeople,
   saveManagementColumnPreferences,
+  saveManagementDisplayPreferences,
 } from "@/lib/management-api"
 import type { AttendanceSummary } from "@/lib/management-attendance"
 import {
@@ -84,6 +86,8 @@ import {
   DEFAULT_COLUMNS,
   nextSort,
   normalizeColumnPreferences,
+  normalizeDisplayPreferences,
+  type DisplayPreferences,
   type ManagementColumnFilters,
   type ManagementLayout,
   type ManagementView,
@@ -202,6 +206,9 @@ export function ManagementDashboard() {
   const passportPhotoRequestId = useRef(0)
   const preferencesLoadGeneration = useRef(0)
   const columnPreferencesRef = useRef(columnPreferences)
+  const displayPreferencesRef = useRef<DisplayPreferences>(
+    normalizeDisplayPreferences(null),
+  )
   const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
@@ -251,15 +258,19 @@ export function ManagementDashboard() {
 
     void (async () => {
       try {
-        const next = normalizeColumnPreferences(
-          await fetchManagementColumnPreferences(
-            supabaseBrowser,
-            profile.id,
-          ),
-        )
+        const [storedColumns, storedDisplay] = await Promise.all([
+          fetchManagementColumnPreferences(supabaseBrowser, profile.id),
+          fetchManagementDisplayPreferences(supabaseBrowser, profile.id),
+        ])
+        const next = normalizeColumnPreferences(storedColumns)
+        const display = normalizeDisplayPreferences(storedDisplay)
         if (generation !== preferencesLoadGeneration.current) return
         columnPreferencesRef.current = next
         setColumnPreferences(next)
+        displayPreferencesRef.current = display
+        setView(display.view)
+        setLayout(display.layout)
+        setSort(display.sorts[display.view] ?? null)
       } catch {
         if (generation !== preferencesLoadGeneration.current) return
         const fallback = normalizeColumnPreferences(null)
@@ -525,6 +536,38 @@ export function ManagementDashboard() {
     )
   }
 
+  function updateDisplay(patch: Partial<DisplayPreferences>) {
+    const next = { ...displayPreferencesRef.current, ...patch }
+    displayPreferencesRef.current = next
+    if (!profile?.id) return
+    const profileId = profile.id
+    preferenceSaveQueue.current = preferenceSaveQueue.current.then(
+      async () => {
+        try {
+          await saveManagementDisplayPreferences(
+            supabaseBrowser,
+            profileId,
+            next,
+          )
+        } catch {
+          // Solo comodità: la vista resta usabile anche senza salvataggio.
+        }
+      },
+    )
+  }
+
+  function changeSort(next: TableSort) {
+    setSort(next)
+    updateDisplay({
+      sorts: { ...displayPreferencesRef.current.sorts, [view]: next },
+    })
+  }
+
+  function changeLayout(next: ManagementLayout) {
+    setLayout(next)
+    updateDisplay({ layout: next })
+  }
+
   if (sessionLoading) {
     return (
       <div className="grid gap-3">
@@ -567,9 +610,11 @@ export function ManagementDashboard() {
   function selectView(nextView: ManagementView) {
     if (nextView === view) return
     setView(nextView)
-    // I filtri e l’ordinamento appartengono alle colonne della vista.
-    setSort(null)
+    // I filtri appartengono alle colonne della vista; l'ordinamento salvato
+    // per quella vista torna com'era.
+    setSort(displayPreferencesRef.current.sorts[nextView] ?? null)
     setColumnFilters({})
+    updateDisplay({ view: nextView })
   }
 
   function toggleSelection(membershipId: string) {
@@ -842,186 +887,126 @@ export function ManagementDashboard() {
         </div>
         <div
           aria-label="Strumenti dashboard"
-          className="mt-1.5 grid min-w-0 gap-1.5 border-t pt-1.5"
+          className="mt-1.5 flex min-w-0 items-center gap-1 border-t pt-1.5"
           role="group"
         >
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <label className="relative min-w-0 flex-[1_1_12rem] xl:max-w-80">
-              <span className="sr-only">Cerca persone</span>
-              <Search
-                aria-hidden="true"
-                className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                className="h-8 pl-8"
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    query: event.target.value,
-                  }))
-                }
-                placeholder="Nome o telefono"
-                type="search"
-                value={filters.query}
-              />
-            </label>
-            <label className="flex min-h-8 shrink-0 items-center gap-2 rounded-md border px-2 text-xs font-semibold">
-              <Switch
-                aria-label="Mostra archiviati"
-                checked={Boolean(filters.archived)}
-                onCheckedChange={(archived) => {
-                  setSelected(new Set())
-                  setFilters((current) => ({ ...current, archived }))
-                }}
-              />
-              Archiviati
-              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
-                {kpis.archived}
-              </span>
-            </label>
-            <ColumnFilters
-              columns={filterableColumns}
-              disabled={!columnPreferencesReady}
-              onChange={(columnId, value) =>
-                setColumnFilters((current) => ({
+          <label className="relative min-w-0 flex-1 xl:max-w-80">
+            <span className="sr-only">Cerca persone</span>
+            <Search
+              aria-hidden="true"
+              className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              className="h-8 pl-8"
+              onChange={(event) =>
+                setFilters((current) => ({
                   ...current,
-                  [columnId]: value,
+                  query: event.target.value,
                 }))
               }
-              onReset={() => setColumnFilters({})}
-              values={columnFilters}
+              placeholder="Nome o telefono"
+              type="search"
+              value={filters.query}
             />
-            <ColumnCustomizer
-              availableColumns={availableColumns}
-              columns={visibleColumnIds}
-              disabled={!columnPreferencesReady}
-              onChange={updateColumns}
-              onReset={() =>
-                updateColumns([...DEFAULT_COLUMNS[view]])
+          </label>
+          <label
+            className={cn(
+              "grid size-8 shrink-0 cursor-pointer place-items-center rounded-md border focus-within:ring-2 focus-within:ring-ring",
+              layout === "TABLE" && "md:hidden",
+            )}
+          >
+            <input
+              aria-label="Seleziona visibili"
+              checked={
+                visiblePeople.length > 0 &&
+                selectedPeople.length === visiblePeople.length
               }
+              className="size-4 accent-operative"
+              disabled={!currentRosterLoaded || !visiblePeople.length}
+              onChange={(event) =>
+                setSelected(
+                  event.target.checked
+                    ? new Set(visiblePeople.map(({ id }) => id))
+                    : new Set(),
+                )
+              }
+              type="checkbox"
             />
-            <SortControl
-              className={cn(
-                "min-w-0 shrink-0",
-                layout === "TABLE" && "md:hidden",
-              )}
-              columns={sortableColumns}
-              onChange={setSort}
-              sort={appliedSort}
-            />
-            <div
-              aria-label="Disposizione risultati"
-              className="hidden shrink-0 items-center gap-0.5 rounded-md border p-0.5 md:flex"
-              role="group"
-            >
-              {layouts.map((item) => (
-                <button
-                  aria-label={item.label}
-                  aria-pressed={layout === item.id}
-                  className={cn(
-                    "inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    layout === item.id
-                      ? "bg-operative text-operative-foreground"
-                      : "text-muted-foreground hover:bg-muted",
-                  )}
-                  key={item.id}
-                  onClick={() => setLayout(item.id)}
-                  type="button"
-                >
-                  <item.icon aria-hidden="true" className="size-4" />
-                </button>
-              ))}
-            </div>
-          </div>
+          </label>
+          <Button
+            aria-label={
+              filters.archived ? "Nascondi archiviati" : "Mostra archiviati"
+            }
+            aria-pressed={Boolean(filters.archived)}
+            className="shrink-0 px-2"
+            onClick={() => {
+              setSelected(new Set())
+              setFilters((current) => ({
+                ...current,
+                archived: !current.archived,
+              }))
+            }}
+            size="sm"
+            variant={filters.archived ? "default" : "outline"}
+          >
+            <Archive aria-hidden="true" />
+            <span className="sr-only lg:not-sr-only">Archiviati</span>
+            <span className="text-[10px] tabular-nums opacity-70">
+              {kpis.archived}
+            </span>
+          </Button>
+          <ColumnFilters
+            columns={filterableColumns}
+            disabled={!columnPreferencesReady}
+            onChange={(columnId, value) =>
+              setColumnFilters((current) => ({
+                ...current,
+                [columnId]: value,
+              }))
+            }
+            onReset={() => setColumnFilters({})}
+            values={columnFilters}
+          />
+          <ColumnCustomizer
+            availableColumns={availableColumns}
+            columns={visibleColumnIds}
+            disabled={!columnPreferencesReady}
+            onChange={updateColumns}
+            onReset={() => updateColumns([...DEFAULT_COLUMNS[view]])}
+          />
+          <SortControl
+            className={cn("shrink-0", layout === "TABLE" && "md:hidden")}
+            columns={sortableColumns}
+            onChange={changeSort}
+            sort={appliedSort}
+          />
           <div
-            aria-label="Selezione e azioni di massa"
-            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
+            aria-label="Disposizione risultati"
+            className="hidden shrink-0 items-center gap-0.5 rounded-md border p-0.5 md:flex"
             role="group"
           >
-            <span className="whitespace-nowrap">
-              {visiblePeople.length} risultati · {selectedPeople.length}{" "}
-              selezionati
-            </span>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                disabled={!currentRosterLoaded || !visiblePeople.length}
-                onClick={() =>
-                  setSelected(new Set(visiblePeople.map(({ id }) => id)))
-                }
-                size="sm"
-                variant="ghost"
+            {layouts.map((item) => (
+              <button
+                aria-label={item.label}
+                aria-pressed={layout === item.id}
+                className={cn(
+                  "inline-flex size-6 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  layout === item.id
+                    ? "bg-operative text-operative-foreground"
+                    : "text-muted-foreground hover:bg-muted",
+                )}
+                key={item.id}
+                onClick={() => changeLayout(item.id)}
+                type="button"
               >
-                Seleziona visibili
-              </Button>
-              {selectedPeople.length > 0 && (
-                <Button
-                  onClick={() => setSelected(new Set())}
-                  size="sm"
-                  variant="ghost"
-                >
-                  Deseleziona
-                </Button>
-              )}
-            </div>
-            {selectedPeople.length > 0 && (
-              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5">
-                <Button
-                  aria-label="Registra quota"
-                  disabled={actionBusy}
-                  onClick={() => setPaymentOpen(true)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <CircleDollarSign aria-hidden="true" />
-                  Quota
-                </Button>
-                <Button
-                  aria-label="Imposta scadenza"
-                  disabled={actionBusy}
-                  onClick={applyDeadline}
-                  size="sm"
-                  variant="outline"
-                >
-                  <CalendarClock aria-hidden="true" />
-                  Scadenza
-                </Button>
-                <Button
-                  aria-label={
-                    filters.archived
-                      ? "Rimetti in rosa i selezionati"
-                      : "Archivia i selezionati"
-                  }
-                  disabled={actionBusy}
-                  onClick={() => void setArchived(!filters.archived)}
-                  size="sm"
-                  variant="outline"
-                >
-                  {filters.archived ? (
-                    <ArchiveRestore aria-hidden="true" />
-                  ) : (
-                    <Archive aria-hidden="true" />
-                  )}
-                  {filters.archived ? "In rosa" : "Archivia"}
-                </Button>
-                <Button
-                  aria-label="Invia notifica"
-                  disabled={actionBusy}
-                  onClick={() =>
-                    selectedUserIds.length
-                      ? setNotificationOpen(true)
-                      : toast.error(
-                          "Nessun selezionato ha un account attivo",
-                        )
-                  }
-                  size="sm"
-                  variant="outline"
-                >
-                  <BellPlus aria-hidden="true" />
-                  Notifica
-                </Button>
-              </div>
-            )}
+                <item.icon aria-hidden="true" className="size-4" />
+              </button>
+            ))}
           </div>
+          <span className="hidden shrink-0 whitespace-nowrap pl-1 text-xs tabular-nums text-muted-foreground lg:inline">
+            {visiblePeople.length} risultati · {selectedPeople.length}{" "}
+            selezionati
+          </span>
         </div>
       </div>
 
@@ -1094,7 +1079,7 @@ export function ManagementDashboard() {
             )
           }
           onSortChange={(columnId) =>
-            setSort((current) => nextSort(current, columnId))
+            changeSort(nextSort(appliedSort, columnId))
           }
           onVerifyPayment={verifyPayment}
           passportPhotoStates={passportPhotoStates}
@@ -1103,6 +1088,88 @@ export function ManagementDashboard() {
           sort={appliedSort}
           view={view}
         />
+      )}
+
+      {selectedPeople.length > 0 && (
+        <>
+          {/* Spazio per non coprire le ultime righe con la barra fissa. */}
+          <div aria-hidden="true" className="h-16" />
+          <div
+            aria-label="Azioni sui selezionati"
+            className="fixed inset-x-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-1 rounded-xl border bg-background p-1.5 shadow-lg md:bottom-20"
+            role="group"
+          >
+            <Button
+              aria-label="Deseleziona tutti"
+              className="shrink-0"
+              onClick={() => setSelected(new Set())}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <X aria-hidden="true" />
+            </Button>
+            <span className="shrink-0 text-xs font-semibold tabular-nums">
+              {selectedPeople.length}
+              <span className="sr-only sm:not-sr-only"> selezionati</span>
+            </span>
+            <div className="ml-auto flex min-w-0 items-center gap-1">
+              <Button
+                aria-label="Registra quota"
+                disabled={actionBusy}
+                onClick={() => setPaymentOpen(true)}
+                size="sm"
+                variant="outline"
+              >
+                <CircleDollarSign aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Quota</span>
+              </Button>
+              <Button
+                aria-label="Imposta scadenza"
+                disabled={actionBusy}
+                onClick={applyDeadline}
+                size="sm"
+                variant="outline"
+              >
+                <CalendarClock aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Scadenza</span>
+              </Button>
+              <Button
+                aria-label={
+                  filters.archived
+                    ? "Rimetti in rosa i selezionati"
+                    : "Archivia i selezionati"
+                }
+                disabled={actionBusy}
+                onClick={() => void setArchived(!filters.archived)}
+                size="sm"
+                variant="outline"
+              >
+                {filters.archived ? (
+                  <ArchiveRestore aria-hidden="true" />
+                ) : (
+                  <Archive aria-hidden="true" />
+                )}
+                <span className="sr-only sm:not-sr-only">
+                  {filters.archived ? "In rosa" : "Archivia"}
+                </span>
+              </Button>
+              <Button
+                aria-label="Invia notifica"
+                disabled={actionBusy}
+                onClick={() =>
+                  selectedUserIds.length
+                    ? setNotificationOpen(true)
+                    : toast.error("Nessun selezionato ha un account attivo")
+                }
+                size="sm"
+                variant="outline"
+              >
+                <BellPlus aria-hidden="true" />
+                <span className="sr-only sm:not-sr-only">Notifica</span>
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       <AddPersonDialog

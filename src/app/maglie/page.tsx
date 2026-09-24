@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Info, Settings2, Shirt, UsersRound } from "lucide-react"
+import { ChevronDown, Info, Settings2, Shirt, UsersRound } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -15,7 +15,6 @@ import {
 import { JerseyPreferencesForm } from "@/components/jersey/JerseyPreferencesForm"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -23,11 +22,15 @@ import {
   fetchJerseyBoard,
   fetchJerseyDraft,
   fetchOwnJerseyPreferences,
+  fetchOwnUniformSize,
   saveJerseyPreferences,
+  saveOwnUniformSize,
   type JerseyBoardRow,
   type JerseyDraft,
   type OwnJerseyPreferences,
+  type OwnUniformSize,
 } from "@/lib/jersey-api"
+import { UNIFORM_SIZES } from "@/lib/domain"
 import { initialJerseyChoices } from "@/lib/jersey-numbers"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
@@ -35,6 +38,7 @@ type PageData = {
   board: JerseyBoardRow[]
   draft: JerseyDraft | null
   own: OwnJerseyPreferences | null
+  size: OwnUniformSize | null
 }
 
 export default function JerseyNumbersPage() {
@@ -44,6 +48,7 @@ export default function JerseyNumbersPage() {
     isManager,
     loading: sessionLoading,
     membership,
+    profile,
     targetSeason,
     user,
   } = useAppSession()
@@ -52,6 +57,7 @@ export default function JerseyNumbersPage() {
   const [formVersion, setFormVersion] = useState(0)
 
   const seasonId = targetSeason?.id
+  const profileId = profile?.id
   const ownMembershipId =
     membership?.category === "PLAYER" && membership.status === "YES"
       ? membership.id
@@ -60,19 +66,22 @@ export default function JerseyNumbersPage() {
   const load = useCallback(async () => {
     if (!seasonId) return
     try {
-      const [board, draft, own] = await Promise.all([
+      const [board, draft, own, size] = await Promise.all([
         fetchJerseyBoard(supabaseBrowser, seasonId),
         fetchJerseyDraft(supabaseBrowser, seasonId),
         ownMembershipId
           ? fetchOwnJerseyPreferences(supabaseBrowser, ownMembershipId)
           : Promise.resolve(null),
+        ownMembershipId && profileId
+          ? fetchOwnUniformSize(supabaseBrowser, profileId, seasonId)
+          : Promise.resolve(null),
       ])
-      setData({ board, draft, own })
+      setData({ board, draft, own, size })
       setError(null)
     } catch {
       setError("Impossibile caricare i numeri di maglia.")
     }
-  }, [ownMembershipId, seasonId])
+  }, [ownMembershipId, profileId, seasonId])
 
   useEffect(() => {
     if (sessionLoading) return
@@ -151,7 +160,11 @@ export default function JerseyNumbersPage() {
         <PageTitleBar
           actions={
             isManager ? (
-              <Button asChild size="sm" variant="outline">
+              <Button
+                asChild
+                className="bg-operative text-operative-foreground hover:bg-operative/90"
+                size="sm"
+              >
                 <Link href="/gestione/maglie">
                   <Settings2 aria-hidden="true" />
                   Assegna
@@ -163,10 +176,16 @@ export default function JerseyNumbersPage() {
           title="Numeri di maglia"
         />
 
-        <Alert>
-          <Info aria-hidden="true" />
-          <AlertTitle>Come funziona</AlertTitle>
-          <AlertDescription>
+        <details className="group rounded-lg border bg-card text-sm">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-4 font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <Info aria-hidden="true" className="size-4 text-muted-foreground" />
+            Come funziona
+            <ChevronDown
+              aria-hidden="true"
+              className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="space-y-2 px-4 pb-3 text-muted-foreground">
             <p>
               Indica i numeri che vorresti, in ordine, oppure scegli “Non ho
               preferenze”: riceverai il numero libero più basso che nessuno ha
@@ -178,8 +197,8 @@ export default function JerseyNumbersPage() {
               definitivi i numeri, ad esempio dopo esserti accordato con un
               compagno: il manager vede le modifiche.
             </p>
-          </AlertDescription>
-        </Alert>
+          </div>
+        </details>
 
         {data.draft && (
           <Card>
@@ -250,6 +269,26 @@ export default function JerseyNumbersPage() {
           </Card>
         )}
 
+        {ownMembershipId && data.size && (
+          <UniformSizeCard
+            closed={closed}
+            key={data.size.current ?? ""}
+            onSave={async (size) => {
+              try {
+                await saveOwnUniformSize(supabaseBrowser, ownMembershipId, size)
+                toast.success("Taglia salvata")
+                await load()
+              } catch (saveError) {
+                toast.error("Taglia non salvata", {
+                  description:
+                    saveError instanceof Error ? saveError.message : undefined,
+                })
+              }
+            }}
+            size={data.size}
+          />
+        )}
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -266,5 +305,74 @@ export default function JerseyNumbersPage() {
         </Card>
       </main>
     </PageContainer>
+  )
+}
+
+function UniformSizeCard({
+  closed,
+  onSave,
+  size,
+}: {
+  closed: boolean
+  onSave: (size: string) => Promise<void>
+  size: OwnUniformSize
+}) {
+  const [value, setValue] = useState(size.current ?? size.previous ?? "")
+  const [busy, setBusy] = useState(false)
+  const proposed = !size.current && Boolean(size.previous)
+  const dirty = value !== (size.current ?? "")
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Taglia divisa</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {closed ? (
+          <p className="text-sm text-muted-foreground">
+            {size.current ? (
+              <>
+                La tua taglia è la{" "}
+                <strong className="text-foreground">{size.current}</strong>.
+              </>
+            ) : (
+              "Nessuna taglia indicata: chiedi a un manager."
+            )}
+          </p>
+        ) : (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            onSubmit={async (event) => {
+              event.preventDefault()
+              setBusy(true)
+              await onSave(value)
+              setBusy(false)
+            }}
+          >
+            <select
+              aria-label="Taglia divisa"
+              className="h-10 w-28 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onChange={(event) => setValue(event.target.value)}
+              value={value}
+            >
+              <option value="">—</option>
+              {UNIFORM_SIZES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <Button disabled={busy || !value || (!dirty && !proposed)} type="submit">
+              {busy ? "Salvataggio…" : "Salva"}
+            </Button>
+            {proposed && (
+              <p className="basis-full text-xs text-muted-foreground">
+                Proposta dall’anno scorso: conferma con Salva.
+              </p>
+            )}
+          </form>
+        )}
+      </CardContent>
+    </Card>
   )
 }

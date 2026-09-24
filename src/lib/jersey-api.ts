@@ -234,6 +234,46 @@ export async function saveUniformSize(
   if (error) throw error
 }
 
+export type OwnUniformSize = {
+  current: string | null
+  previous: string | null
+}
+
+export async function fetchOwnUniformSize(
+  client: SupabaseClient,
+  profileId: string,
+  seasonId: string,
+): Promise<OwnUniformSize> {
+  const { data, error } = await client
+    .from("season_memberships")
+    .select("season_id, uniform_size, seasons(starts_on)")
+    .eq("profile_id", profileId)
+  if (error) throw error
+
+  const rows = ((data ?? []) as UnknownRow[]).map((row) => ({
+    seasonId: String(row.season_id),
+    size: asText(row.uniform_size),
+    startsOn: asText((row.seasons as UnknownRow | null)?.starts_on) ?? "",
+  }))
+  const current = rows.find((row) => row.seasonId === seasonId)
+  const previous = rows
+    .filter((row) => current && row.startsOn < current.startsOn && row.size)
+    .sort((a, b) => b.startsOn.localeCompare(a.startsOn))[0]
+  return { current: current?.size ?? null, previous: previous?.size ?? null }
+}
+
+export async function saveOwnUniformSize(
+  client: SupabaseClient,
+  membershipId: string,
+  uniformSize: string,
+) {
+  const { error } = await client.rpc("save_own_uniform_size", {
+    p_membership_id: membershipId,
+    p_uniform_size: uniformSize,
+  })
+  if (error) throw error
+}
+
 export async function confirmJerseyDraft(
   client: SupabaseClient,
   seasonId: string,

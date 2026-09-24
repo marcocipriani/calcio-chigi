@@ -384,27 +384,17 @@ export default function PlayerPage({
 
         <section className="overflow-hidden rounded-xl border bg-card">
           <div className="flex items-center gap-4 p-4">
-            <div className="relative shrink-0">
-              <Avatar className="size-20 border-2 border-background ring-1 ring-border">
-                <AvatarImage
-                  alt={`${player.nome} ${player.cognome}`}
-                  className="object-cover"
-                  src={player.avatar_url ?? undefined}
-                />
-                <AvatarFallback className="text-lg font-black">
-                  {player.nome[0]}
-                  {player.cognome[0]}
-                </AvatarFallback>
-              </Avatar>
-              {player.jersey_number !== null && (
-                <span
-                  aria-hidden="true"
-                  className="absolute -bottom-1 -right-1 grid size-7 place-items-center rounded-full border-2 border-background bg-primary text-xs font-black leading-none text-primary-foreground"
-                >
-                  {player.jersey_number}
-                </span>
-              )}
-            </div>
+            <Avatar className="size-20 border-2 border-background ring-1 ring-border">
+              <AvatarImage
+                alt={`${player.nome} ${player.cognome}`}
+                className="object-cover"
+                src={player.avatar_url ?? undefined}
+              />
+              <AvatarFallback className="text-lg font-black">
+                {player.nome[0]}
+                {player.cognome[0]}
+              </AvatarFallback>
+            </Avatar>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-2xl font-black tracking-tight">
                 {player.nome} {player.cognome}

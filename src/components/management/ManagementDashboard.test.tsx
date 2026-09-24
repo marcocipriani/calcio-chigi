@@ -18,8 +18,10 @@ const session = vi.hoisted(() => ({
 const api = vi.hoisted(() => ({
   fetchManagementAttendance: vi.fn(),
   fetchManagementColumnPreferences: vi.fn(),
+  fetchManagementDisplayPreferences: vi.fn(),
   fetchManagementPeople: vi.fn(),
   saveManagementColumnPreferences: vi.fn(),
+  saveManagementDisplayPreferences: vi.fn(),
 }))
 
 const storage = vi.hoisted(() => ({
@@ -133,6 +135,8 @@ describe("ManagementDashboard operational state", () => {
     api.fetchManagementColumnPreferences.mockResolvedValue(null)
     api.fetchManagementAttendance.mockResolvedValue(new Map())
     api.saveManagementColumnPreferences.mockResolvedValue(undefined)
+    api.fetchManagementDisplayPreferences.mockResolvedValue(null)
+    api.saveManagementDisplayPreferences.mockResolvedValue(undefined)
     storage.from.mockReturnValue(storage)
     storage.createSignedUrls.mockResolvedValue({ data: [], error: null })
   })
@@ -149,7 +153,7 @@ describe("ManagementDashboard operational state", () => {
     expect(within(tools).getByRole("button", { name: /Colonne/ })).toBeVisible()
     expect(within(tools).getByText("2 risultati · 0 selezionati")).toBeVisible()
     expect(
-      within(tools).getByRole("button", { name: "Seleziona visibili" }),
+      within(tools).getByRole("checkbox", { name: "Seleziona visibili" }),
     ).toBeVisible()
   })
 
@@ -168,7 +172,9 @@ describe("ManagementDashboard operational state", () => {
         screen.getByText("1 risultati · 0 selezionati"),
       ).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole("button", { name: "Seleziona visibili" }))
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Seleziona visibili" }),
+    )
 
     await waitFor(() => {
       expect(
@@ -208,7 +214,7 @@ describe("ManagementDashboard operational state", () => {
     })
   })
 
-  it("clears column filters and sorting when the view changes", async () => {
+  it("clears column filters when the view changes", async () => {
     render(<ManagementDashboard />)
     await screen.findByRole("table")
 
@@ -261,7 +267,7 @@ describe("ManagementDashboard operational state", () => {
     )
 
     const actionsGroup = screen.getByRole("group", {
-      name: "Selezione e azioni di massa",
+      name: "Azioni sui selezionati",
     })
     for (const name of [
       "Registra quota",
@@ -273,7 +279,7 @@ describe("ManagementDashboard operational state", () => {
     }
 
     fireEvent.click(
-      within(actionsGroup).getByRole("button", { name: "Deseleziona" }),
+      within(actionsGroup).getByRole("button", { name: "Deseleziona tutti" }),
     )
     expect(
       screen.queryByRole("button", { name: "Registra quota" }),
@@ -527,7 +533,7 @@ describe("ManagementDashboard operational state", () => {
       screen.queryByRole("button", { name: "Registra quota" }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Seleziona visibili" }),
+      screen.getByRole("checkbox", { name: "Seleziona visibili" }),
     ).toBeDisabled()
 
     fireEvent.click(within(alert).getByRole("button", { name: "Riprova" }))

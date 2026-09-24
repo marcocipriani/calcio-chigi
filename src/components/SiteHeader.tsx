@@ -23,7 +23,9 @@ export function SiteHeader() {
       : "Accedi"
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 h-16 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88">
+    // right-scroll-bar-position: i dialog tolgono la scrollbar al body; senza
+    // compensazione l'header fisso si allarga e il contenuto salta.
+    <header className="right-scroll-bar-position fixed inset-x-0 top-0 z-50 h-16 border-b bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/88">
       <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-2 px-2 sm:gap-3 sm:px-5">
         <Link
           className="group flex min-w-0 items-center gap-1.5 rounded-md outline-none transition-transform duration-150 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring sm:gap-2.5"
@@ -39,10 +41,10 @@ export function SiteHeader() {
               src="/brand/logos/logo-circolo-chigi-mark.webp?v=2"
             />
           </span>
-          <span className="truncate text-[11px] font-black uppercase tracking-tight sm:hidden">
+          <span className="truncate text-sm font-black tracking-tight sm:hidden">
             Calcio Chigi
           </span>
-          <span className="hidden truncate text-sm font-black uppercase tracking-tight sm:inline sm:text-base">
+          <span className="hidden truncate text-base font-black tracking-tight sm:inline">
             Calcio Circolo Chigi
           </span>
         </Link>

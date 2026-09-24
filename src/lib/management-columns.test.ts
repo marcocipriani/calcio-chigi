@@ -7,6 +7,7 @@ import {
   moveColumn,
   nextSort,
   normalizeColumnPreferences,
+  normalizeDisplayPreferences,
 } from "@/lib/management-columns"
 
 describe("management columns", () => {
@@ -80,5 +81,30 @@ describe("management columns", () => {
         ["person", "phone"],
       ),
     ).toEqual({ person: "U35" })
+  })
+})
+
+describe("normalizeDisplayPreferences", () => {
+  it("keeps valid choices and drops anything unknown", () => {
+    expect(
+      normalizeDisplayPreferences({
+        view: "PAYMENTS",
+        layout: "CARDS",
+        sorts: {
+          PAYMENTS: { columnId: "dueOn", direction: "desc" },
+          PEOPLE: { columnId: "person", direction: "sideways" },
+          BOGUS: { columnId: "x", direction: "asc" },
+        },
+      }),
+    ).toEqual({
+      view: "PAYMENTS",
+      layout: "CARDS",
+      sorts: { PAYMENTS: { columnId: "dueOn", direction: "desc" } },
+    })
+    expect(normalizeDisplayPreferences("garbage")).toEqual({
+      view: "PEOPLE",
+      layout: "TABLE",
+      sorts: {},
+    })
   })
 })

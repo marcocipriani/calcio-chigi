@@ -42,7 +42,7 @@ describe("BottomNav", () => {
       "border",
       "p-1",
       "md:bottom-4",
-      "md:left-1/2",
+      "md:left-[calc(50%-var(--removed-body-scroll-bar-size,0px)/2)]",
     )
 
     const active = screen.getByRole("link", { name: "Squadra" })

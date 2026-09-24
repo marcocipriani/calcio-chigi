@@ -59,6 +59,7 @@ import {
   type JerseyDraft,
   type JerseyPreferenceVersion,
 } from "@/lib/jersey-api"
+import { UNIFORM_SIZES } from "@/lib/domain"
 import {
   applyJerseyResolution,
   initialJerseyChoices,
@@ -597,19 +598,24 @@ export function JerseyAssignmentManager() {
                       placeholder="—"
                       value={number ?? ""}
                     />
-                    <Input
+                    <select
                       aria-label={`Taglia di ${row.nome} ${row.cognome}`}
-                      className="h-10 w-16 shrink-0 text-center text-xs"
-                      defaultValue={row.uniformSize ?? ""}
-                      key={`${row.membershipId}:${row.uniformSize ?? ""}`}
-                      onBlur={(event) =>
+                      className="h-10 w-16 shrink-0 rounded-md border bg-background px-1 text-center text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onChange={(event) =>
                         void handleUniformSize(
                           row.membershipId,
                           event.target.value,
                         )
                       }
-                      placeholder="Taglia"
-                    />
+                      value={row.uniformSize ?? ""}
+                    >
+                      <option value="">Taglia</option>
+                      {UNIFORM_SIZES.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
                     <div className="min-w-0 flex-1">
                       <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
                         {row.nome} {row.cognome}

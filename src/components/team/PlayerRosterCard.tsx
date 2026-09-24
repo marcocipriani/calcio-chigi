@@ -42,26 +42,16 @@ export function PlayerRosterCard({
           <Info aria-hidden="true" className="size-3.5" />
         </Link>
       )}
-      <div className="relative mx-auto size-10">
-        <Avatar className="size-10 ring-1 ring-border">
-          <AvatarImage
-            alt={`${player.nome} ${player.cognome}`}
-            src={player.avatar_url ?? undefined}
-          />
-          <AvatarFallback>
-            {player.nome[0]}
-            {player.cognome[0]}
-          </AvatarFallback>
-        </Avatar>
-        {player.jersey_number !== null && (
-          <span
-            aria-hidden="true"
-            className="absolute -bottom-1 -right-1 grid size-4 place-items-center rounded-full border border-background bg-primary text-[9px] font-black leading-none text-primary-foreground"
-          >
-            {player.jersey_number}
-          </span>
-        )}
-      </div>
+      <Avatar className="mx-auto size-10 ring-1 ring-border">
+        <AvatarImage
+          alt={`${player.nome} ${player.cognome}`}
+          src={player.avatar_url ?? undefined}
+        />
+        <AvatarFallback>
+          {player.nome[0]}
+          {player.cognome[0]}
+        </AvatarFallback>
+      </Avatar>
       <p
         className="mt-1 truncate text-[10px] text-muted-foreground"
         data-testid="player-first-name"

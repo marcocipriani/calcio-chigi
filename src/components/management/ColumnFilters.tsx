@@ -1,6 +1,6 @@
 "use client"
 
-import { FilterX, ListFilter } from "lucide-react"
+import { ArrowUpDown, FilterX, ListFilter } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import type { ManagementColumnMeta } from "@/components/management/ManagementTable"
 import type {
   ManagementColumnFilters,
@@ -45,12 +46,13 @@ export function ColumnFilters({
           aria-label={
             activeCount ? `Filtri (${activeCount} attivi)` : "Filtri"
           }
+          className="shrink-0 px-2"
           disabled={disabled || columns.length === 0}
           size="sm"
           variant={activeCount ? "default" : "outline"}
         >
           <ListFilter aria-hidden="true" />
-          Filtri
+          <span className="sr-only lg:not-sr-only">Filtri</span>
           {activeCount > 0 && (
             <span className="rounded-full bg-white/20 px-1.5 text-[10px] tabular-nums">
               {activeCount}
@@ -131,12 +133,20 @@ export function SortControl({
 }) {
   const value = sort ? `${sort.columnId}:${sort.direction}` : ""
 
+  // Select nativo trasparente sopra l'icona: compatto, ma resta il picker di
+  // sistema (accessibile e comodo su telefono).
   return (
-    <label className={className}>
-      <span className="sr-only">Ordina risultati</span>
+    <label
+      className={cn(
+        "relative grid size-8 place-items-center rounded-md border focus-within:ring-2 focus-within:ring-ring",
+        sort && "border-operative text-operative",
+        className,
+      )}
+    >
+      <ArrowUpDown aria-hidden="true" className="size-4" />
       <select
         aria-label="Ordina risultati"
-        className="h-8 max-w-full rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute inset-0 cursor-pointer opacity-0"
         onChange={(event) => {
           const [columnId, direction] = event.target.value.split(":")
           onChange(

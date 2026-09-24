@@ -46,6 +46,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { UNIFORM_SIZES } from "@/lib/domain"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
@@ -625,11 +626,19 @@ export function PersonDrawer({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="person-size">Taglia divisa</Label>
-                  <Input
+                  <select
+                    className={selectClass}
                     defaultValue={person.uniformSize ?? ""}
                     id="person-size"
                     name="uniformSize"
-                  />
+                  >
+                    <option value="">—</option>
+                    {UNIFORM_SIZES.map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-2">

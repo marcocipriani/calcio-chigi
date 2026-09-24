@@ -55,7 +55,7 @@ export function JerseyDraftTable({
             className={cn(
               "flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm",
               row.membershipId === highlightMembershipId &&
-                "border-violet-400 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40",
+                "border-operative/50 bg-operative/10",
             )}
             key={row.membershipId}
           >

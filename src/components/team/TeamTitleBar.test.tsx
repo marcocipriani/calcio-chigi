@@ -31,7 +31,7 @@ describe("TeamTitleBar", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("shows the purple official action to managers", () => {
+  it("shows the operative official action to managers", () => {
     render(
       <TeamTitleBar
         isManager
@@ -44,7 +44,7 @@ describe("TeamTitleBar", () => {
     )
     expect(
       screen.getByRole("button", { name: "Pubblica formazione" }),
-    ).toHaveClass("bg-violet-600")
+    ).toHaveClass("bg-operative")
   })
 
   it("disables the official action when managers have no next match", () => {

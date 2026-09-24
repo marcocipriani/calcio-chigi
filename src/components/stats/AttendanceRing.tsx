@@ -59,7 +59,7 @@ export function AttendanceRing({
             .join("")}
         </AvatarFallback>
       </Avatar>
-      <span className="absolute -bottom-1 rounded-full border bg-background px-1.5 py-0.5 text-[9px] font-black tabular-nums shadow-xs">
+      <span className="absolute -bottom-1 rounded-full border bg-background px-1.5 py-0.5 text-[10px] font-black tabular-nums shadow-xs">
         {Math.round(clamped)}%
       </span>
     </span>

@@ -274,11 +274,14 @@ describe("StatisticsPage seasonal rankings", () => {
     ]) {
       expect(ranking(heading).getByText("Elio Dorbolò")).toBeVisible()
       expect(ranking(heading).getByText("0")).toBeVisible()
-      expect(ranking(heading).getByRole("list")).toHaveAttribute(
-        "tabindex",
-        "0",
+      // Una sola area di scroll (la pagina): le classifiche non scorrono dentro.
+      expect(ranking(heading).getByRole("list")).not.toHaveClass(
+        "overflow-y-auto",
       )
     }
+    expect(
+      screen.getByRole("group", { name: "Classifica da mostrare" }),
+    ).toBeInTheDocument()
 
     expect(
       container.querySelector("[data-statistics-layout]"),
@@ -306,12 +309,12 @@ describe("StatisticsPage seasonal rankings", () => {
     expect(within(season).getByRole("option", { name: "2025/26" })).toBeVisible()
     expect(season).not.toHaveTextContent(/ASI|Over/i)
     expect(season).not.toHaveClass(
-      "border-violet-200",
-      "focus-visible:border-violet-400",
+      "border-operative/40",
+      "focus-visible:border-operative",
     )
     expect(screen.getByRole("combobox", { name: "Fase" })).not.toHaveClass(
-      "border-violet-200",
-      "focus-visible:border-violet-400",
+      "border-operative/40",
+      "focus-visible:border-operative",
     )
   })
 

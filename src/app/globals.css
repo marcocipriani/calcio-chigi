@@ -43,8 +43,9 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   
-  /* NUOVO: Aggiunta colore Ambra Chigi al tema */
-  --color-amber-chigi: var(--amber-chigi);
+  /* Viola operativo: azioni e identità dei manager (il blu resta l'accento generale). */
+  --color-operative: var(--operative);
+  --color-operative-foreground: var(--operative-foreground);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -76,8 +77,9 @@
   --secondary: oklch(0.55 0.22 27); /* Rosso Intenso */
   --secondary-foreground: oklch(0.985 0 0);
 
-  /* AMBRA CHIGI (Custom per allenamenti) */
-  --amber-chigi: oklch(0.65 0.20 65); /* Giallo Oro/Arancio */
+  /* VIOLA OPERATIVO (azioni manager) */
+  --operative: oklch(0.541 0.281 293.009);
+  --operative-foreground: oklch(0.985 0 0);
 
   /* Neutri */
   --muted: oklch(0.96 0.005 285);
@@ -128,8 +130,9 @@
   --secondary: oklch(0.65 0.20 27);
   --secondary-foreground: oklch(0.15 0.05 260);
 
-  /* AMBRA CHIGI (Dark Mode) */
-  --amber-chigi: oklch(0.75 0.18 65);
+  /* VIOLA OPERATIVO (Dark Mode) */
+  --operative: oklch(0.702 0.183 293.541);
+  --operative-foreground: oklch(0.15 0.05 260);
 
   /* Neutri Scuri */
   --muted: oklch(0.25 0.04 260);
@@ -167,6 +170,13 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  :root {
+    accent-color: var(--primary);
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 25%, transparent);
   }
 }
 

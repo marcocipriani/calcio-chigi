@@ -36,7 +36,7 @@ export function PlayerRosterCard({
       {canViewProfile && (
         <Link
           aria-label={`Profilo di ${player.nome} ${player.cognome}`}
-          className="absolute right-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-1 top-1 grid size-7 place-items-center rounded-full border bg-background/90 text-muted-foreground transition-colors after:absolute after:-inset-2 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           href={`/giocatore/${player.id}`}
         >
           <Info aria-hidden="true" className="size-3.5" />
@@ -65,12 +65,16 @@ export function PlayerRosterCard({
         {player.cognome}
       </h2>
       <p
-        className="mt-0.5 flex items-center justify-center gap-1 truncate text-[8px] uppercase tracking-wide text-muted-foreground"
+        className="mt-0.5 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground"
         data-testid="player-role-row"
       >
-        <span>{player.role ?? "Ruolo da definire"}</span>
+        {/* Sigla visibile: il ruolo intero a 10px non entra con U35 e maglia. */}
+        <span title={player.role ?? "Ruolo da definire"}>
+          <span aria-hidden="true">{player.role?.slice(0, 3) ?? "—"}</span>
+          <span className="sr-only">{player.role ?? "Ruolo da definire"}</span>
+        </span>
         {player.is_u35 && (
-          <Badge className="h-4 border-0 bg-sky-100 px-1 text-[8px] text-sky-700 hover:bg-sky-100">
+          <Badge className="h-4 border-0 bg-sky-100 px-1 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200">
             U35
           </Badge>
         )}
@@ -80,7 +84,7 @@ export function PlayerRosterCard({
         </span>
       </p>
       <div
-        className="mt-1 flex justify-center gap-2 border-t pt-1 text-[9px] tabular-nums"
+        className="mt-1 flex justify-center gap-2 border-t pt-1 text-[11px] tabular-nums"
         data-testid="player-stats"
       >
         <span>

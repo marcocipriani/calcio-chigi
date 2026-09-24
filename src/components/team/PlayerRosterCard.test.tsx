@@ -53,7 +53,8 @@ describe("PlayerRosterCard", () => {
       "player-stats",
     ])
     expect(within(card).getByLabelText("Numero 8")).toBeVisible()
-    expect(within(card).getByText("CENTROCAMPISTA")).toBeVisible()
+    expect(within(card).getByText("CEN")).toBeVisible()
+    expect(within(card).getByText("CENTROCAMPISTA")).toHaveClass("sr-only")
     expect(within(card).getByText("U35")).toHaveClass(
       "bg-sky-100",
       "text-sky-700",

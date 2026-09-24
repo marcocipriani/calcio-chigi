@@ -161,23 +161,23 @@ export function StandingsContent({
             <Table>
             <TableHeader className="bg-muted/40">
                 <TableRow className="hover:bg-transparent border-b border-slate-200 dark:border-slate-800">
-                <TableHead className="w-[10px] font-bold text-center text-[10px] uppercase">#</TableHead>
+                <TableHead className="w-[10px] font-bold text-center text-[11px] uppercase">#</TableHead>
                 <TableHead className="font-bold text-xs uppercase min-w-[140px]">Squadra</TableHead>
 
                 <TableHead className="text-center font-black text-sm text-foreground bg-muted/20">Pt</TableHead>
                 <TableHead className="text-center text-[11px] font-bold">G</TableHead>
-                <TableHead className="text-center text-[11px] font-bold text-emerald-600">V</TableHead>
-                <TableHead className="text-center text-[11px] font-bold text-amber-600">N</TableHead>
-                <TableHead className="text-center text-[11px] font-bold text-red-600">P</TableHead>
+                <TableHead className="text-center text-[11px] font-bold text-emerald-700 dark:text-emerald-400">V</TableHead>
+                <TableHead className="text-center text-[11px] font-bold text-amber-700 dark:text-amber-400">N</TableHead>
+                <TableHead className="text-center text-[11px] font-bold text-red-700 dark:text-red-400">P</TableHead>
                 
                 <TableHead className="text-center text-[11px] font-bold border-r-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50">%V</TableHead>
                 
-                <TableHead className="text-center text-[11px] font-bold text-blue-500">GF</TableHead>
-                <TableHead className="text-center text-[11px] font-bold text-orange-500">GS</TableHead>
+                <TableHead className="text-center text-[11px] font-bold">GF</TableHead>
+                <TableHead className="text-center text-[11px] font-bold">GS</TableHead>
                 
                 <TableHead className="text-center text-[11px] font-bold border-r">+/-</TableHead>
                 
-                <TableHead className="text-center text-[10px] uppercase min-w-[110px]">Forma</TableHead>
+                <TableHead className="text-center text-[11px] uppercase min-w-[110px]">Forma</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -188,12 +188,12 @@ export function StandingsContent({
                 const form = getForm(row.teamData.nome ?? '');
 
                 return (
-                    <TableRow key={row.id || row.teamData.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50/50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''}`}>
+                    <TableRow key={row.id || row.teamData.id} className={`border-b border-slate-100 dark:border-slate-800 ${isMyTeam ? 'bg-amber-50 dark:bg-amber-950/30' : ''}`}>
                     <TableCell className="text-center text-sm text-muted-foreground p-2 font-medium">{index + 1}</TableCell>
                     <TableCell className="p-2">
                         <div className="flex items-center gap-3">
                         <Avatar className="h-7 w-7 border bg-white"><AvatarImage src={row.teamData.logo_url} alt={row.teamData.nome ?? ''} className="object-contain" /><AvatarFallback>{row.teamData.nome?.[0]}</AvatarFallback></Avatar>
-                        <span className={`text-xs font-bold uppercase ${isMyTeam ? 'text-amber-600' : ''}`}>{row.teamData.nome}</span>
+                        <span className={`text-xs font-bold uppercase ${isMyTeam ? 'font-black text-amber-800 dark:text-amber-300' : ''}`}>{row.teamData.nome}</span>
                         </div>
                     </TableCell>
                     <TableCell className="text-center font-black text-lg bg-muted/5">{row.punti}</TableCell>
@@ -203,7 +203,7 @@ export function StandingsContent({
                     <TableCell className="text-center text-sm text-muted-foreground">{row.perse}</TableCell>
                     
                     <TableCell className="text-center p-1 border-r-2 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
-                        <Badge variant="secondary" className={`text-[10px] h-5 border-0 font-bold ${winPct >= 50 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>
+                        <Badge variant="secondary" className={`text-[10px] h-5 border-0 font-bold ${winPct >= 50 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-muted text-muted-foreground'}`}>
                             {winPct}%
                         </Badge>
                     </TableCell>
@@ -211,20 +211,20 @@ export function StandingsContent({
                     <TableCell className="text-center text-sm text-muted-foreground">{row.gol_fatti}</TableCell>
                     <TableCell className="text-center text-sm text-muted-foreground">{row.gol_subiti}</TableCell>
                     
-                    <TableCell className={`text-center text-sm font-bold border-r ${diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-500' : ''}`}>{diff > 0 ? `+${diff}` : diff}</TableCell>
+                    <TableCell className={`text-center text-sm font-bold border-r ${diff > 0 ? 'text-green-700 dark:text-green-400' : diff < 0 ? 'text-red-700 dark:text-red-400' : ''}`}>{diff > 0 ? `+${diff}` : diff}</TableCell>
                     
                     <TableCell className="p-2">
                         <div className="flex items-center justify-center gap-1.5">
                             {(form as FormMatch[]).map((m, i) => {
-                                let colorClass = "bg-slate-100 text-slate-400 border-slate-200";
-                                if (m.result === 'V') colorClass = "bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800";
-                                if (m.result === 'N') colorClass = "bg-amber-100 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
-                                if (m.result === 'P') colorClass = "bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800";
+                                let colorClass = "bg-muted text-muted-foreground border-border";
+                                if (m.result === 'V') colorClass = "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800";
+                                if (m.result === 'N') colorClass = "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+                                if (m.result === 'P') colorClass = "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800";
 
                                 return (
                                     <Tooltip key={i}>
                                         <TooltipTrigger>
-                                            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-black cursor-help border ${colorClass}`}>
+                                            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black cursor-help border ${colorClass}`}>
                                                 {m.result}
                                             </div>
                                         </TooltipTrigger>

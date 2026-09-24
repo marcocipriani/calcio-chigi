@@ -26,6 +26,7 @@ import {
 } from "@/lib/season-statistics"
 import { fetchSeasonAttendance } from "@/lib/management-api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import { cn } from "@/lib/utils"
 
 type SeasonSlug = (typeof SEASON_OPTIONS)[number]["slug"]
 type SeasonIds = Record<SeasonSlug, string>
@@ -46,13 +47,17 @@ type RankingKey =
   | "yellow_cards"
   | "red_cards"
 
-const RANKINGS: readonly { key: RankingKey; label: string }[] = [
-  { key: "goals", label: "Goal" },
-  { key: "assists", label: "Assist" },
-  { key: "mvp", label: "MVP" },
-  { key: "yellow_cards", label: "Ammonizioni" },
-  { key: "red_cards", label: "Espulsioni" },
+const RANKINGS: readonly { key: RankingKey; label: string; short: string }[] = [
+  { key: "goals", label: "Goal", short: "Goal" },
+  { key: "assists", label: "Assist", short: "Assist" },
+  { key: "mvp", label: "MVP", short: "MVP" },
+  { key: "yellow_cards", label: "Ammonizioni", short: "Gialli" },
+  { key: "red_cards", label: "Espulsioni", short: "Rossi" },
 ]
+
+// Liste corte e un solo scroll di pagina: niente riquadri con scroll interno su mobile.
+const RANKING_PREVIEW = 5
+const ATTENDANCE_PREVIEW = 6
 
 function editionLabel(slug: SeasonSlug) {
   return `${slug.slice(0, 4)}/${slug.slice(-2)}`
@@ -90,7 +95,7 @@ function PlayerIdentity({
           className="object-cover"
           src={player.avatar_url ?? undefined}
         />
-        <AvatarFallback className="text-[8px]">
+        <AvatarFallback className="text-[10px]">
           {player.nome[0]}
           {player.cognome[0]}
         </AvatarFallback>
@@ -114,29 +119,37 @@ function PlayerIdentity({
 }
 
 function RankingCard({
+  active,
   canLink,
   label,
   metric,
   players,
   seasonSlug,
 }: {
+  active: boolean
   canLink: boolean
   label: string
   metric: RankingKey
   players: readonly RankedPlayer[]
   seasonSlug: SeasonSlug
 }) {
+  const [expanded, setExpanded] = useState(false)
   const ranked = [...players].sort((left, right) => {
     const leftValue = left[metric] ?? -1
     const rightValue = right[metric] ?? -1
     return rightValue - leftValue || compareItalianNames(left, right)
   })
   const headingId = `ranking-${metric}`
+  const visible = expanded ? ranked : ranked.slice(0, RANKING_PREVIEW)
 
   return (
     <section
       aria-labelledby={headingId}
-      className="overflow-hidden rounded-xl border bg-card"
+      className={cn(
+        "overflow-hidden rounded-xl border bg-card",
+        !active && "max-sm:hidden",
+      )}
+      id={`ranking-panel-${metric}`}
     >
       <h3
         className="border-b bg-muted/50 px-3 py-2 text-xs font-black uppercase tracking-wide"
@@ -144,8 +157,8 @@ function RankingCard({
       >
         {label}
       </h3>
-      <ol className="max-h-72 divide-y overflow-y-auto" tabIndex={0}>
-        {ranked.map((player, index) => (
+      <ol className="divide-y">
+        {visible.map((player, index) => (
           <li
             className="grid grid-cols-[24px_minmax(0,1fr)_36px] items-center gap-2 px-3 py-2 text-xs"
             key={player.profile_id}
@@ -164,6 +177,17 @@ function RankingCard({
           </li>
         ))}
       </ol>
+      {ranked.length > RANKING_PREVIEW && (
+        <Button
+          aria-expanded={expanded}
+          className="w-full rounded-none border-t text-xs"
+          onClick={() => setExpanded(!expanded)}
+          size="sm"
+          variant="ghost"
+        >
+          {expanded ? "Mostra meno" : `Mostra tutti (${ranked.length})`}
+        </Button>
+      )}
     </section>
   )
 }
@@ -184,6 +208,8 @@ export default function StatisticsPage() {
   const [attendanceState, setAttendanceState] = useState<
     "idle" | "loading" | "error"
   >("idle")
+  const [activeRanking, setActiveRanking] = useState<RankingKey>("goals")
+  const [attendanceExpanded, setAttendanceExpanded] = useState(false)
 
   const medalRates = useMemo(
     () => medalPercentages(attendance),
@@ -424,12 +450,12 @@ export default function StatisticsPage() {
   ])
 
   const filters = (
-    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
-      <label className="min-w-0 text-[10px] font-bold uppercase tracking-wider sm:w-64">
+    <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-row sm:items-end sm:gap-3">
+      <label className="min-w-0 text-[11px] font-bold uppercase tracking-wider sm:w-64">
         Stagione
         <select
           aria-label="Stagione"
-          className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-1 block h-11 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
           onChange={(event) => {
             setSelectedSeasonSlug(event.target.value as SeasonSlug)
             setPhase("ALL")
@@ -450,11 +476,11 @@ export default function StatisticsPage() {
         </select>
       </label>
 
-      <label className="min-w-0 text-[10px] font-bold uppercase tracking-wider sm:w-56">
+      <label className="min-w-0 text-[11px] font-bold uppercase tracking-wider sm:w-56">
         Fase
         <select
           aria-label="Fase"
-          className="mt-1 block h-9 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-1 block h-11 w-full rounded-md border bg-background px-3 text-sm font-medium shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-9"
           onChange={(event) => {
             const nextPhase = event.target.value as PhaseFilter
             setPhase(nextPhase)
@@ -517,18 +543,45 @@ export default function StatisticsPage() {
                 Nessun dato disponibile per l&apos;edizione {shortEdition}.
               </p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {RANKINGS.map(({ key, label }) => (
-                  <RankingCard
-                    canLink={canViewPlayerLinks}
-                    key={key}
-                    label={label}
-                    metric={key}
-                    players={rankedPlayers}
-                    seasonSlug={selectedSeasonSlug}
-                  />
-                ))}
-              </div>
+              <>
+                <div
+                  aria-label="Classifica da mostrare"
+                  className="grid grid-cols-5 gap-1 rounded-lg bg-muted/50 p-1 sm:hidden"
+                  role="group"
+                >
+                  {RANKINGS.map(({ key, short }) => (
+                    <Button
+                      aria-controls={`ranking-panel-${key}`}
+                      aria-pressed={activeRanking === key}
+                      className={cn(
+                        "h-9 px-1 text-xs font-bold",
+                        activeRanking === key
+                          ? "bg-background text-foreground shadow-xs hover:bg-background"
+                          : "text-muted-foreground",
+                      )}
+                      key={key}
+                      onClick={() => setActiveRanking(key)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {short}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {RANKINGS.map(({ key, label }) => (
+                    <RankingCard
+                      active={activeRanking === key}
+                      canLink={canViewPlayerLinks}
+                      key={key}
+                      label={label}
+                      metric={key}
+                      players={rankedPlayers}
+                      seasonSlug={selectedSeasonSlug}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
@@ -580,8 +633,12 @@ export default function StatisticsPage() {
                 Nessun giocatore disponibile per questa stagione.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {attendance.map((player) => {
+              <>
+              <div className="grid grid-cols-3 gap-2">
+                {(attendanceExpanded
+                  ? attendance
+                  : attendance.slice(0, ATTENDANCE_PREVIEW)
+                ).map((player) => {
                   const medalRank =
                     player.present > 0
                       ? medalRates.indexOf(player.percentage)
@@ -589,7 +646,7 @@ export default function StatisticsPage() {
                   return (
                     <Link
                       aria-label={`Presenze di ${playerName(player)}`}
-                      className="flex min-h-28 flex-col items-center justify-center rounded-xl border bg-card p-3 text-center shadow-xs transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
+                      className="flex min-h-28 min-w-0 flex-col items-center justify-center rounded-xl border bg-card p-2 text-center shadow-xs transition-[transform,border-color] hover:-translate-y-0.5 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none"
                       href={`/giocatore/${player.profile_id}?season=${selectedSeasonSlug}`}
                       key={player.profile_id}
                     >
@@ -601,19 +658,34 @@ export default function StatisticsPage() {
                       <strong className="mt-2 max-w-full truncate text-xs">
                         {playerName(player)}
                       </strong>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-[11px] text-muted-foreground">
                         {player.present}/{player.total} allenamenti
                       </span>
                       {medalRank >= 0 && (
                         <Medal
                           aria-label={`Posizione ${medalRank + 1}`}
-                          className="mt-1 size-3 text-amber-500"
+                          className="mt-1 size-3 text-amber-600 dark:text-amber-400"
+                          role="img"
                         />
                       )}
                     </Link>
                   )
                 })}
               </div>
+              {attendance.length > ATTENDANCE_PREVIEW && (
+                <Button
+                  aria-expanded={attendanceExpanded}
+                  className="w-full text-xs"
+                  onClick={() => setAttendanceExpanded(!attendanceExpanded)}
+                  size="sm"
+                  variant="outline"
+                >
+                  {attendanceExpanded
+                    ? "Mostra meno"
+                    : `Mostra tutti (${attendance.length})`}
+                </Button>
+              )}
+              </>
             )}
           </section>
         </div>

@@ -145,7 +145,7 @@ describe("ManagementDashboard operational state", () => {
       name: "Strumenti dashboard",
     })
     expect(
-      within(tools).getByPlaceholderText("Cerca persona, telefono…"),
+      within(tools).getByPlaceholderText("Nome o telefono"),
     ).toBeVisible()
     expect(within(tools).getByRole("button", { name: /Colonne/ })).toBeVisible()
     expect(within(tools).getByText("2 risultati · 0 selezionati")).toBeVisible()
@@ -198,7 +198,7 @@ describe("ManagementDashboard operational state", () => {
     })
 
     fireEvent.change(
-      screen.getByPlaceholderText("Cerca persona, telefono…"),
+      screen.getByPlaceholderText("Nome o telefono"),
       { target: { value: "Luca" } },
     )
 

@@ -47,6 +47,7 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [viewMode, setViewMode] = useState<ViewMode>('ACTIVITY');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -76,18 +77,25 @@ export default function Home() {
   };
 
   async function fetchData() {
-    const { isManager, defaultView } = await getUserContext(supabase);
-    if (isManager) setIsManager(true);
-    if (defaultView) setViewMode(defaultView as ViewMode);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const { isManager, defaultView } = await getUserContext(supabase);
+      if (isManager) setIsManager(true);
+      if (defaultView) setViewMode(defaultView as ViewMode);
 
-    const [eventsData, teamsData] = await Promise.all([
-      fetchCalendarEvents(supabase),
-      fetchTeams(supabase),
-    ]);
+      const [eventsData, teamsData] = await Promise.all([
+        fetchCalendarEvents(supabase),
+        fetchTeams(supabase),
+      ]);
 
-    setEvents(eventsData);
-    setTeams(teamsData);
-    setLoading(false);
+      setEvents(eventsData);
+      setTeams(teamsData);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -196,13 +204,14 @@ export default function Home() {
       const diffDays = differenceInDays(matchDate, now);
       const diffHours = differenceInHours(matchDate, now);
 
-      if (diffDays > 1) return `${diffDays} Giorni`;
-      if (diffDays === 1) return `Domani`;
+      if (diffDays > 1) return `tra ${diffDays} giorni`;
+      if (diffDays === 1) return "domani";
       if (diffDays === 0) {
-          if (diffHours > 0) return `${diffHours} Ore`;
-          return "Meno di 1h";
+          if (diffHours > 1) return `tra ${diffHours} ore`;
+          if (diffHours === 1) return "tra 1 ora";
+          return "tra meno di un'ora";
       }
-      return "LIVE";
+      return "in corso";
   }
 
   const renderCalendar = () => {
@@ -254,7 +263,7 @@ export default function Home() {
                           <div
                             key={i}
                             data-calendar-date={format(day, 'yyyy-MM-dd')}
-                            className={`flex h-[72px] flex-col items-center justify-start overflow-hidden rounded-xl border px-0.5 pt-1 transition-colors
+                            className={`flex h-[72px] flex-col items-center justify-start overflow-hidden rounded-xl border pt-1 transition-colors
                                 ${isCurrentMonth ? 'bg-card' : 'bg-muted/20'}
                                 ${isDayToday ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border'}
                             `}
@@ -263,7 +272,7 @@ export default function Home() {
                                   {format(day, dateFormat)}
                               </span>
 
-                              <div className="flex w-full justify-center gap-0.5 px-0.5">
+                              <div className="flex w-full justify-center gap-0.5">
                                   {dayEvents.map((evt) => {
                                       const isMatch = evt.tipo === 'PARTITA';
                                       const isCancelled = evt.cancellato;
@@ -281,7 +290,9 @@ export default function Home() {
                                                         aria-label={accessibleLabel}
                                                         data-calendar-event
                                                         data-event-type={evt.tipo}
-                                                        className={`flex h-7 w-5 shrink-0 flex-col items-center justify-center gap-0.5 rounded border transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                                        className={`flex h-8 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded border transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                                            dayEvents.length === 1 ? 'max-w-11' : 'max-w-6'
+                                                        } ${
                                                             isCancelled
                                                                 ? 'border-border bg-muted text-muted-foreground line-through opacity-70'
                                                                 : isMatch
@@ -306,9 +317,12 @@ export default function Home() {
                                                         ) : (
                                                             <Dumbbell className="size-4" aria-hidden="true" />
                                                         )}
-                                                        <span className="text-[7px] font-black leading-none">
-                                                            {format(new Date(evt.data_ora!), 'HH:mm')}
-                                                        </span>
+                                                        {/* Con due eventi il chip è largo 24px: l'orario resta nell'aria-label. */}
+                                                        {dayEvents.length === 1 && (
+                                                            <span className="text-[10px] font-black leading-none">
+                                                                {format(new Date(evt.data_ora!), 'HH:mm')}
+                                                            </span>
+                                                        )}
                                                     </Link>
                                                 </TooltipTrigger>
                                                 <TooltipContent className="text-xs bg-slate-900 text-white border-slate-800 p-2">
@@ -330,7 +344,7 @@ export default function Home() {
                                   })}
                               </div>
                               {remaining > 0 && (
-                                  <span className="mt-0.5 text-[7px] font-black leading-none text-muted-foreground">
+                                  <span className="mt-0.5 text-[10px] font-black leading-none text-muted-foreground">
                                       +{remaining}
                                   </span>
                               )}
@@ -355,17 +369,14 @@ export default function Home() {
           <div className="grid grid-cols-[minmax(0,2fr)_minmax(300px,0.78fr)] gap-5">
               <section className="overflow-hidden rounded-2xl border bg-card shadow-sm" aria-labelledby="desktop-calendar-heading">
                   <div className="flex items-center justify-between border-b px-5 py-4">
-                      <div>
-                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Vista mensile</p>
-                          <h3 id="desktop-calendar-heading" className="mt-0.5 text-xl font-black capitalize">
-                              {format(currentMonth, 'MMMM yyyy', { locale: it })}
-                          </h3>
-                      </div>
+                      <h2 id="desktop-calendar-heading" className="text-xl font-black capitalize">
+                          {format(currentMonth, 'MMMM yyyy', { locale: it })}
+                      </h2>
                       <div className="flex items-center gap-1">
                           <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 px-3 text-xs font-bold"
+                              className="px-3 text-xs font-bold"
                               onClick={() => setCurrentMonth(new Date())}
                           >
                               Oggi
@@ -393,7 +404,7 @@ export default function Home() {
 
                   <div className="grid grid-cols-7 border-b bg-muted/25">
                       {weekDays.map((day) => (
-                          <div key={day} className="px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                          <div key={day} className="px-3 py-2 text-center text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">
                               {day}
                           </div>
                       ))}
@@ -414,12 +425,14 @@ export default function Home() {
                                   key={day.toISOString()}
                                   data-calendar-date={format(day, 'yyyy-MM-dd')}
                                   className={`h-[112px] overflow-hidden border-b border-r p-1.5 transition-colors last:border-r-0 ${
-                                      inMonth ? 'bg-card' : 'bg-muted/15 text-muted-foreground'
-                                  } ${today ? 'bg-primary/[0.045] shadow-[inset_0_3px_0_hsl(var(--primary))]' : ''}`}
+                                      today
+                                          ? 'bg-primary/[0.045] shadow-[inset_0_3px_0_var(--primary)]'
+                                          : inMonth ? 'bg-card' : 'bg-muted/15 text-muted-foreground'
+                                  }`}
                               >
                                   <div className="mb-0.5 flex items-center justify-between">
                                       <span
-                                          className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-black ${
+                                          className={`grid size-5 place-items-center rounded-full text-[11px] font-black ${
                                               today ? 'bg-primary text-primary-foreground' : ''
                                           }`}
                                           aria-current={today ? 'date' : undefined}
@@ -470,7 +483,7 @@ export default function Home() {
                                                       <span className="block truncate text-[10px] font-black leading-tight">
                                                           {isMatch ? event.avversario || 'Avversario da definire' : 'Allenamento'}
                                                       </span>
-                                                      <span className="block truncate text-[9px] font-semibold leading-tight opacity-75">
+                                                      <span className="block truncate text-[10px] font-semibold leading-tight opacity-80">
                                                           {format(new Date(event.data_ora!), 'HH:mm')} · {event.luogo || 'Luogo da definire'}
                                                       </span>
                                                   </span>
@@ -478,7 +491,7 @@ export default function Home() {
                                           );
                                       })}
                                       {remaining > 0 && (
-                                          <span className="block px-1 pt-0.5 text-[8px] font-bold leading-none text-muted-foreground">
+                                          <span className="block px-1 pt-0.5 text-[10px] font-bold leading-none text-muted-foreground">
                                               +{remaining} {remaining === 1 ? 'altro' : 'altri'}
                                           </span>
                                       )}
@@ -492,10 +505,7 @@ export default function Home() {
               <aside className="space-y-3" aria-labelledby="desktop-agenda-heading">
                   <div className="sticky top-20 rounded-2xl border bg-card p-4 shadow-sm">
                       <div className="mb-4 flex items-center justify-between">
-                          <div>
-                              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Agenda</p>
-                              <h3 id="desktop-agenda-heading" className="text-lg font-black">Prossimi impegni</h3>
-                          </div>
+                          <h2 id="desktop-agenda-heading" className="text-lg font-black">Prossimi impegni</h2>
                           <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-black">{futureRaw.length}</span>
                       </div>
 
@@ -514,11 +524,11 @@ export default function Home() {
                                           key={event.id}
                                           href={`/evento/${event.id}`}
                                           className={`grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-xl border p-2.5 transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                                              isNext ? 'border-red-500 bg-red-50/70 dark:bg-red-950/20' : 'hover:border-primary/40'
+                                              isNext ? 'border-secondary bg-secondary/5' : 'hover:border-primary/40'
                                           }`}
                                       >
                                           <div className="rounded-lg bg-muted/65 py-1.5 text-center">
-                                              <span className="block text-[9px] font-black uppercase text-slate-700 dark:text-slate-200">{format(date, 'MMM', { locale: it })}</span>
+                                              <span className="block text-[10px] font-black uppercase text-muted-foreground">{format(date, 'MMM', { locale: it })}</span>
                                               <span className="block text-lg font-black leading-none">{format(date, 'd')}</span>
                                           </div>
                                           <div className="min-w-0">
@@ -552,7 +562,7 @@ export default function Home() {
                 <TooltipTrigger asChild>
                   <Button
                     aria-label="Aggiungi evento"
-                    className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                    className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                     onClick={handleCreateNew}
                     size="sm"
                   >
@@ -565,13 +575,10 @@ export default function Home() {
             ) : null}
             context={nextMatch ? (
               <div className="flex justify-end">
-                <div className="flex flex-col items-end pb-1">
-                  <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next Match</span>
-                  <div className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs font-black text-white shadow-sm animate-pulse">
-                    <Clock className="h-3 w-3" />
-                    {getCountdownLabel(nextMatch.data_ora!)}
-                  </div>
-                </div>
+                <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs font-black text-secondary-foreground shadow-sm">
+                  <Clock aria-hidden="true" className="h-3 w-3" />
+                  Prossima partita {getCountdownLabel(nextMatch.data_ora!)}
+                </span>
               </div>
             ) : null}
             subtitle="Gli impegni della squadra"
@@ -614,7 +621,7 @@ export default function Home() {
                     onClick={() => setFilter('ALLENAMENTO')}
                     className={`h-8 rounded-full border border-transparent px-2 text-xs font-bold transition-[color,background-color,box-shadow] sm:px-3
                         ${filter === 'ALLENAMENTO' 
-                            ? 'bg-orange-500 text-white shadow-sm hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-400'
+                            ? 'bg-orange-700 text-white shadow-sm hover:bg-orange-800'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         }`}
                 >
@@ -625,9 +632,10 @@ export default function Home() {
               <div className="flex shrink-0 items-center rounded-xl bg-muted/50 p-1 lg:hidden">
                   <Button 
                     variant="ghost" 
-                    size="sm" 
+                    size="icon-sm" 
                     aria-label="Vista lista"
-                    className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
+                    aria-pressed={viewMode === 'ACTIVITY'}
+                    className={`rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'ACTIVITY' 
                             ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -638,9 +646,10 @@ export default function Home() {
                   </Button>
                   <Button 
                     variant="ghost" 
-                    size="sm" 
+                    size="icon-sm" 
                     aria-label="Vista calendario"
-                    className={`h-8 w-8 rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
+                    aria-pressed={viewMode === 'CALENDAR'}
+                    className={`rounded-lg border border-transparent p-0 transition-[color,background-color,box-shadow]
                         ${viewMode === 'CALENDAR' 
                             ? 'bg-foreground text-background shadow-sm hover:bg-foreground/90'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -659,6 +668,16 @@ export default function Home() {
           <Skeleton className="h-[120px] w-full rounded-xl" />
           <Skeleton className="h-[120px] w-full rounded-xl" />
           <Skeleton className="h-[120px] w-full rounded-xl" />
+        </div>
+      ) : loadError ? (
+        <div className="rounded-xl border border-destructive/30 bg-card p-6 text-center" role="alert">
+          <p className="font-bold">Calendario non disponibile</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Controlla la connessione e riprova.
+          </p>
+          <Button className="mt-4" onClick={() => void fetchData()} size="sm" variant="outline">
+            Riprova
+          </Button>
         </div>
       ) : (
         <>
@@ -693,8 +712,8 @@ export default function Home() {
                                         <div key={event.id} className="relative w-full mt-6 mb-2">
                                             {/* Badge centrato sul bordo superiore */}
                                             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-                                                <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
-                                                    Next Match
+                                                <span className="bg-secondary text-secondary-foreground text-[11px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wider">
+                                                    Prossima partita
                                                 </span>
                                             </div>
                 
@@ -705,7 +724,7 @@ export default function Home() {
                                                 <EventCard 
                                                     event={event} 
                                                     opponentLogo={getLogo(event.avversario)} 
-                                                    className="border-2 border-red-600 dark:border-red-600 shadow-lg shadow-red-500/10"
+                                                    className="border-2 border-secondary shadow-lg shadow-secondary/10"
                                                 />
                                             </Link>
                                         </div>

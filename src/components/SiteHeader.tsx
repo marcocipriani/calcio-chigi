@@ -35,7 +35,6 @@ export function SiteHeader() {
               className="object-contain transition-transform duration-200 motion-safe:group-hover:rotate-2"
               fill
               priority
-              unoptimized
               sizes="44px"
               src="/brand/logos/logo-circolo-chigi-mark.webp?v=2"
             />
@@ -54,7 +53,7 @@ export function SiteHeader() {
               <ManagerPresence />
               <Button
                 asChild
-                className="size-11 rounded-full border-violet-300 px-0 text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-500/50 dark:text-violet-300 dark:hover:bg-violet-950/50 lg:ml-2 lg:h-8 lg:w-auto lg:px-3"
+                className="size-11 rounded-full border-operative/40 px-0 text-operative hover:bg-operative/10 hover:text-operative lg:ml-2 lg:h-8 lg:w-auto lg:px-3"
                 size="sm"
                 variant="outline"
               >
@@ -99,7 +98,7 @@ export function SiteHeader() {
                 className={cn(
                   "size-9 transition-transform duration-150 hover:scale-105",
                   isManager
-                    ? "ring-2 ring-emerald-500 ring-offset-2 ring-offset-background"
+                    ? "ring-2 ring-operative ring-offset-2 ring-offset-background"
                     : "border",
                 )}
               >
@@ -112,7 +111,7 @@ export function SiteHeader() {
                   className={cn(
                     "text-xs font-bold",
                     isManager
-                      ? "bg-violet-600 text-white"
+                      ? "bg-operative text-operative-foreground"
                       : "bg-primary text-primary-foreground",
                   )}
                 >
@@ -124,7 +123,9 @@ export function SiteHeader() {
               <span
                 className={cn(
                   "flex size-9 items-center justify-center rounded-full",
-                  user ? "bg-emerald-50 text-emerald-700" : "text-primary",
+                  user
+                    ? "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                    : "text-primary",
                 )}
               >
                 <UserCircle aria-hidden="true" className="size-7" />

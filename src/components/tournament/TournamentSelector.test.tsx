@@ -87,12 +87,12 @@ describe("TournamentSelector", () => {
       "Tutte le fasi",
     )
     expect(screen.getByRole("combobox", { name: "Torneo" })).not.toHaveClass(
-      "border-violet-200",
-      "focus-visible:border-violet-400",
+      "border-operative/40",
+      "focus-visible:border-operative",
     )
     expect(screen.getByRole("combobox", { name: "Fase" })).not.toHaveClass(
-      "border-violet-200",
-      "focus-visible:border-violet-400",
+      "border-operative/40",
+      "focus-visible:border-operative",
     )
     expect(screen.getByText("Torneo").parentElement?.parentElement).toContainElement(
       screen.getByText("Fase").parentElement!,
@@ -187,7 +187,7 @@ describe("TournamentSelector", () => {
     expect(action).toHaveClass(
       "h-11",
       "w-11",
-      "bg-violet-600",
+      "bg-operative",
       "sm:h-9",
       "sm:w-auto",
       "sm:px-3",
@@ -201,7 +201,7 @@ describe("TournamentSelector", () => {
 
     const action = screen.getByRole("button", { name: "Comunicati" })
     expect(action).toHaveClass("sm:h-9", "sm:px-3", "sm:rounded-md")
-    expect(action).not.toHaveClass("border-violet-300", "text-violet-700")
+    expect(action).not.toHaveClass("border-operative/40", "text-operative")
     expect(action).toHaveAttribute(
       "title",
       "Comunicati",
@@ -217,8 +217,8 @@ describe("TournamentSelector", () => {
       "data-[state=active]:text-foreground",
     )
     expect(standings).not.toHaveClass(
-      "data-[state=active]:bg-violet-50",
-      "data-[state=active]:text-violet-700",
+      "data-[state=active]:bg-operative/10",
+      "data-[state=active]:text-operative",
     )
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Calendario" }), {
@@ -231,7 +231,7 @@ describe("TournamentSelector", () => {
       "bg-foreground",
       "text-background",
     )
-    expect(day).not.toHaveClass("border-violet-600", "bg-violet-600")
+    expect(day).not.toHaveClass("border-operative", "bg-operative")
   })
 
   it("does not query or render aggregate standings for all phases", () => {

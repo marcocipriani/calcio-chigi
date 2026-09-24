@@ -177,7 +177,7 @@ export function ManagerPresence() {
                     className="object-cover"
                     src={manager.avatar_url ?? undefined}
                   />
-                  <AvatarFallback className="bg-violet-600 text-[10px] font-bold text-white">
+                  <AvatarFallback className="bg-operative text-[10px] font-bold text-operative-foreground">
                     {manager.nome[0]}
                     {manager.cognome[0]}
                   </AvatarFallback>

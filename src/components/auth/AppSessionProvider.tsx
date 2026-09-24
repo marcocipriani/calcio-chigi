@@ -123,7 +123,9 @@ export function AppSessionProvider({
           amount: Number(context.openPayments?.amount ?? 0),
         },
         isManager: Boolean(profile?.is_manager),
-        isAssociated: associationStatus === "ACTIVE",
+        // Un posto archiviato resta sulla parte pubblica: niente funzioni di squadra.
+        isAssociated:
+          associationStatus === "ACTIVE" && context.membership?.status !== "NO",
         loading: false,
       })
     },

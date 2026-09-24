@@ -118,7 +118,7 @@ function ChoiceChips({
           className={cn(
             "rounded-full border px-1.5 text-xs tabular-nums",
             level === "PREFERRED"
-              ? "border-violet-300 bg-violet-50 font-bold text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+              ? "border-operative/40 bg-operative/10 font-bold text-foreground"
               : "text-muted-foreground",
           )}
           key={number}

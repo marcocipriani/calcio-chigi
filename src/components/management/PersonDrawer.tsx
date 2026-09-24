@@ -349,7 +349,7 @@ export function PersonDrawer({
                   {person.nome} {person.cognome}
                 </DialogTitle>
                 {person.isManager && (
-                  <Badge className="bg-violet-600">Manager</Badge>
+                  <Badge className="bg-operative text-operative-foreground">Manager</Badge>
                 )}
               </div>
               <DialogDescription>
@@ -459,7 +459,7 @@ export function PersonDrawer({
               </div>
               <label className="flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm">
                 <input
-                  className="size-4 accent-violet-600"
+                  className="size-4 accent-operative"
                   defaultChecked={person.isManager}
                   name="isManager"
                   type="checkbox"

@@ -51,33 +51,38 @@ function nonNegativeInteger(value: unknown) {
 function availabilityTone(status: string | null, isMatch: boolean) {
   if (status === "PRESENTE") {
     return {
-      border: "border-l-green-500",
+      row: "",
+      dot: "bg-green-500",
       text: "PRESENTE",
-      color: "text-green-600 dark:text-green-400",
+      color: "text-green-700 dark:text-green-400",
     }
   }
   if (status === "ASSENTE") {
     return {
-      border: "border-l-red-500 opacity-60",
+      row: "",
+      dot: "bg-red-500",
       text: "ASSENTE",
-      color: "text-red-600 dark:text-red-400",
+      color: "text-red-700 dark:text-red-400",
     }
   }
   if (status === "INFORTUNATO_PRESENTE") {
     return isMatch
       ? {
-          border: "border-l-slate-500 bg-slate-50 dark:bg-slate-900/50",
+          row: "bg-slate-50 dark:bg-slate-900/50",
+          dot: "bg-slate-400",
           text: "SPETTATORE",
           color: "text-slate-600 dark:text-slate-400",
         }
       : {
-          border: "border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10",
+          row: "bg-amber-50/60 dark:bg-amber-950/20",
+          dot: "bg-amber-500",
           text: "PRESENTE (KO)",
-          color: "text-yellow-600 dark:text-yellow-400",
+          color: "text-amber-700 dark:text-amber-400",
         }
   }
   return {
-    border: "border-l-slate-300 dark:border-l-slate-600",
+    row: "",
+    dot: "bg-slate-300 dark:bg-slate-600",
     text: "Non ha votato",
     color: "text-muted-foreground",
   }
@@ -109,7 +114,6 @@ export function EventRosterPanel({
   const [pending, setPending] = useState<Set<string>>(() => new Set())
   const [stats, setStats] = useState<Record<string, MatchStatDraft>>({})
   const [playerOfMatch, setPlayerOfMatch] = useState("")
-  const [bulkPresent, setBulkPresent] = useState(false)
   const [saving, setSaving] = useState(false)
   const generationRef = useRef(0)
 
@@ -325,49 +329,56 @@ export function EventRosterPanel({
         </div>
 
         {isManager && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/30 p-2">
-            <label className="flex items-center gap-2 text-xs font-bold">
-              <Switch
-                aria-label="Check-in dei selezionati"
-                checked={bulkPresent}
-                disabled={!selectedIds.length || pending.size > 0}
-                onCheckedChange={(next) => {
-                  setBulkPresent(next)
-                  void applyCheckin(selectedIds, next ? "PRESENT" : "ABSENT")
-                }}
-              />
-              {bulkPresent ? "Presenti" : "Assenti"}
-            </label>
-            <span className="text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+            <span className="text-xs font-bold tabular-nums">
               {selectedIds.length} selezionati
             </span>
-            <div className="ml-auto flex gap-3 text-[11px] font-semibold">
-              <button
-                className="underline-offset-4 hover:underline"
+            <Button
+              disabled={!selectedIds.length || pending.size > 0}
+              onClick={() => void applyCheckin(selectedIds, "PRESENT")}
+              size="sm"
+              variant="outline"
+            >
+              Segna presenti
+            </Button>
+            <Button
+              disabled={!selectedIds.length || pending.size > 0}
+              onClick={() => void applyCheckin(selectedIds, "ABSENT")}
+              size="sm"
+              variant="outline"
+            >
+              Segna assenti
+            </Button>
+            <div className="ml-auto flex flex-wrap gap-1">
+              <Button
+                className="px-2 text-xs"
                 onClick={() =>
                   setSelected(new Set(available.map(({ id }) => id)))
                 }
-                type="button"
+                size="sm"
+                variant="ghost"
               >
                 Seleziona disponibili
-              </button>
-              <button
-                className="underline-offset-4 hover:underline"
+              </Button>
+              <Button
+                className="px-2 text-xs"
                 onClick={() =>
                   setSelected(new Set(checkable.map(({ id }) => id)))
                 }
-                type="button"
+                size="sm"
+                variant="ghost"
               >
                 Tutti
-              </button>
+              </Button>
               {selectedIds.length > 0 && (
-                <button
-                  className="underline-offset-4 hover:underline"
+                <Button
+                  className="px-2 text-xs"
                   onClick={() => setSelected(new Set())}
-                  type="button"
+                  size="sm"
+                  variant="ghost"
                 >
                   Deseleziona
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -391,21 +402,23 @@ export function EventRosterPanel({
 
           return (
             <div
-              className={`rounded-lg border border-slate-100 bg-card shadow-sm transition-[border-color,background-color,opacity] duration-300 dark:border-slate-800 border-l-4 ${tone.border}`}
+              className={`rounded-lg border bg-card shadow-xs transition-colors ${tone.row}`}
               key={player.id}
             >
               <div className="flex items-center justify-between gap-2 p-2">
                 <div className="flex min-w-0 items-center gap-3">
                   {isManager && canCheckin && (
-                    <input
-                      aria-label={`Seleziona ${player.nome} ${player.cognome}`}
-                      checked={selected.has(player.id)}
-                      className="size-4 shrink-0 accent-violet-600"
-                      onChange={() => toggleSelection(player.id)}
-                      type="checkbox"
-                    />
+                    <label className="-m-2.5 grid size-11 shrink-0 cursor-pointer place-items-center">
+                      <input
+                        aria-label={`Seleziona ${player.nome} ${player.cognome}`}
+                        checked={selected.has(player.id)}
+                        className="size-5 accent-operative"
+                        onChange={() => toggleSelection(player.id)}
+                        type="checkbox"
+                      />
+                    </label>
                   )}
-                  <Avatar className="h-10 w-10 border border-slate-200 dark:border-slate-700">
+                  <Avatar className="h-10 w-10 border">
                     <AvatarImage
                       alt={`${player.nome} ${player.cognome}`}
                       src={player.avatar_url ?? undefined}
@@ -420,29 +433,30 @@ export function EventRosterPanel({
                       <p className="flex items-center gap-1 truncate text-sm font-bold leading-none">
                         {player.cognome} {player.nome}
                         {player.is_staff && (
-                          <ShieldCheck className="h-3 w-3 text-muted-foreground" />
+                          <ShieldCheck aria-label="Staff" className="h-3 w-3 text-muted-foreground" />
                         )}
                       </p>
                       {isU35At(player.data_nascita, eventDate) && (
-                        <Badge className="h-4 border-0 bg-blue-100 px-1 text-[8px] text-blue-700 hover:bg-blue-100">
+                        <Badge className="h-4 border-0 bg-sky-100 px-1 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200">
                           U35
                         </Badge>
                       )}
                       {player.ruolo === "PORTIERE" && (
-                        <Badge className="h-4 border-0 bg-yellow-100 px-1 text-[8px] text-yellow-700 hover:bg-yellow-100">
+                        <Badge className="h-4 border-0 bg-amber-100 px-1 text-[10px] text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-200">
                           POR
                         </Badge>
                       )}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <p className="rounded bg-slate-100 px-1 text-[9px] font-bold uppercase text-slate-500 dark:bg-slate-800">
+                      <p className="rounded bg-muted px-1 text-[10px] font-bold uppercase text-muted-foreground">
                         {player.ruolo?.substring(0, 3)}
                       </p>
-                      <p className={`text-[10px] font-bold ${tone.color}`}>
+                      <p className={`flex items-center gap-1 text-[11px] font-bold ${tone.color}`}>
+                        <span aria-hidden="true" className={`size-1.5 rounded-full ${tone.dot}`} />
                         {tone.text}
                       </p>
                       {voteTime && (
-                        <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                        <span className="whitespace-nowrap text-[11px] text-muted-foreground">
                           {managerEdit
                             ? `(Modificato da ${managerName} ${voteTime})`
                             : `(Votato ${voteTime})`}
@@ -465,7 +479,7 @@ export function EventRosterPanel({
                         )
                       }
                     />
-                    <span className="text-[9px] font-bold uppercase text-muted-foreground">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">
                       {checkin === "PRESENT"
                         ? "Presente"
                         : checkin === "ABSENT"
@@ -477,7 +491,7 @@ export function EventRosterPanel({
                   checkin === "PRESENT" && (
                     <CheckCircle2
                       aria-label="Check-in registrato"
-                      className="h-5 w-5 shrink-0 text-green-500"
+                      className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400"
                     />
                   )
                 )}

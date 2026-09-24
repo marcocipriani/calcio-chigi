@@ -131,6 +131,32 @@ describe("AppGates", () => {
     })
   })
 
+  it("lets an unmatched account postpone the association or sign out", async () => {
+    sessionStorage.clear()
+    const client = fakeClient({
+      profile: null,
+      associationStatus: "NONE",
+      membership: null,
+      unreadNotifications: 0,
+    })
+
+    render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    await screen.findByRole("button", { name: /Marco Rossi/i })
+    expect(screen.getByRole("button", { name: "Esci" })).toBeVisible()
+    fireEvent.click(screen.getByRole("button", { name: "Non ora" }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    )
+    expect(sessionStorage.getItem("association-prompt-postponed")).toBe("1")
+    sessionStorage.clear()
+  })
+
   it("keeps the profile list scrollable between a pinned header and footer", async () => {
     const client = fakeClient({
       profile: null,
@@ -193,6 +219,38 @@ describe("AppGates", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Esci" }))
     await waitFor(() => expect(signOut).toHaveBeenCalled())
+  })
+
+  it("lets archived members continue on the public side for the session", async () => {
+    sessionStorage.clear()
+    const client = fakeClient({
+      profile: {
+        id: "profile-1",
+        nome: "Marco",
+        cognome: "Rossi",
+        is_manager: false,
+      },
+      associationStatus: "ACTIVE",
+      membership: { id: "membership-1", status: "NO" },
+      unreadNotifications: 0,
+    })
+
+    render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Continua sulla parte pubblica",
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    )
+    expect(sessionStorage.getItem("archived-notice-seen")).toBe("1")
+    sessionStorage.clear()
   })
 
   it("keeps the jersey reminder until confirmation, collapsible into a shirt button", async () => {

@@ -35,6 +35,8 @@ type ClaimableProfile = {
   cognome: string
 }
 
+const ASSOCIATION_POSTPONED_KEY = "association-prompt-postponed"
+
 function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   const { user, associationStatus, refresh } = useAppSession()
   const [profiles, setProfiles] = useState<ClaimableProfile[]>([])
@@ -44,10 +46,34 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // "Non ora" vale per la sessione: la parte pubblica resta usabile.
+  const [postponed, setPostponed] = useState(false)
+
+  useEffect(() => {
+    try {
+      setPostponed(sessionStorage.getItem(ASSOCIATION_POSTPONED_KEY) === "1")
+    } catch {
+      // Senza storage il rinvio vale finché la pagina resta aperta.
+    }
+  }, [])
 
   const open = Boolean(
-    user && associationStatus === "NONE" && !submitted,
+    user && associationStatus === "NONE" && !submitted && !postponed,
   )
+
+  function postpone() {
+    setPostponed(true)
+    try {
+      sessionStorage.setItem(ASSOCIATION_POSTPONED_KEY, "1")
+    } catch {
+      // Vedi sopra.
+    }
+  }
+
+  async function logout() {
+    await client.auth.signOut()
+    window.location.assign("/login")
+  }
 
   useEffect(() => {
     if (!open) return
@@ -166,6 +192,10 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
                 </p>
               )}
             </div>
+            <p className="shrink-0 text-xs text-muted-foreground">
+              Non trovi il tuo nome? Chiedi a un manager di aggiungerti alla
+              rosa.
+            </p>
 
             {error && (
               <p className="shrink-0 text-sm text-destructive" role="alert">
@@ -173,9 +203,17 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
               </p>
             )}
 
-            <DialogFooter className="shrink-0">
+            <DialogFooter className="shrink-0 flex-row flex-wrap items-center sm:justify-between">
+              <div className="flex gap-1">
+                <Button onClick={() => void logout()} size="sm" variant="ghost">
+                  Esci
+                </Button>
+                <Button onClick={postpone} size="sm" variant="ghost">
+                  Non ora
+                </Button>
+              </div>
               <Button
-                className="w-full sm:w-auto"
+                className="ml-auto"
                 disabled={!selected}
                 onClick={() => setStep("CONFIRM")}
               >
@@ -216,11 +254,33 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   )
 }
 
-function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
-  const { isAssociated, membership } = useAppSession()
-  const [busy, setBusy] = useState(false)
+const ARCHIVED_NOTICE_SEEN_KEY = "archived-notice-seen"
 
-  if (!isAssociated || membership?.status !== "NO") return null
+function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
+  const { associationStatus, membership } = useAppSession()
+  const [busy, setBusy] = useState(false)
+  const [seen, setSeen] = useState(false)
+
+  useEffect(() => {
+    try {
+      setSeen(sessionStorage.getItem(ARCHIVED_NOTICE_SEEN_KEY) === "1")
+    } catch {
+      // Senza storage l'avviso torna a ogni caricamento.
+    }
+  }, [])
+
+  if (associationStatus !== "ACTIVE" || membership?.status !== "NO" || seen) {
+    return null
+  }
+
+  function continuePublic() {
+    setSeen(true)
+    try {
+      sessionStorage.setItem(ARCHIVED_NOTICE_SEEN_KEY, "1")
+    } catch {
+      // Vedi sopra.
+    }
+  }
 
   async function logout() {
     setBusy(true)
@@ -229,27 +289,25 @@ function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
   }
 
   return (
-    <Dialog open>
-      <DialogContent
-        className="gap-4 p-4 sm:max-w-sm"
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onPointerDownOutside={(event) => event.preventDefault()}
-        showCloseButton={false}
-      >
+    <Dialog open onOpenChange={(open) => !open && continuePublic()}>
+      <DialogContent className="gap-4 p-4 sm:max-w-sm" showCloseButton={false}>
         <DialogHeader className="text-left">
           <div className="mb-1 flex size-9 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
             <Archive aria-hidden="true" className="size-5" />
           </div>
           <DialogTitle>Posto in rosa archiviato</DialogTitle>
           <DialogDescription>
-            Un manager ha archiviato il tuo posto in rosa: non puoi accedere
-            alle funzioni di squadra. Scrivi a un manager se pensi sia un
-            errore.
+            Un manager ha archiviato il tuo posto in rosa: le funzioni di
+            squadra non sono disponibili, ma puoi consultare calendario,
+            torneo e statistiche. Scrivi a un manager se pensi sia un errore.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button disabled={busy} onClick={logout} variant="outline">
             Esci
+          </Button>
+          <Button disabled={busy} onClick={continuePublic}>
+            Continua sulla parte pubblica
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -265,14 +323,22 @@ function OpenPaymentsPrompt() {
     if (!isAssociated || openPayments.count === 0) return
     const today = new Date().toISOString().slice(0, 10)
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
-    if (window.localStorage.getItem(key)) return
+    try {
+      if (window.localStorage.getItem(key)) return
+    } catch {
+      // Senza storage il promemoria compare a ogni visita.
+    }
     setOpen(true)
   }, [isAssociated, openPayments.count, targetSeason?.id])
 
   function dismiss() {
     const today = new Date().toISOString().slice(0, 10)
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
-    window.localStorage.setItem(key, "seen")
+    try {
+      window.localStorage.setItem(key, "seen")
+    } catch {
+      // Vedi sopra.
+    }
     setOpen(false)
   }
 
@@ -363,7 +429,9 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
       } catch {
         // Senza storage si parte aperti se manca la scelta.
       }
-      setCollapsed(stored ? stored === "1" : Boolean(preferences.data))
+      // Sui telefoni parte compresso: il riquadro aperto copre il contenuto sopra la barra in basso.
+      const phone = window.matchMedia?.("(max-width: 767px)").matches ?? false
+      setCollapsed(stored ? stored === "1" : Boolean(preferences.data) || phone)
       setChosen(Boolean(preferences.data))
     })
 
@@ -396,7 +464,7 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
         }
         className={cn(
           position,
-          "grid size-12 place-items-center rounded-full border bg-background text-violet-700 shadow-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-violet-300",
+          "grid size-12 place-items-center rounded-full border bg-background text-primary shadow-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         )}
         onClick={() => toggle(false)}
         type="button"
@@ -421,7 +489,7 @@ function JerseyPreferencePrompt({ client }: { client: SupabaseClient }) {
       )}
     >
       <div className="flex items-start gap-2.5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
           <Shirt aria-hidden="true" className="size-5" />
         </span>
         <div className="min-w-0 flex-1">

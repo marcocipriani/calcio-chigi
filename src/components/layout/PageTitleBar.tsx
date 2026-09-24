@@ -20,7 +20,7 @@ export function PageTitleBar({
       <div className="min-w-0">
         <h1 className="truncate text-3xl font-black tracking-tight">{title}</h1>
         {subtitle && (
-          <p className="truncate text-sm font-medium text-muted-foreground">
+          <p className="text-pretty text-sm font-medium text-muted-foreground">
             {subtitle}
           </p>
         )}
@@ -29,6 +29,7 @@ export function PageTitleBar({
       {actions && (
         <div
           aria-label="Azioni pagina"
+          role="group"
           className="order-2 flex min-w-0 flex-wrap items-center gap-1.5 sm:order-3 sm:col-start-3 sm:justify-end"
         >
           {actions}
@@ -44,6 +45,7 @@ export function PageTitleBar({
       {filters && (
         <div
           aria-label="Filtri pagina"
+          role="group"
           className="order-4 col-span-2 min-w-0 sm:col-span-3"
         >
           {filters}

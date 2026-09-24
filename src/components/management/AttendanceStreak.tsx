@@ -55,7 +55,7 @@ export function AttendanceStreak({
             }
             key={item.eventId}
           >
-            <span className="text-[9px] text-muted-foreground">{shortDay}</span>
+            <span className="text-[10px] text-muted-foreground">{shortDay}</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

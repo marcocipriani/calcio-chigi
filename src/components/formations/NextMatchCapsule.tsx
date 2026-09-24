@@ -66,7 +66,7 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
         <p
           className={cn(
             "text-[11px] leading-tight",
-            published ? "text-white/80" : "text-red-700/80",
+            published ? "text-white/90" : "text-red-700",
           )}
         >
           {formatInRome(match.startsAt, true)}

@@ -39,6 +39,32 @@ interface RosterPlayer {
   modified_by: string | null;
 }
 
+const STAT_TONES = {
+  neutral: "border-border bg-card text-foreground",
+  sky: "border-sky-100 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
+  green: "border-green-100 bg-green-50 text-green-900 dark:border-green-900 dark:bg-green-950/40 dark:text-green-100",
+  amber: "border-amber-100 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
+  red: "border-red-100 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100",
+} as const;
+
+function StatTile({ className = "", count, icon: Icon, label, tone }: {
+  className?: string;
+  count: number;
+  icon: typeof Users;
+  label: string;
+  tone: keyof typeof STAT_TONES;
+}) {
+  return (
+    <div className={`flex flex-col items-center justify-center rounded-xl border p-2 shadow-xs ${STAT_TONES[tone]} ${className}`}>
+      <span className="text-2xl font-black tabular-nums">{count}</span>
+      <span className="flex items-center gap-1 text-[11px] font-bold uppercase">
+        <Icon aria-hidden="true" className="size-3" />
+        {label}
+      </span>
+    </div>
+  );
+}
+
 export default function EventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params); 
   const router = useRouter();
@@ -224,7 +250,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const handleDeleteEvent = async () => {
       const { error } = await supabase.from('events').delete().eq('id', id);
-      if (error) toast.error(error.message); else { toast.success("Eliminato."); router.push('/torneo'); }
+      if (error) toast.error(error.message); else { toast.success("Eliminato."); router.push('/'); }
   }
 
   const handleCopyWhatsApp = () => {
@@ -255,7 +281,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       className="bg-background"
       contentClassName="space-y-6 pb-24"
     >
-      <div className="p-4 sticky top-14 z-40 bg-slate-900 flex items-center gap-3">
+      <div className="p-4 sticky top-16 z-40 bg-slate-900 flex items-center gap-3">
         <Skeleton className="h-8 w-8 rounded-md bg-white/20" />
         <Skeleton className="h-5 w-32 bg-white/20" />
       </div>
@@ -319,15 +345,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
       const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
       const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);
-      let resultColor = "text-slate-500 bg-slate-100";
+      let resultColor = "text-slate-700 bg-slate-100 dark:bg-slate-800 dark:text-slate-200";
       let resultText = "PAREGGIO";
-      if (golNoi > golLoro) { resultColor = "text-emerald-700 bg-emerald-100"; resultText = "VITTORIA"; } 
-      else if (golNoi < golLoro) { resultColor = "text-red-700 bg-red-100"; resultText = "SCONFITTA"; }
+      if (golNoi > golLoro) { resultColor = "text-emerald-700 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300"; resultText = "VITTORIA"; } 
+      else if (golNoi < golLoro) { resultColor = "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300"; resultText = "SCONFITTA"; }
 
       scoreBlock = (
           <div className="flex flex-col items-center mt-2 animate-in zoom-in">
               <div className={`px-6 py-2 rounded-2xl font-mono text-4xl font-black tracking-tighter ${resultColor}`}>{event.gol_casa} - {event.gol_ospite}</div>
-              <Badge variant="outline" className="mt-1 text-[10px] font-bold border-0 opacity-70">{resultText}</Badge>
+              <Badge variant="outline" className="mt-1 text-[11px] font-bold border-0 text-muted-foreground">{resultText}</Badge>
           </div>
       );
   }
@@ -337,18 +363,12 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       className="bg-background text-foreground"
       contentClassName="space-y-6 pb-24"
     >
-      <div className={`p-4 sticky top-14 z-40 shadow-md flex items-center justify-between transition-colors ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
+      <div className={`p-4 sticky top-16 z-40 shadow-md flex items-center justify-between transition-colors ${isCancelled ? 'bg-red-900 text-white' : 'bg-slate-900 text-white'}`}>
             <div className="flex items-center gap-3">
                 <Button aria-label="Torna indietro" variant="ghost" size="icon" onClick={() => router.back()} className="text-white hover:bg-white/20"><ArrowLeft aria-hidden="true" className="h-6 w-6" /></Button>
                 <div>
                     <div className="flex items-center gap-2">
-                        <h1 className="font-bold text-lg leading-none">{isCancelled ? 'ANNULLATO' : (isMatch ? 'Match Day' : 'Allenamento')}</h1>
-                        {!isCancelled && !event.giocata && (
-                             <span className="flex h-2 w-2 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                        )}
+                        <h1 className="font-bold text-lg leading-none">{isCancelled ? 'Annullato' : (isMatch ? 'Partita' : 'Allenamento')}</h1>
                     </div>
                 </div>
             </div>
@@ -358,15 +378,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         aria-label="Copia informazioni per WhatsApp"
                         onClick={handleCopyWhatsApp}
                         size="icon"
-                        className="h-8 w-8 bg-green-600 hover:bg-green-700 text-white shadow-md rounded-md"
+                        className="h-8 w-8 bg-green-700 hover:bg-green-800 text-white shadow-md rounded-md"
                     >
                         <Share2 aria-hidden="true" className="h-4 w-4" />
                     </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs h-8 bg-purple-600 hover:bg-purple-700 text-white border-none"><Pencil className="h-3 w-3" /> Modifica</Button>
+                    <Button size="sm" onClick={() => setEditDialogOpen(true)} className="gap-2 text-xs bg-operative text-operative-foreground hover:bg-operative/90"><Pencil aria-hidden="true" className="h-3 w-3" /> Modifica</Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild><Button aria-label="Elimina evento" variant="destructive" size="icon" className="h-8 w-8 bg-red-600 hover:bg-red-700"><Trash2 aria-hidden="true" className="h-4 w-4" /></Button></AlertDialogTrigger>
                         <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Eliminare definitivamente?</AlertDialogTitle><AlertDialogDescription>Azione irreversibile.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogHeader><AlertDialogTitle>Eliminare l’evento?</AlertDialogTitle><AlertDialogDescription>L’evento sparisce dal calendario con disponibilità e presenze. L’azione non si può annullare.</AlertDialogDescription></AlertDialogHeader>
                             <AlertDialogFooter><AlertDialogCancel>Annulla</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">Elimina</AlertDialogAction></AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
@@ -381,10 +401,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={opponentLogo} alt={`Logo ${event.avversario ?? 'avversario'}`} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
                 </div>
             )}
-            <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-amber-600 dark:text-blue-400'}`}>{event.avversario || "Allenamento"}</h2>
+            <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{isMatch
+                ? event.avversario || "Avversario da definire"
+                : event.data_ora ? format(new Date(event.data_ora), 'EEEE d MMMM', { locale: it }) : "Data da definire"}</h2>
             {scoreBlock}
             <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground pt-2">
-                <span className="flex items-center gap-1 font-medium"><Calendar className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'd MMM yyyy', {locale: it}) : '—'}</span>
+                {/* Per gli allenamenti la data è già il titolo. */}
+                {isMatch && <span className="flex items-center gap-1 font-medium"><Calendar aria-hidden="true" className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'd MMM yyyy', {locale: it}) : '—'}</span>}
                 <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'HH:mm') : '—'}</span></div>
             </div>
             <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold"><MapPin className="h-4 w-4"/> {event.luogo}</div>
@@ -394,7 +417,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                     <p className="italic text-center">{event.note}</p>
                 </div>
             )}
-            {isCancelled && <p className="text-red-500 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
+            {isCancelled && <p className="text-red-700 dark:text-red-300 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
         </div>
 
         {isAssociated ? (
@@ -424,44 +447,17 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         {isAssociated && !isCancelled && (
             isMatch ? (
                 <div className="grid grid-cols-6 gap-2">
-                    <div className="col-span-2 bg-blue-50 border-blue-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-2xl font-black text-blue-700">{countOver35}</span>
-                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-blue-600" /><span className="text-[9px] uppercase font-bold text-blue-900">Over 35</span></div>
-                    </div>
-                    <div className="col-span-2 bg-sky-50 border-sky-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-2xl font-black text-sky-700">{countU35}</span>
-                        <div className="flex items-center gap-1"><Users className="h-3 w-3 text-sky-600" /><span className="text-[9px] uppercase font-bold text-sky-900">Under 35</span></div>
-                    </div>
-                    <div className="col-span-2 bg-cyan-50 border-cyan-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-2xl font-black text-cyan-700">{countGoalies}</span>
-                        <div className="flex items-center gap-1">
-                            <Hand className="h-3 w-3 text-cyan-600" />
-                            <span className="text-[9px] uppercase font-bold text-cyan-900">Portieri</span>
-                        </div>
-                    </div>
-                    <div className="col-span-3 bg-slate-100 border-slate-200 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-xl font-black text-slate-600">{countSpectators}</span>
-                        <div className="flex items-center gap-1"><Eye className="h-3 w-3 text-slate-500" /><span className="text-[9px] uppercase font-bold text-slate-700">Spettatori</span></div>
-                    </div>
-                    <div className="col-span-3 bg-red-50 border-red-100 border p-2 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-xl font-black text-red-600">{countAbsents}</span>
-                        <div className="flex items-center gap-1"><UserX className="h-3 w-3 text-red-500" /><span className="text-[9px] uppercase font-bold text-red-800">Assenti</span></div>
-                    </div>
+                    <StatTile className="col-span-2" count={countOver35} icon={Users} label="Over 35" tone="neutral" />
+                    <StatTile className="col-span-2" count={countU35} icon={Users} label="Under 35" tone="sky" />
+                    <StatTile className="col-span-2" count={countGoalies} icon={Hand} label="Portieri" tone="neutral" />
+                    <StatTile className="col-span-3" count={countSpectators} icon={Eye} label="Spettatori" tone="neutral" />
+                    <StatTile className="col-span-3" count={countAbsents} icon={UserX} label="Assenti" tone="red" />
                 </div>
             ) : (
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-green-50 border border-green-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-3xl font-black text-green-600">{countTrainingPresent}</span>
-                        <div className="flex items-center gap-1"><UserCheck className="h-4 w-4 text-green-600" /><span className="text-[10px] uppercase font-bold text-green-800">Presenti</span></div>
-                    </div>
-                    <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-3xl font-black text-orange-500">{countTrainingKO}</span> 
-                        <div className="flex items-center gap-1"><AlertCircle className="h-4 w-4 text-orange-600" /><span className="text-[10px] uppercase font-bold text-orange-800">KO</span></div>
-                    </div>
-                    <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex flex-col items-center justify-center shadow-sm">
-                        <span className="text-3xl font-black text-red-600">{countAbsents}</span>
-                        <div className="flex items-center gap-1"><UserX className="h-4 w-4 text-red-600" /><span className="text-[10px] uppercase font-bold text-red-800">Assenti</span></div>
-                    </div>
+                <div className="grid grid-cols-3 gap-2">
+                    <StatTile count={countTrainingPresent} icon={UserCheck} label="Presenti" tone="green" />
+                    <StatTile count={countTrainingKO} icon={AlertCircle} label="KO" tone="amber" />
+                    <StatTile count={countAbsents} icon={UserX} label="Assenti" tone="red" />
                 </div>
             )
         )}
@@ -475,44 +471,44 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <Button 
                             variant={userStatus === 'PRESENTE' ? 'default' : 'outline'}
                             aria-pressed={userStatus === 'PRESENTE'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'PRESENTE' ? 'bg-green-700 hover:bg-green-800 border-transparent text-white' : 'hover:bg-green-500/10 hover:text-green-700 border-muted'}`}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'PRESENTE' ? 'bg-green-700 hover:bg-green-800 border-transparent text-white' : 'hover:bg-green-500/10 hover:text-green-700 dark:hover:text-green-300 border-muted'}`}
                             onClick={() => handleVote('PRESENTE')}
                             disabled={loading}
                         >
                             <CheckCircle2 className="h-5 w-5" />
-                            <span className="text-[10px] font-bold">CI SONO</span>
+                            <span className="text-[11px] font-bold">CI SONO</span>
                         </Button>
 
                         <Button 
                             variant={userStatus === 'INFORTUNATO_PRESENTE' ? 'default' : 'outline'}
                             aria-pressed={userStatus === 'INFORTUNATO_PRESENTE'}
                             className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'INFORTUNATO_PRESENTE'
-                                ? (isMatch ? 'bg-slate-600 hover:bg-slate-700 border-transparent text-white' : 'bg-yellow-500 hover:bg-yellow-600 border-transparent text-white') 
-                                : 'hover:bg-slate-200 border-muted'}`}
+                                ? (isMatch ? 'bg-slate-600 hover:bg-slate-700 border-transparent text-white' : 'bg-amber-400 hover:bg-amber-500 border-transparent text-amber-950') 
+                                : 'hover:bg-muted border-muted'}`}
                             onClick={() => handleVote('INFORTUNATO_PRESENTE')}
                             disabled={loading}
                         >
                             {isMatch ? <Eye className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-                            <span className="text-[9px] font-bold leading-none text-center">
-                                {isMatch ? "SPETTATORE" : <>PRESENTE<br/>(KO)</>}
+                            <span className="text-[11px] font-bold leading-tight text-center whitespace-normal">
+                                {isMatch ? "SPETTATORE" : "PRESENTE (KO)"}
                             </span>
                         </Button>
 
                         <Button 
                             variant={userStatus === 'ASSENTE' ? 'default' : 'outline'}
                             aria-pressed={userStatus === 'ASSENTE'}
-                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'ASSENTE' ? 'bg-red-700 hover:bg-red-800 border-transparent text-white' : 'hover:bg-red-500/10 hover:text-red-700 border-muted'}`}
+                            className={`flex flex-col h-16 gap-1 border-2 transition-[color,background-color,border-color] ${userStatus === 'ASSENTE' ? 'bg-red-700 hover:bg-red-800 border-transparent text-white' : 'hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300 border-muted'}`}
                             onClick={() => handleVote('ASSENTE')}
                             disabled={loading}
                         >
                             <XCircle className="h-5 w-5" />
-                            <span className="text-[10px] font-bold">ASSENTE</span>
+                            <span className="text-[11px] font-bold">ASSENTE</span>
                         </Button>
                     </div>
                     
                     {userStatus && (
-                        <Button variant="ghost" size="sm" onClick={handleResetVote} className="w-full text-xs text-muted-foreground hover:bg-red-50 hover:text-red-600 h-8" disabled={loading}>
-                            <Trash2 className="h-3 w-3 mr-1" /> Rimuovi la mia scelta
+                        <Button variant="ghost" size="sm" onClick={handleResetVote} className="w-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive" disabled={loading}>
+                            <Trash2 aria-hidden="true" className="h-3 w-3 mr-1" /> Rimuovi la mia scelta
                         </Button>
                     )}
                 </CardContent>

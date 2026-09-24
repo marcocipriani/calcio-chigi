@@ -19,6 +19,14 @@ export function canEditPassportPhoto(
   )
 }
 
+export function registrationStatusLabel(status: RegistrationStatus) {
+  return {
+    TODO: "Da fare",
+    SUBMITTED: "In verifica",
+    ACTIVE: "Tesserato",
+  }[status]
+}
+
 export function paymentStatusLabel(status: PaymentStatus) {
   return {
     DUE: "Da pagare",

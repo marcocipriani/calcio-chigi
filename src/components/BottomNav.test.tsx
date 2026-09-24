@@ -52,14 +52,14 @@ describe("BottomNav", () => {
       "text-background",
       "hover:bg-foreground/90",
     )
-    expect(active).not.toHaveClass("bg-violet-600", "text-violet-700")
+    expect(active).not.toHaveClass("bg-operative", "text-operative")
 
     const inactive = screen.getByRole("link", { name: "Calendario" })
     expect(inactive).toHaveClass(
       "hover:bg-accent",
       "hover:text-accent-foreground",
     )
-    expect(inactive).not.toHaveClass("hover:bg-violet-50", "hover:text-violet-700")
+    expect(inactive).not.toHaveClass("hover:bg-operative/10", "hover:text-operative")
     expect(active.querySelector("svg")?.parentElement).toHaveClass(
       "motion-safe:group-hover:-translate-y-0.5",
     )

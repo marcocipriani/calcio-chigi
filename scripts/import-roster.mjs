@@ -34,11 +34,7 @@ export function mapDepartmentFlags(rawTag) {
   }
 }
 
-export function mapExcelMembership({
-  adhesion,
-  note,
-  excelOnly,
-}) {
+export function mapExcelMembership({ adhesion, note }) {
   const adhesionText = cleanText(adhesion)
   const noteText = cleanText(note)
   const evidence = `${noteText} ${adhesionText}`.trim()
@@ -103,12 +99,10 @@ export function buildImportPlan(excelRows, dbProfiles) {
 
     const existing = dbByKey.get(key) ?? null
     if (existing) matchedProfileIds.add(existing.id)
-    const excelOnly = existing === null
     const flags = mapDepartmentFlags(row.tag)
     const inferredMembership = mapExcelMembership({
       adhesion: row.adhesion,
       note: row.note,
-      excelOnly,
     })
     const membershipOverride = MEMBERSHIP_OVERRIDES.get(key)
     const category =

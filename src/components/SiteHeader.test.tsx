@@ -42,11 +42,11 @@ describe("SiteHeader", () => {
 
     expect(managementLink).toHaveAttribute("href", "/gestione")
     expect(managementLink).toHaveClass(
-      "border-violet-300",
-      "text-violet-700",
-      "hover:bg-violet-50",
+      "border-operative/40",
+      "text-operative",
+      "hover:bg-operative/10",
     )
-    expect(managementLink).not.toHaveClass("bg-violet-600")
+    expect(managementLink).not.toHaveClass("bg-operative")
     expect(managementLink.querySelector(".lucide-users-round")).toBeTruthy()
     expect(screen.getByLabelText("Manager e stato attività").parentElement)
       .toContainElement(managementLink)
@@ -54,8 +54,8 @@ describe("SiteHeader", () => {
     const profileAvatar = screen
       .getByRole("link", { name: "Marco Rossi" })
       .querySelector('[data-slot="avatar"]')
-    expect(profileAvatar).toHaveClass("ring-emerald-500")
-    expect(profileAvatar).not.toHaveClass("ring-violet-500")
+    expect(profileAvatar).toHaveClass("ring-operative")
+    expect(profileAvatar).not.toHaveClass("ring-emerald-500")
   })
 
   it("keeps a compact app title visible on mobile", () => {

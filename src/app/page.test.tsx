@@ -50,6 +50,22 @@ beforeEach(() => {
   removeChannel.mockClear()
 })
 
+describe("calendar loading errors", () => {
+  it("shows a retryable error instead of an empty calendar", async () => {
+    fetchCalendarEvents.mockRejectedValueOnce(new Error("offline"))
+    render(<Home />)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Calendario non disponibile",
+    )
+    expect(screen.queryByText("Nessun impegno in programma.")).toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Riprova" }))
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+    expect(fetchCalendarEvents).toHaveBeenCalledTimes(2)
+  })
+})
+
 function dateInCurrentMonth(day: number, hour: number, minute = 0) {
   const date = new Date()
   date.setDate(day)
@@ -173,13 +189,13 @@ describe("Calendar page", () => {
     )
   })
 
-  it("reserves violet for the manager action and uses calendar semantic colors", async () => {
+  it("reserves the operative violet for the manager action and uses calendar semantic colors", async () => {
     render(<Home />)
 
     const addAction = await screen.findByRole("button", {
       name: "Aggiungi evento",
     })
-    expect(addAction).toHaveClass("bg-violet-600", "hover:bg-violet-700")
+    expect(addAction).toHaveClass("bg-operative", "hover:bg-operative/90")
 
     const all = screen.getByRole("button", { name: "Tutti" })
     const matches = screen.getByRole("button", { name: "Partite" })
@@ -198,12 +214,12 @@ describe("Calendar page", () => {
     fireEvent.click(matches)
     expect(matches).toHaveAttribute("aria-pressed", "true")
     expect(matches).toHaveClass("bg-blue-600", "text-white")
-    expect(matches).not.toHaveClass("bg-violet-600", "text-violet-700")
+    expect(matches).not.toHaveClass("bg-operative", "text-operative")
 
     fireEvent.click(trainings)
     expect(trainings).toHaveAttribute("aria-pressed", "true")
-    expect(trainings).toHaveClass("bg-orange-500", "text-white")
-    expect(trainings).not.toHaveClass("bg-violet-600", "text-violet-700")
+    expect(trainings).toHaveClass("bg-orange-700", "text-white")
+    expect(trainings).not.toHaveClass("bg-operative", "text-operative")
 
     fireEvent.click(all)
     expect(all).toHaveAttribute("aria-pressed", "true")
@@ -248,8 +264,13 @@ describe("Calendar page", () => {
       "justify-center",
       "gap-0.5",
     )
-    expect(doubleEvents[0]).toHaveClass("w-5")
-    expect(doubleEvents[1]).toHaveClass("w-5")
+    // Due eventi: chip da 24px senza orario (resta nell'aria-label).
+    expect(doubleEvents[0]).toHaveClass("flex-1", "max-w-6")
+    expect(doubleEvents[1]).toHaveClass("flex-1", "max-w-6")
+    expect(doubleEvents[0]).not.toHaveTextContent(/\d{2}:\d{2}/)
+    const single = cell(dates.single).querySelector("[data-calendar-event]")
+    expect(single).toHaveClass("max-w-11")
+    expect(single).toHaveTextContent(/\d{2}:\d{2}/)
     expect(
       cell(dates.overflow).querySelectorAll("[data-calendar-event]"),
     ).toHaveLength(2)

@@ -49,7 +49,7 @@ function PlayerChip({
           className="object-cover"
           src={player.avatar_url ?? undefined}
         />
-        <AvatarFallback className="text-[9px] font-bold">
+        <AvatarFallback className="text-[10px] font-bold">
           {player.nome?.[0]}
           {player.cognome?.[0]}
         </AvatarFallback>
@@ -64,12 +64,12 @@ function PlayerChip({
       </span>
       <span className="flex shrink-0 gap-1">
         {player.role === "PORTIERE" && (
-          <Badge className="text-[9px]" variant="outline">
+          <Badge className="text-[10px]" variant="outline">
             POR
           </Badge>
         )}
         {under && (
-          <Badge className="text-[9px]" variant="secondary">
+          <Badge className="text-[10px]" variant="secondary">
             UNDER
           </Badge>
         )}

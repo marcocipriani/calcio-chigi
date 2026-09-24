@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useMemo } from 'react'
+import Link from 'next/link'
 import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser'
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -280,8 +281,13 @@ export default function TorneoPage() {
       const s = tempScores[matchId]
       if (!s) return
 
-      const golCasa = s.casa === '' ? null : parseInt(s.casa)
-      const golOspite = s.ospite === '' ? null : parseInt(s.ospite)
+      const parseGoals = (value: string) => value === '' ? null : Number.parseInt(value, 10)
+      const golCasa = parseGoals(s.casa)
+      const golOspite = parseGoals(s.ospite)
+      if ([golCasa, golOspite].some((goals) => goals !== null && (Number.isNaN(goals) || goals < 0))) {
+          toast.error("Inserisci un numero di gol valido (0 o più).")
+          return
+      }
       const previousMatches = [...allMatches]
 
       setAllMatches(prev => prev.map(m =>
@@ -365,7 +371,7 @@ export default function TorneoPage() {
                         aria-label="Modifica risultati"
                         onClick={handleOpenScoreDialog}
                         size="icon"
-                        className="h-11 w-11 rounded-full bg-violet-600 text-white hover:bg-violet-700 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
+                        className="h-11 w-11 rounded-full bg-operative text-operative-foreground hover:bg-operative/90 sm:h-9 sm:w-auto sm:rounded-md sm:px-3"
                         title="Modifica risultati"
                     >
                         <Pencil className="h-5 w-5" />
@@ -431,7 +437,7 @@ export default function TorneoPage() {
                                 }
                             `}
                         >
-                            <span className="text-[9px] font-bold uppercase opacity-70">Giornata</span>
+                            <span className="text-[10px] font-bold uppercase opacity-80">Giornata</span>
                             <span className="text-xl leading-none">{g}</span>
                         </button>
                     ))}
@@ -461,8 +467,15 @@ export default function TorneoPage() {
                                 const logoOspite = teamsMap[match.squadra_ospite?.toLowerCase().trim() ?? '']
                                 
                                 return (
-                                    <Card key={match.id} className={`border-l-4 ${isChigi ? 'border-l-amber-500 bg-amber-50/30 dark:bg-amber-900/10' : 'border-l-slate-300'}`}>
+                                    <Card key={match.id} className={isChigi ? 'border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20' : undefined}>
                                         <CardContent className="p-4 flex items-center gap-4 relative">
+                                            {isChigi && (
+                                                <Link
+                                                    aria-label={`Apri ${match.squadra_casa} - ${match.squadra_ospite}`}
+                                                    className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                    href={`/evento/${match.id}`}
+                                                />
+                                            )}
                                             
                                             <div className="flex flex-col items-center justify-center w-12 text-center border-r pr-4">
                                                 <span className="text-lg font-black leading-none">
@@ -481,9 +494,9 @@ export default function TorneoPage() {
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-5 w-5 bg-transparent">
                                                             <AvatarImage src={logoCasa} alt={match.squadra_casa ?? ''} className="object-contain"/>
-                                                            <AvatarFallback className="text-[8px]">{match.squadra_casa?.[0]}</AvatarFallback>
+                                                            <AvatarFallback className="text-[10px]">{match.squadra_casa?.[0]}</AvatarFallback>
                                                         </Avatar>
-                                                        <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
+                                                        <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-700 dark:text-amber-400' : ''}`}>
                                                             {match.squadra_casa}
                                                         </span>
                                                     </div>
@@ -496,9 +509,9 @@ export default function TorneoPage() {
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-5 w-5 bg-transparent">
                                                             <AvatarImage src={logoOspite} alt={match.squadra_ospite ?? ''} className="object-contain"/>
-                                                            <AvatarFallback className="text-[8px]">{match.squadra_ospite?.[0]}</AvatarFallback>
+                                                            <AvatarFallback className="text-[10px]">{match.squadra_ospite?.[0]}</AvatarFallback>
                                                         </Avatar>
-                                                        <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-600' : ''}`}>
+                                                        <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-700 dark:text-amber-400' : ''}`}>
                                                             {match.squadra_ospite}
                                                         </span>
                                                     </div>
@@ -510,7 +523,7 @@ export default function TorneoPage() {
 
                                             {!match.giocata && (
                                                 <div className="absolute top-2 right-2">
-                                                    <Badge variant="outline" className="text-[8px] px-1 h-4 border-slate-200 text-slate-400">
+                                                    <Badge variant="outline" className="h-5 px-1.5 text-[10px] text-muted-foreground">
                                                         DA GIOCARE
                                                     </Badge>
                                                 </div>
@@ -521,13 +534,13 @@ export default function TorneoPage() {
                                                     aria-label="Modifica partita"
                                                     size="icon" 
                                                     variant="ghost" 
-                                                    className="absolute right-1 bottom-1 h-7 w-7 text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50 dark:hover:text-violet-300"
+                                                    className="absolute right-1 bottom-1 z-10 h-7 w-7 text-muted-foreground hover:bg-operative/10 hover:text-operative"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         handleEditEvent(match)
                                                     }}
                                                 >
-                                                    <Pencil className="h-3 w-3" />
+                                                    <Pencil aria-hidden="true" className="h-3 w-3" />
                                                 </Button>
                                             )}
 
@@ -569,8 +582,11 @@ export default function TorneoPage() {
                                     <div className="flex-1 flex flex-col items-center gap-1">
                                         <span className="text-xs font-bold text-center leading-tight h-8 flex items-center justify-center">{match.squadra_casa}</span>
                                         <Input 
-                                            type="number" 
+                                            aria-label={`Gol ${match.squadra_casa ?? 'casa'}`}
                                             className="h-10 w-14 text-center font-bold text-lg" 
+                                            inputMode="numeric"
+                                            min={0}
+                                            type="number" 
                                             value={s.casa}
                                             onChange={(e) => setTempScores({
                                                 ...tempScores, 
@@ -582,8 +598,11 @@ export default function TorneoPage() {
                                     <div className="flex-1 flex flex-col items-center gap-1">
                                         <span className="text-xs font-bold text-center leading-tight h-8 flex items-center justify-center">{match.squadra_ospite}</span>
                                         <Input 
-                                            type="number" 
+                                            aria-label={`Gol ${match.squadra_ospite ?? 'ospite'}`}
                                             className="h-10 w-14 text-center font-bold text-lg" 
+                                            inputMode="numeric"
+                                            min={0}
+                                            type="number" 
                                             value={s.ospite}
                                             onChange={(e) => setTempScores({
                                                 ...tempScores, 
@@ -591,8 +610,8 @@ export default function TorneoPage() {
                                             })}
                                         />
                                     </div>
-                                    <Button aria-label="Salva risultato" size="icon" className="h-10 w-10 shrink-0 bg-violet-600 text-white hover:bg-violet-700" onClick={() => handleSaveScore(match.id)}>
-                                        <Save aria-hidden="true" className="h-4 w-4 text-white" />
+                                    <Button aria-label="Salva risultato" size="icon" className="h-10 w-10 shrink-0 bg-operative text-operative-foreground hover:bg-operative/90" onClick={() => handleSaveScore(match.id)}>
+                                        <Save aria-hidden="true" className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </div>

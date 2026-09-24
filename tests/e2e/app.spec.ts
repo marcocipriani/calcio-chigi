@@ -531,7 +531,6 @@ test("calendario pubblico desktop esteso", async ({ page }, testInfo) => {
   await page.goto("/")
 
   await expect(page.getByRole("heading", { name: "Calendario" })).toBeVisible()
-  await expect(page.getByText("Vista mensile")).toBeVisible()
   await expect(page.getByRole("heading", { name: "Prossimi impegni" })).toBeVisible()
   const calendar = page.locator('[data-calendar-layout="desktop"]')
   const match = calendar.getByRole("link", {
@@ -771,21 +770,31 @@ test("torneo stagionale resetta fase e mantiene il contratto comunicati", async 
 
 test("statistiche stagionali distinguono zero corrente e storico indisponibile", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto("/statistiche")
 
   await expect(page.getByRole("combobox", { name: "Stagione" })).toHaveValue(
     "2026-2027",
   )
-  for (const heading of [
-    "Goal",
-    "Assist",
-    "MVP",
-    "Ammonizioni",
-    "Espulsioni",
+  for (const [heading, toggle] of [
+    ["Goal", "Goal"],
+    ["Assist", "Assist"],
+    ["MVP", "MVP"],
+    ["Ammonizioni", "Gialli"],
+    ["Espulsioni", "Rossi"],
   ]) {
+    // Su mobile si vede una classifica per volta, scelta dal selettore.
+    if (testInfo.project.name === "mobile") {
+      await page.getByRole("button", { name: toggle, exact: true }).click()
+    }
     await expect(page.getByRole("heading", { level: 3, name: heading })).toBeVisible()
   }
+  const showRanking = async (toggle: string) => {
+    if (testInfo.project.name === "mobile") {
+      await page.getByRole("button", { name: toggle, exact: true }).click()
+    }
+  }
+  await showRanking("Goal")
   const goalRanking = page.locator(
     'section[aria-labelledby="ranking-goals"]',
   )
@@ -798,6 +807,7 @@ test("statistiche stagionali distinguono zero corrente e storico indisponibile",
   await page.getByRole("combobox", { name: "Stagione" }).selectOption(
     "2025-2026",
   )
+  await showRanking("Assist")
   const assistRanking = page.locator(
     'section[aria-labelledby="ranking-assists"]',
   )
@@ -907,7 +917,8 @@ test("compagno associato vede solo la proiezione sicura", async ({
     page.getByRole("heading", { level: 1, name: "Mario Manager" }),
   ).toBeVisible()
   await expect(page.getByText("DIFENSORE", { exact: true })).toBeVisible()
-  await expect(page.getByText("#4", { exact: true })).toBeVisible()
+  // "#4" compare anche nello storico maglie: il primo è il badge del profilo.
+  await expect(page.getByText("#4", { exact: true }).first()).toBeVisible()
   for (const label of [
     "Goal: 0",
     "Assist: 0",
@@ -1117,8 +1128,8 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
     })
     await expectCircularIconOnlyAction(management)
     await expectExactTextNotRendered(management, "Gestione squadra")
-    await expect(management).toHaveClass(/border-violet-300/)
-    await expect(management).toHaveClass(/text-violet-700/)
+    await expect(management).toHaveClass(/border-operative\/40/)
+    await expect(management).toHaveClass(/text-operative/)
   } else {
     await expect(
       calendarTitlebar.getByRole("button", { name: "Aggiungi evento" }),
@@ -1130,8 +1141,8 @@ test("gerarchia titlebar e azioni manager restano responsive ed esclusive", asyn
       exact: true,
     })
     await expectExactTextRendered(management, "Gestione squadra")
-    await expect(management).toHaveClass(/border-violet-300/)
-    await expect(management).toHaveClass(/text-violet-700/)
+    await expect(management).toHaveClass(/border-operative\/40/)
+    await expect(management).toHaveClass(/text-operative/)
   }
 
   for (const [route, title] of [

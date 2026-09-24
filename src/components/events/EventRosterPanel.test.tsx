@@ -89,12 +89,12 @@ describe("EventRosterPanel", () => {
     )
   })
 
-  it("applies the bulk switch to the selected rows only", async () => {
+  it("applies the bulk action to the selected rows only", async () => {
     supabase.rpc.mockClear()
     renderPanel()
 
     fireEvent.click(await screen.findByLabelText("Seleziona Marco Secondo"))
-    fireEvent.click(screen.getByLabelText("Check-in dei selezionati"))
+    fireEvent.click(screen.getByRole("button", { name: "Segna presenti" }))
 
     await waitFor(() => expect(supabase.rpc).toHaveBeenCalledTimes(1))
     expect(supabase.rpc).toHaveBeenCalledWith("set_event_checkin", {
@@ -115,7 +115,7 @@ describe("EventRosterPanel", () => {
     renderPanel(false)
     await waitFor(() =>
       expect(
-        screen.queryByLabelText("Check-in dei selezionati"),
+        screen.queryByRole("button", { name: "Segna presenti" }),
       ).not.toBeInTheDocument(),
     )
   })

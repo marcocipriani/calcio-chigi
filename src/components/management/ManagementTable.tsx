@@ -35,6 +35,7 @@ import {
   type ManagementView,
   type TableSort,
 } from "@/lib/management-columns"
+import { registrationStatusLabel } from "@/lib/profile-operations"
 import { ageGroupAt, cn } from "@/lib/utils"
 
 const tone = {
@@ -93,7 +94,7 @@ function PersonIdentity({
           {person.category === "PLAYER" && (
             <>
               {ageGroupAt(person.birthDate, new Date()) === "U35" && (
-                <Badge className="h-4 border-0 bg-sky-100 px-1 text-[8px] text-sky-700 hover:bg-sky-100">
+                <Badge className="h-4 border-0 bg-sky-100 px-1 text-[10px] text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200">
                   U35
                 </Badge>
               )}
@@ -175,13 +176,7 @@ function RegistrationState({ person }: { person: ManagementPerson }) {
   return (
     <Dot
       kind={kind}
-      label={
-        {
-          ACTIVE: "Tesserato",
-          SUBMITTED: "In verifica",
-          TODO: "Da fare",
-        }[person.registrationStatus]
-      }
+      label={registrationStatusLabel(person.registrationStatus)}
     />
   )
 }
@@ -636,7 +631,7 @@ const columnsByView: Record<ManagementView, ManagementColumn[]> = {
       sortValue: (person) => (person.isManager ? 1 : 0),
       render: (person) =>
         person.isManager ? (
-          <Badge className="bg-violet-600">Manager</Badge>
+          <Badge className="bg-operative text-operative-foreground">Manager</Badge>
         ) : (
           "—"
         ),
@@ -765,7 +760,7 @@ function SelectAllCheckbox({
     <input
       aria-label="Seleziona tutte le righe visibili"
       checked={checked}
-      className="size-4 accent-primary"
+      className="size-4 accent-operative"
       onChange={(event) => onChange(event.target.checked)}
       ref={ref}
       type="checkbox"
@@ -814,8 +809,10 @@ export function ManagementTable({
     () => ({ onAccountAction, onReviewCertificate, onVerifyPayment }),
     [onAccountAction, onReviewCertificate, onVerifyPayment],
   )
+  // Nella card il ruolo è già sotto il nome: niente riga "Ruolo" duplicata.
   const cardFieldColumns = visibleColumns.filter(
-    (column) => column.id !== "person" && !column.action,
+    (column) =>
+      column.id !== "person" && column.id !== "role" && !column.action,
   )
   const cardActionColumns = visibleColumns.filter((column) => column.action)
   const allVisibleSelected =
@@ -876,7 +873,7 @@ export function ManagementTable({
                     <input
                       aria-label={`Seleziona ${person.nome} ${person.cognome}`}
                       checked={selected.has(person.id)}
-                      className="size-4 accent-primary"
+                      className="size-4 accent-operative"
                       onChange={() => onSelect(person.id)}
                       onClick={(event) => event.stopPropagation()}
                       type="checkbox"
@@ -926,19 +923,23 @@ export function ManagementTable({
             <article
               className={cn(
                 "flex min-h-20 cursor-pointer gap-3 rounded-lg border bg-card p-3 shadow-xs",
-                selected.has(person.id) && "border-violet-500 bg-violet-50/60 dark:bg-violet-950/20",
+                selected.has(person.id) && "border-operative bg-operative/5",
               )}
               key={person.id}
               onClick={() => onOpen(person)}
             >
-              <input
-                aria-label={`Seleziona ${person.nome} ${person.cognome}`}
-                checked={selected.has(person.id)}
-                className="mt-1 size-5 shrink-0 accent-primary"
-                onChange={() => onSelect(person.id)}
+              <label
+                className="-m-2.5 grid size-11 shrink-0 cursor-pointer place-items-center"
                 onClick={(event) => event.stopPropagation()}
-                type="checkbox"
-              />
+              >
+                <input
+                  aria-label={`Seleziona ${person.nome} ${person.cognome}`}
+                  checked={selected.has(person.id)}
+                  className="size-5 accent-operative"
+                  onChange={() => onSelect(person.id)}
+                  type="checkbox"
+                />
+              </label>
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <button
                   aria-label={`Apri scheda di ${person.nome} ${person.cognome}`}

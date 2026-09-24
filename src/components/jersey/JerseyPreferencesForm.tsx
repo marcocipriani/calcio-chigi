@@ -127,10 +127,10 @@ export function JerseyPreferencesForm({
 
   return (
     <form className="space-y-4" noValidate onSubmit={submit}>
-      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-violet-400 has-[:checked]:bg-violet-50 dark:has-[:checked]:border-violet-800 dark:has-[:checked]:bg-violet-950/40">
+      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm has-[:checked]:border-primary/50 has-[:checked]:bg-primary/10/40">
         <input
           checked={noPreference}
-          className="mt-0.5 size-4 shrink-0 accent-violet-600"
+          className="mt-0.5 size-4 shrink-0 accent-primary"
           onChange={(event) => {
             setNoPreference(event.target.checked)
             setError(null)
@@ -197,7 +197,7 @@ export function JerseyPreferencesForm({
                         className={cn(
                           "min-h-10 rounded-sm px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           choice.level === level
-                            ? "bg-violet-600 text-white"
+                            ? "bg-primary text-primary-foreground"
                             : "text-muted-foreground hover:bg-muted",
                         )}
                         key={level}

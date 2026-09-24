@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Download, X, Ambulance, UserPlus, Shirt, Info, Trash2, CreditCard, Ruler, Calendar, Plus, Crown, Award, FileSpreadsheet, Users, Image as ImageIcon, Copy, Send } from "lucide-react"
+import { Search, Download, X, UserPlus, Shirt, Info, Trash2, Calendar, Plus, Crown, Award, FileSpreadsheet, Users, Image as ImageIcon, Copy, Send } from "lucide-react"
 import Image from "next/image"
 
 import { FORMATIONS } from "@/lib/constants"
@@ -65,8 +65,8 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
     } : undefined;
 
     const under35 = isU35At(player.data_nascita, referenceDate);
-    const isInjured = player.note_mediche && player.note_mediche !== 'OK';
-    const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : 'N.D.';
+    const formattedDob = player.data_nascita ? format(new Date(player.data_nascita), 'dd/MM/yy', { locale: it }) : '—';
+    const age = getAge(player.data_nascita);
     const isCaptain = captainId === player.id;
     const isVice = viceCaptainId === player.id;
     const playerTags = player.tags || [];
@@ -77,7 +77,7 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
         <div ref={setNodeRef} style={style} className={`h-full relative group ${isSelected ? 'opacity-40 grayscale' : ''}`}>
             {showOfficialControls && <Dialog>
                 <DialogTrigger asChild>
-                    <Button aria-label={`Dettagli di ${player.nome} ${player.cognome}`} variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 z-20 text-slate-600 hover:text-primary hover:bg-slate-100/50 rounded-full dark:text-slate-300" onClick={(e) => e.stopPropagation()} >
+                    <Button aria-label={`Dettagli di ${player.nome} ${player.cognome}`} variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 z-20 text-muted-foreground hover:text-primary hover:bg-muted rounded-full after:absolute after:-inset-2.5" onClick={(e) => e.stopPropagation()} >
                         <Info aria-hidden="true" className="h-4 w-4" />
                     </Button>
                 </DialogTrigger>
@@ -98,43 +98,33 @@ function DraggableListCard({ player, isSelected, isMobile, captainId, viceCaptai
                     </div>
                     <div className="p-6 pt-4 space-y-5">
                         <div className="flex gap-2">
-                            <Button size="sm" variant={isCaptain ? "default" : "outline"} className={`flex-1 gap-2 font-bold h-8 ${isCaptain ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-950 border-yellow-500' : ''}`} onClick={() => onSetRole(isCaptain ? null : 'K', player.id)}><Crown className="h-4 w-4" /> {isCaptain ? 'Capitano' : 'Capitano'}</Button>
-                            <Button size="sm" variant={isVice ? "default" : "outline"} className={`flex-1 gap-2 font-bold h-8 ${isVice ? 'bg-slate-700 hover:bg-slate-800 text-white' : ''}`} onClick={() => onSetRole(isVice ? null : 'VK', player.id)}><Award className="h-4 w-4" /> {isVice ? 'Vice Capitano' : 'Vice Capitano'}</Button>
+                            <Button aria-pressed={isCaptain} size="sm" variant={isCaptain ? "default" : "outline"} className={`flex-1 gap-2 font-bold ${isCaptain ? 'bg-yellow-400 hover:bg-yellow-500 text-yellow-950 border-yellow-500' : ''}`} onClick={() => onSetRole(isCaptain ? null : 'K', player.id)}><Crown aria-hidden="true" className="h-4 w-4" /> Capitano</Button>
+                            <Button aria-pressed={isVice} size="sm" variant={isVice ? "default" : "outline"} className={`flex-1 gap-2 font-bold ${isVice ? 'bg-slate-700 hover:bg-slate-800 text-white' : ''}`} onClick={() => onSetRole(isVice ? null : 'VK', player.id)}><Award aria-hidden="true" className="h-4 w-4" /> Vice capitano</Button>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Data di Nascita</Label><div className="flex items-center gap-2 font-bold"><Calendar className="h-3.5 w-3.5 text-muted-foreground" /> {formattedDob}</div><span className="text-xs text-muted-foreground">({getAge(player.data_nascita ?? '')} anni)</span></div>
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Tessera ASI</Label><div className="flex items-center gap-2 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded w-fit"><CreditCard className="h-3 w-3" /> {player.tessera_asi || 'N/A'}</div></div>
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</Label><div className="flex items-center gap-2 font-black text-lg"><Shirt className="h-4 w-4 text-muted-foreground" /> {player.numero_maglia || '-'}</div></div>
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Taglia</Label><div className="flex items-center gap-2 font-bold"><Ruler className="h-3.5 w-3.5 text-muted-foreground" /> {player.taglia_divisa || '-'}</div></div>
-                        </div>
-                        <div className={`p-3 rounded-lg border flex items-start gap-3 ${isInjured ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
-                            {isInjured ? <Ambulance className="h-5 w-5 mt-0.5" /> : <div className="h-5 w-5 rounded-full bg-green-200 flex items-center justify-center font-bold text-xs">OK</div>}
-                            <div className="flex-1"><p className="text-xs font-bold uppercase tracking-wide mb-0.5">{isInjured ? 'Infermeria' : 'Stato fisico'}</p><p className="text-sm font-medium">{player.note_mediche && player.note_mediche !== 'OK' ? player.note_mediche : 'Giocatore disponibile'}</p></div>
-                        </div>
-                        <div className="pt-4 border-t space-y-5">
-                            <div className="space-y-1"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Dipartimento</Label><Input value={player.dipartimento || ''} readOnly className="bg-slate-50 border-0 h-8 font-medium" /></div>
-                            <div className="space-y-2"><Label className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Caratteristiche</Label>{playerTags.length > 0 ? (<div className="flex flex-wrap gap-2">{playerTags.map((tag: string) => (<Badge key={tag} variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">{tag}</Badge>))}</div>) : (<p className="text-xs text-muted-foreground italic">Nessuna caratteristica selezionata</p>)}</div>
-                        </div>
+                        <dl className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-1"><dt className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider">Data di nascita</dt><dd className="flex items-center gap-2 font-bold"><Calendar aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /> {formattedDob}{age !== null && <span className="font-normal text-muted-foreground">({age} anni)</span>}</dd></div>
+                            <div className="space-y-1"><dt className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider">Maglia</dt><dd className="flex items-center gap-2 font-black text-lg"><Shirt aria-hidden="true" className="h-4 w-4 text-muted-foreground" /> {player.numero_maglia || '—'}</dd></div>
+                            <div className="space-y-1"><dt className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider">Dipartimento</dt><dd className="font-medium">{player.dipartimento || '—'}</dd></div>
+                            <div className="space-y-1"><dt className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider">Caratteristiche</dt><dd>{playerTags.length > 0 ? (<div className="flex flex-wrap gap-1.5">{playerTags.map((tag: string) => (<Badge key={tag} variant="outline">{tag}</Badge>))}</div>) : (<span className="text-muted-foreground">—</span>)}</dd></div>
+                        </dl>
                     </div>
                 </DialogContent>
             </Dialog>}
             <Card
                 {...listeners} {...attributes}
                 className={`flex flex-col items-center justify-center p-3 gap-2 cursor-grab active:cursor-grabbing transition-[border-color,box-shadow,opacity,filter] h-full hover:shadow-md border select-none
-        ${!isMobile ? 'touch-none' : ''} ${isInjured ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50'}
-        ${under35 && !isInjured ? 'border-l-4 border-l-blue-500' : ''}
+        ${!isMobile ? 'touch-none' : ''} bg-card hover:border-primary/50
       `}>
                 <div className="relative shrink-0">
                     <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm">
                         <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" /><AvatarFallback className="font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
-                    {isInjured && (<div className="absolute -top-1 -right-1 bg-white dark:bg-slate-900 rounded-full p-1 shadow-md border border-red-100 z-10"><Ambulance className="h-3.5 w-3.5 text-red-600 animate-pulse" /></div>)}
-                    {isCaptain && (<div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[9px]">C</div>)}
-                    {isVice && (<div className="absolute -bottom-1 -right-1 bg-slate-300 text-slate-800 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[7px]">VC</div>)}
+                    {isCaptain && (<div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[10px]">C</div>)}
+                    {isVice && (<div className="absolute -bottom-1 -right-1 bg-slate-300 text-slate-800 h-5 w-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm z-10 font-black text-[9px]">VC</div>)}
                 </div>
                 <div className="flex-1 w-full min-w-0 flex flex-col items-center justify-center gap-1">
                     <div className="text-sm leading-tight text-slate-900 dark:text-slate-100 w-full text-center truncate px-1"><span className="font-black">{player.cognome}</span> <span className="font-normal text-slate-600 dark:text-slate-400">{player.nome}</span></div>
-                    <div className="flex items-center justify-center gap-2 w-full"><span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">{player.ruolo?.substring(0, 3)}</span>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-0 shadow-none font-bold">U35</Badge>}<div className="relative flex items-center justify-center h-5 w-5 text-slate-800 dark:text-slate-300"><Shirt className={`h-4 w-4 fill-current opacity-20 ${player.ruolo === 'PORTIERE' ? 'text-black opacity-100' : ''}`} /> <span className={`absolute text-[9px] font-black leading-none pb-[1px] ${player.ruolo === 'PORTIERE' ? 'text-white' : 'text-foreground'}`}>{player.numero_maglia || '-'}</span></div></div>
+                    <div className="flex items-center justify-center gap-2 w-full"><span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{player.ruolo?.substring(0, 3)}</span>{under35 && <Badge className="text-[10px] h-4 px-1 bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200 border-0 shadow-none font-bold">U35</Badge>}<div className="relative flex items-center justify-center h-5 w-5 text-slate-800 dark:text-slate-300"><Shirt className={`h-4 w-4 fill-current opacity-20 ${player.ruolo === 'PORTIERE' ? 'text-black opacity-100' : ''}`} /> <span className={`absolute text-[10px] font-black leading-none pb-[1px] ${player.ruolo === 'PORTIERE' ? 'text-white' : 'text-foreground'}`}>{player.numero_maglia || '-'}</span></div></div>
                 </div>
             </Card>
         </div>
@@ -158,11 +148,11 @@ function DraggableFieldToken({ player, slotId, isBench = false, isMobile = false
                         <AvatarImage src={player.avatar_url ?? undefined} alt={`${player.nome} ${player.cognome}`} className="object-cover" />
                         <AvatarFallback className="bg-slate-900 text-white font-bold text-xs">{player.nome[0]}{player.cognome[0]}</AvatarFallback>
                     </Avatar>
-                    {under35 && (<div className="absolute -top-1 -left-1 bg-blue-600 text-white text-[9px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
+                    {under35 && (<div className="absolute -top-1 -left-1 bg-sky-700 text-white text-[10px] font-black px-1.5 py-[1px] rounded-[4px] shadow-sm border border-white z-10">U35</div>)}
                     {isCaptain && (<div className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-950 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white shadow-md z-10 font-black text-[10px]">C</div>)}
-                    {isVice && (<div className="absolute -top-1 -right-1 bg-slate-300 text-slate-800 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white shadow-md z-10 font-black text-[9px]">VC</div>)}
+                    {isVice && (<div className="absolute -top-1 -right-1 bg-slate-300 text-slate-800 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white shadow-md z-10 font-black text-[10px]">VC</div>)}
                 </div>
-                <div className={`mt-1 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2 py-0.5 rounded-full shadow-lg truncate border border-white/20 leading-tight ${isBench ? 'text-[8px] max-w-[55px]' : 'text-[10px] max-w-[90px]'}`}>{player.cognome}</div>
+                <div className={`mt-1 bg-slate-900/90 backdrop-blur-md text-white font-bold px-2 py-0.5 rounded-full shadow-lg truncate border border-white/20 leading-tight ${isBench ? 'text-[10px] max-w-[60px]' : 'text-[11px] max-w-[90px]'}`}>{player.cognome}</div>
             </div>
         </div>
     )
@@ -189,13 +179,13 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
                                 {showOfficialControls && <>
                                     <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('K', playerInSlot.id)}><Crown className="mr-2 h-3 w-3 text-yellow-500" /> Capitano</Button>
                                     <Button size="sm" variant="ghost" className="h-8 justify-start text-xs" onClick={() => onSetRole('VK', playerInSlot.id)}><Award className="mr-2 h-3 w-3 text-slate-500" /> Vice Cap.</Button>
-                                    <Button size="sm" variant="ghost" className="h-8 justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onSetRole(null, playerInSlot.id)}><X className="mr-2 h-3 w-3" /> Rimuovi Ruoli</Button>
+                                    <Button size="sm" variant="ghost" className="h-8 justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onSetRole(null, playerInSlot.id)}><X className="mr-2 h-3 w-3" /> Rimuovi Ruoli</Button>
                                 </>}
                                 <Button size="sm" variant="destructive" className="h-8 justify-start text-xs mt-1" onClick={onRemove}><Trash2 className="mr-2 h-3 w-3" /> Togli dal campo</Button>
                             </div>
                         </PopoverContent>
                     </Popover>
-                    <button aria-label={`Rimuovi ${playerInSlot.nome} ${playerInSlot.cognome} dal campo`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-700 hover:bg-red-800 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95" type="button"><X aria-hidden="true" className="h-3 w-3 stroke-[3]" /></button>
+                    <button aria-label={`Rimuovi ${playerInSlot.nome} ${playerInSlot.cognome} dal campo`} onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-700 hover:bg-red-800 text-white rounded-full p-1 h-5 w-5 flex items-center justify-center shadow-md z-50 transition-transform active:scale-95 after:absolute after:-inset-3" type="button"><X aria-hidden="true" className="h-3 w-3 stroke-[3]" /></button>
                 </div>
             ) : (
                 isMobile ? (
@@ -321,6 +311,20 @@ export function FormationBuilder({
             const riserve = sortPlayers(playersInLineup.filter(p => p.isBench));
             const allPlayers = [...titolari, ...riserve];
 
+            // La RPC della rosa non espone la tessera ASI: il manager la legge dalle iscrizioni della stagione.
+            const asiByProfile = new Map<string, string>();
+            if (nextMatch?.season_id) {
+                const { data: cards, error: cardsError } = await supabaseBrowser
+                    .from('season_memberships')
+                    .select('profile_id, asi_card_number')
+                    .eq('season_id', nextMatch.season_id)
+                    .in('profile_id', players.map((p) => p.id));
+                if (cardsError) throw cardsError;
+                for (const card of cards ?? []) {
+                    if (card.asi_card_number) asiByProfile.set(card.profile_id, card.asi_card_number);
+                }
+            }
+
             const startRow = 9;
             for (let i = 0; i < 30; i++) {
                 const r = worksheet.getRow(startRow + i);
@@ -337,14 +341,14 @@ export function FormationBuilder({
                 row.getCell(5).value = index < titolari.length ? 'T' : 'R';
                 if (isU35At(p.data_nascita, referenceDate)) row.getCell(7).value = 'X';
                 const dob = p.data_nascita ? format(new Date(p.data_nascita), 'dd/MM/yyyy') : '';
-                row.getCell(8).value = `${p.tessera_asi || ''} ${dob}`;
+                row.getCell(8).value = `${asiByProfile.get(p.id) ?? ''} ${dob}`.trim();
             });
 
             ['C29', 'I29', 'C30', 'I30', 'C31', 'I31'].forEach(cell => worksheet.getCell(cell).value = null);
             const staffMembers = players.filter(p => p.is_staff);
-            if (staffMembers[0]) { worksheet.getCell('C29').value = `${staffMembers[0].cognome.toUpperCase()} ${staffMembers[0].nome}`; worksheet.getCell('I29').value = staffMembers[0].tessera_asi || '-'; }
-            if (staffMembers[1]) { worksheet.getCell('C30').value = `${staffMembers[1].cognome.toUpperCase()} ${staffMembers[1].nome}`; worksheet.getCell('I30').value = staffMembers[1].tessera_asi || '-'; }
-            if (staffMembers[2]) { worksheet.getCell('C31').value = `${staffMembers[2].cognome.toUpperCase()} ${staffMembers[2].nome}`; worksheet.getCell('I31').value = staffMembers[2].tessera_asi || '-'; }
+            if (staffMembers[0]) { worksheet.getCell('C29').value = `${staffMembers[0].cognome.toUpperCase()} ${staffMembers[0].nome}`; worksheet.getCell('I29').value = asiByProfile.get(staffMembers[0].id) ?? '-'; }
+            if (staffMembers[1]) { worksheet.getCell('C30').value = `${staffMembers[1].cognome.toUpperCase()} ${staffMembers[1].nome}`; worksheet.getCell('I30').value = asiByProfile.get(staffMembers[1].id) ?? '-'; }
+            if (staffMembers[2]) { worksheet.getCell('C31').value = `${staffMembers[2].cognome.toUpperCase()} ${staffMembers[2].nome}`; worksheet.getCell('I31').value = asiByProfile.get(staffMembers[2].id) ?? '-'; }
 
             const colorCell = worksheet.getCell('E33');
             if (colorCell) colorCell.value = jerseyColor === 'ROSSA' ? 'ROSSA' : 'BLU/AZZURRA';
@@ -609,7 +613,7 @@ export function FormationBuilder({
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => { setLineup({}); setCaptainId(null); setViceCaptainId(null); }}
-                                    className="h-9 w-9 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 >
                                     <Trash2 aria-hidden="true" className="h-4 w-4" />
                                 </Button>
@@ -652,7 +656,7 @@ export function FormationBuilder({
                                                 quota.exceeded ? officialQuotaRequirementId : null,
                                             ].filter(Boolean).join(' ') || undefined}
                                             aria-label="Pubblica formazione ufficiale"
-                                            className="h-9 w-9 bg-violet-600 hover:bg-violet-700"
+                                            className="h-9 w-9 bg-operative text-operative-foreground hover:bg-operative/90"
                                             disabled={quota.exceeded}
                                             onClick={publishOfficialFormation}
                                             size="icon"
@@ -703,7 +707,7 @@ export function FormationBuilder({
                             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-t-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 h-[15%] border-2 border-b-0 border-white/60 bg-white/5 pointer-events-none"></div>
                             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-15 pointer-events-none">
-                                <Image src="/brand/logos/logo-circolo-chigi-mark.webp?v=2" alt="Logo Circolo Chigi" width={128} height={128} unoptimized className="h-32 w-32 object-contain" />
+                                <Image src="/brand/logos/logo-circolo-chigi-mark.webp?v=2" alt="Logo Circolo Chigi" width={128} height={128} className="h-32 w-32 object-contain" />
                             </div>
 
                             {(FORMATIONS[module] as FormationSlotDef[]).map((slot) => (
@@ -725,7 +729,7 @@ export function FormationBuilder({
                         </div>
 
                         <div className="flex flex-col gap-1.5 p-1 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner w-14 items-center overflow-x-hidden overflow-y-auto scrollbar-hide">
-                            <span className="py-1 text-[9px] font-black uppercase tracking-widest text-slate-600 vertical-text dark:text-slate-300">Panchina</span>
+                            <span className="py-1 text-[10px] font-black uppercase tracking-widest text-slate-600 vertical-text dark:text-slate-300">Panchina</span>
                             {BENCH_SLOTS.map((slot) => (
                                 <FormationSlot
                                     key={slot.id}
@@ -786,15 +790,14 @@ export function FormationBuilder({
                             {sortedForMobile.map(p => {
                                 const isSelected = isPlayerSelected(p.id);
                                 const under35 = isU35At(p.data_nascita, referenceDate);
-                                const isInjured = p.note_mediche && p.note_mediche !== 'OK';
                                 return (
-                                    <button disabled={isSelected} key={p.id} onClick={() => handleMobilePlayerSelect(p)} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${isSelected ? 'cursor-not-allowed bg-muted opacity-50' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800'}`} type="button">
+                                    <button disabled={isSelected} key={p.id} onClick={() => handleMobilePlayerSelect(p)} className={`flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors ${isSelected ? 'cursor-not-allowed bg-muted opacity-50' : 'cursor-pointer hover:bg-muted'}`} type="button">
                                         <Avatar className="h-10 w-10"><AvatarImage src={p.avatar_url ?? undefined} alt={`${p.nome} ${p.cognome}`} /><AvatarFallback>{p.cognome[0]}</AvatarFallback></Avatar>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2"><p className={`text-sm ${isInjured ? 'text-red-600' : ''}`}><span className="font-bold">{p.cognome}</span>{" "}<span>{p.nome}</span></p>{under35 && <Badge className="text-[8px] h-4 px-1 bg-blue-100 text-blue-700 border-0">U35</Badge>}{isInjured && <Ambulance className="h-3 w-3 text-red-600" />}</div>
-                                            <p className="text-[10px] text-muted-foreground">{p.ruolo}</p>
+                                            <div className="flex items-center gap-2"><p className="text-sm"><span className="font-bold">{p.cognome}</span>{" "}<span>{p.nome}</span></p>{under35 && <Badge className="text-[10px] h-4 px-1 bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-200 border-0">U35</Badge>}</div>
+                                            <p className="text-[11px] text-muted-foreground">{p.ruolo}</p>
                                         </div>
-                                        {isSelected ? <Badge variant="secondary" className="text-[9px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}
+                                        {isSelected ? <Badge variant="secondary" className="text-[10px]">IN CAMPO</Badge> : <Plus className="h-4 w-4 text-primary" />}
                                     </button>
                                 )
                             })}

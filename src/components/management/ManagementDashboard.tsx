@@ -771,7 +771,7 @@ export function ManagementDashboard() {
               <TooltipTrigger asChild>
                 <Button
                   aria-label="Aggiungi persona"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                   onClick={() => setAddOpen(true)}
                   size="sm"
                 >
@@ -810,17 +810,17 @@ export function ManagementDashboard() {
       <div className="sticky top-16 z-20 min-w-0 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
         <div
           aria-label="Viste dashboard"
-          className="flex min-w-0 gap-0.5 overflow-x-auto"
+          className="grid min-w-0 grid-cols-3 gap-0.5 sm:flex sm:overflow-x-auto"
           role="tablist"
         >
           {views.map((item) => (
             <button
               aria-selected={view === item.id}
               className={cn(
-                "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "inline-flex min-h-8 min-w-0 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold sm:justify-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 view === item.id
-                  ? "bg-violet-600 text-white hover:bg-violet-700"
-                  : "text-muted-foreground hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50",
+                  ? "bg-operative text-operative-foreground hover:bg-operative/90"
+                  : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
               )}
               key={item.id}
               onClick={() => selectView(item.id)}
@@ -832,7 +832,7 @@ export function ManagementDashboard() {
                 className={cn(
                   "rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
                   view === item.id &&
-                    "bg-white/15 text-white",
+                    "bg-operative-foreground/15 text-operative-foreground",
                 )}
               >
                 {viewCounts[item.id]}
@@ -860,7 +860,7 @@ export function ManagementDashboard() {
                     query: event.target.value,
                   }))
                 }
-                placeholder="Cerca persona, telefono…"
+                placeholder="Nome o telefono"
                 value={filters.query}
               />
             </label>
@@ -920,7 +920,7 @@ export function ManagementDashboard() {
                   className={cn(
                     "inline-flex size-7 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     layout === item.id
-                      ? "bg-violet-600 text-white"
+                      ? "bg-operative text-operative-foreground"
                       : "text-muted-foreground hover:bg-muted",
                   )}
                   key={item.id}

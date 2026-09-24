@@ -24,6 +24,14 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchSafePlayerProfile } from "@/lib/api"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
+import {
+  certificateStatusLabel,
+  paymentStatusLabel,
+  registrationStatusLabel,
+  type CertificateStatus,
+  type PaymentStatus,
+  type RegistrationStatus,
+} from "@/lib/profile-operations"
 import { romeDateKey } from "@/lib/season"
 import type { SafePlayerProfile } from "@/lib/season-statistics"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
@@ -31,7 +39,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser"
 type Membership = {
   id: string
   status: string
-  registration_status: string
+  registration_status: RegistrationStatus
   registration_completed_on: string | null
   asi_card_number: string | null
 }
@@ -41,14 +49,14 @@ type Payment = {
   description: string
   amount_due: number
   due_on: string | null
-  status: string
+  status: PaymentStatus
 }
 
 type Certificate = {
   id: string
   expires_on: string | null
   laboratory: string | null
-  status: string
+  status: CertificateStatus
 }
 
 type OperationalContacts = {
@@ -443,13 +451,13 @@ export default function PlayerPage({
               <div>
                 <dt className="text-xs text-muted-foreground">Rosa</dt>
                 <dd className="font-semibold">
-                  {privateData.membership.status}
+                  {privateData.membership.status === "YES" ? "In rosa" : "Archiviato"}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Tesseramento</dt>
                 <dd className="font-semibold">
-                  {privateData.membership.registration_status}
+                  {registrationStatusLabel(privateData.membership.registration_status)}
                 </dd>
               </div>
               <div>
@@ -483,7 +491,7 @@ export default function PlayerPage({
                     </span>
                   </span>
                   <Badge variant="outline">
-                    € {Number(payment.amount_due).toFixed(2)} · {payment.status}
+                    € {Number(payment.amount_due).toFixed(2)} · {paymentStatusLabel(payment.status)}
                   </Badge>
                 </div>
               ))}
@@ -506,7 +514,7 @@ export default function PlayerPage({
               <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="text-xs text-muted-foreground">Stato</dt>
-                  <dd className="font-semibold">{latestCertificate.status}</dd>
+                  <dd className="font-semibold">{certificateStatusLabel(latestCertificate.status)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Scadenza</dt>

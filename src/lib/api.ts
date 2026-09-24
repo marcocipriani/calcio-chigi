@@ -83,7 +83,8 @@ export async function fetchCalendarEvents(supabase: SupabaseClient): Promise<Eve
         .or('squadra_casa.ilike.%chigi%,squadra_ospite.ilike.%chigi%,tipo.neq.PARTITA')
         .order('data_ora', { ascending: true })
 
-    if (error) { console.error('fetchCalendarEvents:', error); return [] }
+    // Un errore non è un calendario vuoto: la pagina mostra lo stato di errore.
+    if (error) throw error
     return data ?? []
 }
 

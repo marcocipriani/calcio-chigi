@@ -204,10 +204,13 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
                     </SelectContent>
                 </Select>
             </div>
-            <div className="flex flex-col gap-2 justify-center items-end border p-2 rounded-md bg-muted/20 border-red-200">
-                <Label className="text-xs text-red-600 cursor-pointer font-bold" htmlFor="canc-switch">Annullato</Label>
-                <Switch id="canc-switch" checked={cancellato} onCheckedChange={setCancellato} />
-            </div>
+            {/* Si annulla un evento esistente, non uno appena creato. */}
+            {eventToEdit && (
+                <div className="flex flex-col gap-2 justify-center items-end border p-2 rounded-md bg-muted/20 border-destructive/30">
+                    <Label className="text-xs text-destructive cursor-pointer font-bold" htmlFor="canc-switch">Annullato</Label>
+                    <Switch id="canc-switch" checked={cancellato} onCheckedChange={setCancellato} />
+                </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -317,8 +320,8 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             />
           </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-700">
+          <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t bg-card px-6 pb-6 pt-3">
+            <Button type="submit" disabled={loading} className="w-full bg-operative text-operative-foreground hover:bg-operative/90">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salva Modifiche
             </Button>

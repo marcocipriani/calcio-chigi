@@ -81,7 +81,7 @@ export function TeamTitleBar({
                     matchUnavailable ? unavailableDescriptionId : undefined
                   }
                   aria-label="Pubblica formazione"
-                  className="size-11 rounded-full bg-violet-600 px-0 text-white hover:bg-violet-700 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
                   disabled={matchUnavailable}
                   onClick={onOpenOfficial}
                   size="sm"

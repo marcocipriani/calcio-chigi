@@ -74,10 +74,10 @@ export function JerseyBoard({
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
                         claim.level === "PREFERRED"
-                          ? "border-violet-300 bg-violet-50 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+                          ? "border-primary/40 bg-primary/10 text-foreground"
                           : "text-muted-foreground",
                         claim.membershipId === highlightMembershipId &&
-                          "ring-2 ring-violet-500",
+                          "ring-2 ring-primary",
                       )}
                       key={claim.membershipId}
                       title={`${claim.rank + 1}ª scelta · ${JERSEY_LEVEL_LABEL[claim.level]}`}
@@ -125,7 +125,7 @@ export function JerseyBoard({
       )}
       <p className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="size-2.5 rounded-full border border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950" />
+          <span className="size-2.5 rounded-full border border-primary/40 bg-primary/10" />
           Preferito
         </span>
         <span className="inline-flex items-center gap-1">

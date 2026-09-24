@@ -55,6 +55,7 @@ import {
   certificateStatusLabel,
   type CertificateStatus,
   paymentStatusLabel,
+  registrationStatusLabel,
   type PaymentStatus,
   type RegistrationStatus,
 } from "@/lib/profile-operations"
@@ -559,6 +560,13 @@ export default function ProfilePage() {
               )}
               <span className="sr-only">Cambia avatar</span>
             </Label>
+            {/* Su touch non c'è hover: il badge segnala che la foto si può cambiare. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-0.5 -right-0.5 grid size-8 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-sm"
+            >
+              <Camera className="size-4" />
+            </span>
             <Input
               id="avatar-upload"
               type="file"
@@ -576,7 +584,7 @@ export default function ProfilePage() {
                 {form.nome} {form.cognome}
               </h2>
               {isManager && (
-                <Badge className="border-0 bg-purple-600 text-white">
+                <Badge className="border-0 bg-operative text-operative-foreground">
                   <ShieldCheck className="mr-1 h-3 w-3" aria-hidden="true" />
                   Manager
                 </Badge>
@@ -600,7 +608,9 @@ export default function ProfilePage() {
                   variant="outline"
                   className={statusTone(membership.registration_status)}
                 >
-                  Tesseramento {membership.registration_status}
+                  {membership.registration_status === "ACTIVE"
+                    ? "Tesserato"
+                    : `Tesseramento ${registrationStatusLabel(membership.registration_status).toLowerCase()}`}
                 </Badge>
               )}
             </div>

@@ -88,6 +88,8 @@ export default function LoginPage() {
     >
       <Card className="w-full max-w-sm shadow-xl border-t-4 border-t-primary animate-in fade-in zoom-in-95 duration-300">
         <CardHeader className="flex flex-col items-center gap-4 pb-2">
+          {/* Il logo contiene già il nome del circolo: il titolo serve agli screen reader. */}
+          <h1 className="sr-only">Accedi a Calcio Chigi</h1>
 
           <div className="relative h-36 w-30">
             <Image
@@ -95,7 +97,6 @@ export default function LoginPage() {
               className="object-contain dark:hidden"
               fill
               priority
-              unoptimized
               sizes="120px"
               src="/brand/logos/logo-circolo-chigi-light.webp?v=2"
             />
@@ -104,7 +105,6 @@ export default function LoginPage() {
               className="hidden object-contain dark:block"
               fill
               priority
-              unoptimized
               sizes="120px"
               src="/brand/logos/logo-circolo-chigi.webp?v=2"
             />
@@ -118,11 +118,11 @@ export default function LoginPage() {
         <CardContent>
           {sent ? (
             <div className="text-center space-y-4 py-4 animate-in fade-in slide-in-from-bottom-2">
-                <div className="mx-auto w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                    <Mail className="h-6 w-6" />
+                <div className="mx-auto w-12 h-12 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300 rounded-full flex items-center justify-center">
+                    <Mail aria-hidden="true" className="h-6 w-6" />
                 </div>
-                <div>
-                    <h3 className="font-bold text-lg text-green-700">Link inviato!</h3>
+                <div role="status">
+                    <h2 className="font-bold text-lg text-green-700 dark:text-green-300">Link inviato!</h2>
                     <p className="text-sm text-muted-foreground mt-1">Controlla la tua casella di posta (anche nello spam).</p>
                 </div>
                 <Button variant="outline" onClick={() => setSent(false)} className="w-full mt-2">
@@ -140,7 +140,7 @@ export default function LoginPage() {
                     disabled={loading || googleLoading}
                 >
                     {googleLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                     ) : (
                         <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                             <path d="M12.0003 20.45c-4.6667 0-8.45-3.7833-8.45-8.45 0-4.6667 3.7833-8.45 8.45-8.45 2.2833 0 4.35 0.8333 5.95 2.2167l-3.2167 3.2166c-0.7166-0.6833-1.6333-1.0833-2.7333-1.0833-2.3167 0-4.2 1.8833-4.2 4.2s1.8833 4.2 4.2 4.2c2.1 0 3.8667-1.4 4.1334-3.35h-4.1334v-3.6667h8.4167c0.0833 0.6 0.1333 1.2167 0.1333 1.8667 0 4.95-3.3 8.45-8.55 8.45z" fill="currentColor" />
@@ -154,7 +154,7 @@ export default function LoginPage() {
                         <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-slate-100 dark:bg-slate-950 px-2 text-muted-foreground">
+                        <span className="bg-card px-2 text-muted-foreground">
                             Oppure via Email
                         </span>
                     </div>
@@ -172,7 +172,7 @@ export default function LoginPage() {
                             onChange={(e) => setEmail(e.target.value)} 
                             autoComplete="email"
                             required
-                            className="h-11 text-center font-medium bg-slate-50 dark:bg-slate-900 border-slate-200 focus-visible:ring-primary"
+                            className="h-11 text-center font-medium"
                         />
                     </div>
                     

@@ -8,7 +8,7 @@ describe("AppCredits", () => {
     render(<AppCredits />)
 
     expect(
-      screen.getByText("Ultimo aggiornamento: 30 luglio 2026"),
+      screen.getByText("Ultimo aggiornamento: 25 settembre 2026"),
     ).toBeVisible()
   })
 })

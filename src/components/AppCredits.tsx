@@ -15,6 +15,7 @@ interface AppCreditsProps {
 
 export function AppCredits({ uid }: AppCreditsProps) {
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.3.0";
+  const updatedAt = process.env.NEXT_PUBLIC_APP_UPDATED_AT;
 
   return (
     <div className="mt-8 flex w-full flex-col items-center justify-center gap-3 border-t border-border/50 py-8">
@@ -32,9 +33,11 @@ export function AppCredits({ uid }: AppCreditsProps) {
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                 Dev: <span className="font-bold">Marco Cipriani</span>
             </p>
-            <p className="text-[10px] text-muted-foreground">
-                Ultimo aggiornamento: 25 settembre 2026
-            </p>
+            {updatedAt && (
+                <p className="text-[10px] text-muted-foreground">
+                    Ultimo aggiornamento: {updatedAt}
+                </p>
+            )}
         </div>
         
         <a 

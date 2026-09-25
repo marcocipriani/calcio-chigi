@@ -3,6 +3,13 @@ import fs from "fs";
 
 const packageJson = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
 const version = packageJson.version;
+// Data del build (= deploy), già formattata: niente fuso diverso tra server e client.
+const updatedAt = new Intl.DateTimeFormat("it-IT", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Europe/Rome",
+}).format(new Date());
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -10,6 +17,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_APP_UPDATED_AT: updatedAt,
   },
   async redirects() {
     // Compatibilità con pagine memorizzate e vecchie installazioni PWA.

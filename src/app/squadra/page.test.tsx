@@ -9,17 +9,29 @@ const formation = vi.hoisted(() => ({
   refresh: vi.fn(),
 }))
 
+const navigation = vi.hoisted(() => ({
+  params: new URLSearchParams(),
+  replace: vi.fn(),
+}))
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: navigation.replace }),
+  useSearchParams: () => navigation.params,
+}))
+
 vi.mock("next/dynamic", () => ({
   default: () =>
     function FormationBuilderMock({
+      eventId,
       mode,
       onPublished,
     }: {
+      eventId?: string
       mode: "PLAYGROUND" | "OFFICIAL"
       onPublished?: () => void
     }) {
       return (
-        <div data-formation-builder-mode={mode}>
+        <div data-event-id={eventId} data-formation-builder-mode={mode}>
           <h2>
             {mode === "PLAYGROUND"
               ? "Crea la tua formazione"
@@ -65,6 +77,7 @@ import TeamPage from "@/app/squadra/page"
 describe("TeamPage inline formation", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    navigation.params = new URLSearchParams()
     session.useAppSession.mockReturnValue({
       isAssociated: true,
       isManager: true,
@@ -74,6 +87,29 @@ describe("TeamPage inline formation", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     })
+  })
+
+  it("opens the official formation of the linked event and drops the link on close", async () => {
+    navigation.params = new URLSearchParams("formazione=event-9")
+    const { container } = render(<TeamPage />)
+
+    await screen.findByRole("region", { name: "Formazione ufficiale" })
+    expect(
+      container.querySelector("[data-formation-builder-mode]"),
+    ).toHaveAttribute("data-event-id", "event-9")
+
+    fireEvent.click(screen.getByRole("button", { name: "Chiudi formazione" }))
+    expect(navigation.replace).toHaveBeenCalledWith("/squadra", { scroll: false })
+  })
+
+  it("ignores the formation link for non-managers", () => {
+    navigation.params = new URLSearchParams("formazione=event-9")
+    session.useAppSession.mockReturnValue({ isAssociated: true, isManager: false })
+    render(<TeamPage />)
+
+    expect(
+      screen.queryByRole("region", { name: "Formazione ufficiale" }),
+    ).not.toBeInTheDocument()
   })
 
   it("passes the approved association to the public roster", () => {

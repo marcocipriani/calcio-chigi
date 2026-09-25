@@ -515,7 +515,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
           {isAssociated && (
             <div className="space-y-6">
-              {isMatch && (
+              {/* Partita annullata: niente formazione né invito a crearla (la RPC non lo blocca). */}
+              {isMatch && !isCancelled && (
                 <OfficialFormationPanel
                   eventDate={event.data_ora}
                   eventId={id}

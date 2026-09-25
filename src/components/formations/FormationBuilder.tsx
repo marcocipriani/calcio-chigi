@@ -36,7 +36,7 @@ import Image from "next/image"
 
 import { FORMATIONS } from "@/lib/constants"
 import { Event, FullProfile } from "@/lib/types"
-import { fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
+import { fetchEventById, fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
 import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot, U35_FIELD_MAX, U35_SQUAD_MAX, u35Quota } from "@/lib/formations"
@@ -210,9 +210,12 @@ function FormationSlot({ slot, playerInSlot, onRemove, onMobileClick, isBench = 
 export type FormationBuilderMode = "PLAYGROUND" | "OFFICIAL"
 
 export function FormationBuilder({
+    eventId,
     mode,
     onPublished,
 }: {
+    /** Partita da preparare in modalità OFFICIAL; senza, la prossima del Chigi. */
+    eventId?: string
     mode: FormationBuilderMode
     onPublished?: () => void | Promise<void>
 }): React.JSX.Element {
@@ -245,7 +248,9 @@ export function FormationBuilder({
                 setNextMatch(null)
                 setPlayers(await fetchPublicFormationRoster(supabaseBrowser))
             } else {
-                const match = await fetchNextChigiMatch(supabaseBrowser)
+                const match = eventId
+                    ? await fetchEventById(supabaseBrowser, eventId)
+                    : await fetchNextChigiMatch(supabaseBrowser)
                 setNextMatch(match)
                 setPlayers(match ? await fetchRosterForEvent(supabaseBrowser, match.id) : [])
             }
@@ -256,7 +261,7 @@ export function FormationBuilder({
         } finally {
             setLoading(false)
         }
-    }, [mode])
+    }, [eventId, mode])
 
     useEffect(() => {
         void loadFormationContext()
@@ -554,7 +559,10 @@ export function FormationBuilder({
     const title = mode === "PLAYGROUND" ? "Crea la tua formazione" : "Formazione ufficiale"
     const subtitle = mode === "PLAYGROUND"
         ? "Playground locale: la formazione resta su questo dispositivo"
-        : "Prepara distinta, messaggio e pubblicazione della prossima partita"
+        : nextMatch
+            // Col link dalla pagina evento la partita non è per forza la prossima: si dice quale.
+            ? `Distinta, messaggio e pubblicazione · ${nextMatch.avversario ?? "Partita"}${nextMatch.data_ora ? ` · ${format(new Date(nextMatch.data_ora), "d MMM HH:mm", { locale: it })}` : ""}`
+            : "Prepara distinta, messaggio e pubblicazione della prossima partita"
 
     if (loading) return (
         <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start" data-formation-builder-mode={mode}>

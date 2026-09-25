@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import dynamic from "next/dynamic"
+import { useRouter, useSearchParams } from "next/navigation"
 import { X } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -25,7 +26,20 @@ const FormationBuilder = dynamic(
 )
 
 export default function TeamPage() {
+  // useSearchParams richiede un boundary Suspense per il prerender.
+  return (
+    <Suspense>
+      <TeamPageContent />
+    </Suspense>
+  )
+}
+
+function TeamPageContent() {
   const { isAssociated, isManager } = useAppSession()
+  const router = useRouter()
+  // /squadra?formazione=<eventId>: link dalla pagina evento, apre la formazione ufficiale di quella partita.
+  const searchParams = useSearchParams()
+  const linkedEventId = isManager ? searchParams.get("formazione") : null
   const {
     error: matchError,
     loading: matchLoading,
@@ -35,16 +49,24 @@ export default function TeamPage() {
   const [builderMode, setBuilderMode] =
     useState<FormationBuilderMode | null>(null)
   const builderRef = useRef<HTMLElement>(null)
+  // Una scelta esplicita (apri/chiudi) vince sul link e lo toglie dall'URL.
+  const activeMode = builderMode ?? (linkedEventId ? "OFFICIAL" : null)
+  const builderEventId = builderMode ? undefined : (linkedEventId ?? undefined)
+
+  function chooseMode(mode: FormationBuilderMode | null) {
+    setBuilderMode(mode)
+    if (linkedEventId) router.replace("/squadra", { scroll: false })
+  }
 
   useEffect(() => {
-    if (!builderMode) return
+    if (!activeMode) return
 
     const builder = builderRef.current
     builder?.focus({ preventScroll: true })
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       builder?.scrollIntoView({ behavior: "smooth" })
     }
-  }, [builderMode])
+  }, [activeMode, builderEventId])
 
   return (
     <PageContainer contentClassName="mx-auto max-w-7xl space-y-5 pb-24">
@@ -54,15 +76,15 @@ export default function TeamPage() {
         matchError={matchError}
         matchLoading={matchLoading}
         onOpenOfficial={() => {
-          if (isManager) setBuilderMode("OFFICIAL")
+          if (isManager) chooseMode("OFFICIAL")
         }}
-        onOpenPlayground={() => setBuilderMode("PLAYGROUND")}
+        onOpenPlayground={() => chooseMode("PLAYGROUND")}
       />
 
-      {builderMode && (
+      {activeMode && (
         <section
           aria-label={
-            builderMode === "PLAYGROUND"
+            activeMode === "PLAYGROUND"
               ? "Crea la tua formazione"
               : "Formazione ufficiale"
           }
@@ -73,7 +95,7 @@ export default function TeamPage() {
           <Button
             aria-label="Chiudi formazione"
             className="absolute right-2 top-2 z-20"
-            onClick={() => setBuilderMode(null)}
+            onClick={() => chooseMode(null)}
             size="sm"
             type="button"
             variant="outline"
@@ -82,8 +104,9 @@ export default function TeamPage() {
             Chiudi
           </Button>
           <FormationBuilder
-            key={builderMode}
-            mode={builderMode}
+            eventId={builderEventId}
+            key={`${activeMode}-${builderEventId ?? "next"}`}
+            mode={activeMode}
             onPublished={refreshNextMatch}
           />
         </section>

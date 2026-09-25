@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Radio, ShieldCheck } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { isUnderPlayer } from "@/lib/formations"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
@@ -113,8 +115,14 @@ export function OfficialFormationPanel({
   if (!formation) {
     return isManager ? (
       <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-        La formazione ufficiale non è ancora pubblicata. Creala dalla pagina
-        Squadra.
+        <p>La formazione ufficiale non è ancora pubblicata.</p>
+        <Button
+          asChild
+          className="mt-3 bg-operative text-operative-foreground hover:bg-operative/90"
+          size="sm"
+        >
+          <Link href={`/squadra?formazione=${eventId}`}>Crea formazione</Link>
+        </Button>
       </div>
     ) : null
   }

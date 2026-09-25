@@ -149,6 +149,11 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
              setLoading(false);
              return;
         }
+        if (endDateTime && endDateTime <= startDateTime) {
+             toast.error("L'orario di fine deve essere dopo l'inizio");
+             setLoading(false);
+             return;
+        }
 
         const safeInt = (val: string) => {
             const parsed = parseInt(val, 10);

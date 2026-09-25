@@ -428,10 +428,12 @@ export async function fetchTeamLogoByName(supabase: SupabaseClient, name: string
  * Fetches all attendance rows for a specific event.
  */
 export async function fetchAttendanceForEvent(supabase: SupabaseClient, eventId: string): Promise<AttendanceRow[]> {
-    const { data } = await supabase
+    const { data, error } = await supabase
         .from('attendance')
         .select('profile_id, status, created_at, updated_at, modified_by')
         .eq('event_id', eventId)
+    // Un errore non deve sembrare "nessuno ha votato": svuoterebbe la rosa.
+    if (error) throw error
     return data ?? []
 }
 

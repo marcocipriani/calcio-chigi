@@ -106,6 +106,7 @@ export function EventRosterPanel({
   isManager: boolean
   isMatch: boolean
   managerProfileId: string | null
+  /** Cognome per profile_id, per "Modificato da". */
   namesByProfileId: Record<string, string>
   roster: EventRosterEntry[]
 }) {
@@ -218,11 +219,15 @@ export function EventRosterPanel({
       return next
     })
 
-    const failed = results.filter(({ error }) => error)
+    const failed = profileIds.filter((_, index) => results[index].error)
     if (failed.length) {
-      setCheckins(previous)
+      // Solo i falliti: altri toggle in volo nel frattempo restano validi.
+      setCheckins((current) => ({
+        ...current,
+        ...Object.fromEntries(failed.map((id) => [id, previous[id]])),
+      }))
       toast.error("Check-in non salvato", {
-        description: failed[0].error?.message,
+        description: results.find(({ error }) => error)?.error?.message,
       })
       return
     }
@@ -394,7 +399,7 @@ export function EventRosterPanel({
           const managerEdit =
             player.modified_by && player.modified_by !== player.id
           const managerName = managerEdit
-            ? namesByProfileId[player.modified_by ?? ""]?.split(" ")[0]
+            ? namesByProfileId[player.modified_by ?? ""]
             : null
 
           return (

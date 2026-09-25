@@ -241,6 +241,34 @@ export function FormationBuilder({
     const officialRoleRequirementId = useId()
     const officialQuotaRequirementId = useId()
 
+    // Formazione già salvata per la partita: si riparte da quella, non dal campo vuoto.
+    const restoreSavedFormation = useCallback(async (eventId: string, roster: Player[]) => {
+        const { data: saved, error } = await supabaseBrowser
+            .from('official_formations')
+            .select('formation_module, shirt_color, captain_profile_id, vice_captain_profile_id, snapshot')
+            .eq('event_id', eventId)
+            .maybeSingle()
+        if (error) {
+            toast.error("Formazione salvata non caricata", { description: error.message })
+            return
+        }
+        if (!saved) return
+        const byId = new Map(roster.map((player) => [player.id, player]))
+        const slots = Object.entries((saved.snapshot?.lineup ?? {}) as Record<string, string>)
+        const restored = slots.flatMap(([slot, id]) => {
+            const player = byId.get(id)
+            return player ? [[slot, player] as const] : []
+        })
+        if (FORMATIONS[saved.formation_module]) setModule(saved.formation_module)
+        if (saved.shirt_color === 'BLU' || saved.shirt_color === 'ROSSA') setJerseyColor(saved.shirt_color)
+        setLineup(Object.fromEntries(restored))
+        setCaptainId(saved.captain_profile_id)
+        setViceCaptainId(saved.vice_captain_profile_id)
+        if (restored.length < slots.length) {
+            toast.warning(`${slots.length - restored.length} giocatori della formazione salvata non sono più convocabili`)
+        }
+    }, [])
+
     const loadFormationContext = useCallback(async function loadFormationContext() {
         setLoading(true)
         try {
@@ -252,7 +280,9 @@ export function FormationBuilder({
                     ? await fetchEventById(supabaseBrowser, eventId)
                     : await fetchNextChigiMatch(supabaseBrowser)
                 setNextMatch(match)
-                setPlayers(match ? await fetchRosterForEvent(supabaseBrowser, match.id) : [])
+                const roster = match ? await fetchRosterForEvent(supabaseBrowser, match.id) : []
+                setPlayers(roster)
+                if (match) await restoreSavedFormation(match.id, roster)
             }
             setLoadError(null)
         } catch (error) {
@@ -261,7 +291,7 @@ export function FormationBuilder({
         } finally {
             setLoading(false)
         }
-    }, [eventId, mode])
+    }, [eventId, mode, restoreSavedFormation])
 
     useEffect(() => {
         void loadFormationContext()

@@ -100,11 +100,13 @@ export function AppSessionProvider({
       const context = (data ?? {}) as AppContextPayload
 
       if (error) {
-        setState({
-          ...anonymousSession,
-          user,
-          loading: false,
-        })
+        // Errore transitorio (es. al refresh del token): lo stesso utente non
+        // perde associazione e ruolo, altrimenti le pagine ricaricano in versione pubblica.
+        setState((previous) =>
+          previous.user?.id === user.id
+            ? { ...previous, user, loading: false }
+            : { ...anonymousSession, user, loading: false },
+        )
         return
       }
 

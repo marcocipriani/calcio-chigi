@@ -154,10 +154,17 @@ export function OfficialFormationPanel({
             </p>
           </div>
         </div>
-        <Badge className="gap-1">
-          <ShieldCheck aria-hidden="true" />
-          Pubblicata
-        </Badge>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge className="gap-1">
+            <ShieldCheck aria-hidden="true" />
+            Pubblicata
+          </Badge>
+          {isManager && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/squadra?formazione=${eventId}`}>Modifica</Link>
+            </Button>
+          )}
+        </div>
       </div>
       <div className="grid gap-3 p-3 sm:grid-cols-2">
         <div>

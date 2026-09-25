@@ -11,11 +11,12 @@ const formation = vi.hoisted(() => ({
 
 const navigation = vi.hoisted(() => ({
   params: new URLSearchParams(),
+  push: vi.fn(),
   replace: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: navigation.replace }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
   useSearchParams: () => navigation.params,
 }))
 
@@ -102,6 +103,17 @@ describe("TeamPage inline formation", () => {
     expect(navigation.replace).toHaveBeenCalledWith("/squadra", { scroll: false })
   })
 
+  it("returns to the linked event after publishing", async () => {
+    navigation.params = new URLSearchParams("formazione=event-9")
+    render(<TeamPage />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Pubblica mock" }))
+    await waitFor(() => {
+      expect(navigation.push).toHaveBeenCalledWith("/evento/event-9")
+    })
+    expect(formation.refresh).toHaveBeenCalledOnce()
+  })
+
   it("ignores the formation link for non-managers", () => {
     navigation.params = new URLSearchParams("formazione=event-9")
     session.useAppSession.mockReturnValue({ isAssociated: true, isManager: false })
@@ -170,6 +182,7 @@ describe("TeamPage inline formation", () => {
     )
     fireEvent.click(screen.getByRole("button", { name: "Pubblica mock" }))
     expect(formation.refresh).toHaveBeenCalledOnce()
+    expect(navigation.push).not.toHaveBeenCalled()
   })
 
   it("does not animate scrolling when reduced motion is preferred", async () => {

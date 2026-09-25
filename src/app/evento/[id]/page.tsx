@@ -371,23 +371,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         {isCancelled && <Badge variant="destructive" className="shrink-0">Annullato</Badge>}
         {isManager && (
             <div className="flex shrink-0 items-center gap-1">
+                {/* Modifica sempre in vista e per prima; su mobile solo icona, il resto nel menu. */}
+                <Button size="sm" onClick={() => setEditDialogOpen(true)} className="pointer-coarse:min-w-11 bg-operative text-operative-foreground hover:bg-operative/90"><Pencil aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Modifica</span></Button>
                 <Button
                     aria-label="Copia informazioni per WhatsApp"
                     onClick={handleCopyWhatsApp}
                     size="icon"
                     variant="ghost"
-                    className="text-green-700 hover:bg-green-500/10 hover:text-green-800 dark:text-green-400"
+                    className="hidden sm:inline-flex text-green-700 hover:bg-green-500/10 hover:text-green-800 dark:text-green-400"
                 >
                     <Share2 aria-hidden="true" />
                 </Button>
-                <Button size="sm" onClick={() => setEditDialogOpen(true)} className="hidden sm:inline-flex bg-operative text-operative-foreground hover:bg-operative/90"><Pencil aria-hidden="true" /> Modifica</Button>
                 <Button aria-label="Elimina evento" variant="ghost" size="icon" onClick={() => setDeleteDialogOpen(true)} className="hidden sm:inline-flex text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 aria-hidden="true" /></Button>
                 <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
                     <PopoverTrigger asChild>
                         <Button aria-label="Altre azioni" variant="ghost" size="icon" className="sm:hidden"><MoreHorizontal aria-hidden="true" /></Button>
                     </PopoverTrigger>
-                    <PopoverContent align="end" className="w-44 p-1">
-                        <Button variant="ghost" className="w-full justify-start" onClick={() => { setActionsOpen(false); setEditDialogOpen(true); }}><Pencil aria-hidden="true" /> Modifica</Button>
+                    <PopoverContent align="end" className="w-52 p-1">
+                        <Button variant="ghost" className="w-full justify-start text-green-700 hover:bg-green-500/10 hover:text-green-800 dark:text-green-400" onClick={() => { setActionsOpen(false); handleCopyWhatsApp(); }}><Share2 aria-hidden="true" /> Copia per WhatsApp</Button>
                         <Button variant="ghost" className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => { setActionsOpen(false); setDeleteDialogOpen(true); }}><Trash2 aria-hidden="true" /> Elimina</Button>
                     </PopoverContent>
                 </Popover>

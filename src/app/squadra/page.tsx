@@ -107,7 +107,11 @@ function TeamPageContent() {
             eventId={builderEventId}
             key={`${activeMode}-${builderEventId ?? "next"}`}
             mode={activeMode}
-            onPublished={refreshNextMatch}
+            onPublished={async () => {
+              await refreshNextMatch()
+              // Aperta dal link della pagina evento: si torna lì a vedere la formazione.
+              if (builderEventId) router.push(`/evento/${builderEventId}`)
+            }}
           />
         </section>
       )}

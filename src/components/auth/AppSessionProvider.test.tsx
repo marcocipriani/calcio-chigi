@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 
@@ -77,6 +77,31 @@ describe("AppSessionProvider", () => {
     await waitFor(() => {
       expect(screen.getByTestId("manager")).toHaveTextContent("true")
     })
+    expect(screen.getByTestId("status")).toHaveTextContent("ACTIVE")
+  })
+
+  it("keeps the same user's context when a refresh fails", async () => {
+    const client = fakeClient({
+      user: { id: "user-1" },
+      context: {
+        profile: { id: "profile-1", nome: "Marco", cognome: "Manager", is_manager: true },
+        associationStatus: "ACTIVE",
+        membership: { id: "membership-1", status: "YES" },
+      },
+    })
+    render(wrapper(client, <Probe />))
+    await waitFor(() => {
+      expect(screen.getByTestId("manager")).toHaveTextContent("true")
+    })
+
+    client.rpc.mockResolvedValueOnce({ data: null, error: { message: "offline" } })
+    const [[onAuthChange]] = client.auth.onAuthStateChange.mock.calls
+    await act(async () => {
+      onAuthChange("TOKEN_REFRESHED", { user: { id: "user-1" } })
+    })
+
+    expect(client.rpc).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId("manager")).toHaveTextContent("true")
     expect(screen.getByTestId("status")).toHaveTextContent("ACTIVE")
   })
 })

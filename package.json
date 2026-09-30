@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "test:db": "npx supabase db reset --local && npx supabase test db tests/db",
     "assets:brand": "node scripts/generate-brand-assets.mjs",
     "test:brand": "node --test scripts/brand-assets.test.mjs",
     "db:verify": "node scripts/verify-schema.mjs",

@@ -1,6 +1,6 @@
 begin;
 
-select plan(61);
+select plan(64);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -41,6 +41,12 @@ values
   ('10000000-0000-0000-0000-000000000001', '111', 'manager@test.local'),
   ('10000000-0000-0000-0000-000000000002', '222', 'player@test.local');
 
+-- Stagione passata fissa: "la stagione non corrente più recente" cambiava con la data
+-- e da agosto 2026 coincideva con 2025-2026, rompendo i test sulla directory stagionale.
+insert into public.seasons (slug, name, starts_on, ends_on)
+values ('2024-2025', 'Stagione 2024/2025', '2024-08-01', '2025-07-31')
+on conflict (slug) do nothing;
+
 insert into public.season_memberships (
   profile_id, season_id, category, role, jersey_number, status
 )
@@ -57,7 +63,7 @@ from (
     ('10000000-0000-0000-0000-000000000002'::uuid, 'ATTACCANTE', 9)
 ) input(profile_id, role, jersey)
 cross join public.seasons season
-where season.slug in ('2025-2026', '2026-2027')
+where season.slug in ('2024-2025', '2025-2026', '2026-2027')
 on conflict (profile_id, season_id) do update
 set status = excluded.status;
 
@@ -85,10 +91,7 @@ select
   6,
   'YES'
 from public.seasons season
-where (now() at time zone 'Europe/Rome')::date
-      not between season.starts_on and season.ends_on
-order by season.starts_on desc
-limit 1;
+where season.slug = '2024-2025';
 
 insert into public.events (
   id, tipo, data_ora, luogo, squadra_casa, squadra_ospite, cancellato
@@ -103,10 +106,7 @@ select
   'AVVERSARI',
   false
 from public.seasons season
-where (now() at time zone 'Europe/Rome')::date
-      not between season.starts_on and season.ends_on
-order by season.starts_on desc
-limit 1;
+where season.slug = '2024-2025';
 
 insert into public.events (
   id, tipo, data_ora, luogo, squadra_casa, squadra_ospite, cancellato
@@ -358,7 +358,7 @@ select results_eq(
   $$select count(*)::bigint
       from public.season_memberships
      where profile_id = '10000000-0000-0000-0000-000000000002'$$,
-  array[2::bigint],
+  array[3::bigint],
   'player reads own season memberships'
 );
 select results_eq(
@@ -759,10 +759,11 @@ select
   format('Test %s', number),
   '2000-01-01',
   case when number = 6 then 'PORTIERE' else 'DIFENSORE' end,
-  number,
+  -- 21-26: le maglie 1-6 collidono con Mario (4) nella stagione corrente.
+  number + 20,
   false,
   false
-from generate_series(1, 6) as number;
+from generate_series(1, 7) as number;
 
 insert into public.season_memberships (
   profile_id, season_id, category, role, jersey_number, status
@@ -814,7 +815,7 @@ select throws_ok(
     ]'::jsonb
   )$$,
   'P0001',
-  'U35 quota exceeded: maximum 3 on field and 4 called up',
+  'U35 quota exceeded: maximum 3 on field and 5 called up',
   'four U35 field players cannot be published'
 );
 select throws_ok(
@@ -830,12 +831,13 @@ select throws_ok(
       {"profile_id":"11000000-0000-0000-0000-000000000002","player_snapshot":{},"is_starter":true,"position_key":"DC2","sort_order":2},
       {"profile_id":"11000000-0000-0000-0000-000000000003","player_snapshot":{},"is_starter":true,"position_key":"CC1","sort_order":3},
       {"profile_id":"11000000-0000-0000-0000-000000000004","player_snapshot":{},"is_starter":false,"position_key":"P1","sort_order":4},
-      {"profile_id":"11000000-0000-0000-0000-000000000005","player_snapshot":{},"is_starter":false,"position_key":"P2","sort_order":5}
+      {"profile_id":"11000000-0000-0000-0000-000000000005","player_snapshot":{},"is_starter":false,"position_key":"P2","sort_order":5},
+      {"profile_id":"11000000-0000-0000-0000-000000000007","player_snapshot":{},"is_starter":false,"position_key":"P3","sort_order":6}
     ]'::jsonb
   )$$,
   'P0001',
-  'U35 quota exceeded: maximum 3 on field and 4 called up',
-  'five U35 called up players cannot be published'
+  'U35 quota exceeded: maximum 3 on field and 5 called up',
+  'six U35 called up players cannot be published'
 );
 select throws_ok(
   $$select public.publish_official_formation(
@@ -1019,6 +1021,20 @@ select throws_ok(
   'unlinked account cannot enumerate an event roster'
 );
 reset role;
+
+select ok(
+  not has_table_privilege('anon', 'public.claimable_profile_directory', 'SELECT'),
+  'anon cannot list claimable profile names'
+);
+select ok(
+  not has_table_privilege('anon', 'public.authenticated_active_roster', 'SELECT'),
+  'anon has no grant on the authenticated roster'
+);
+select ok(
+  not has_function_privilege('anon', 'public.attendance_vote_open(uuid)', 'EXECUTE')
+    and has_function_privilege('authenticated', 'public.attendance_vote_open(uuid)', 'EXECUTE'),
+  'vote-open helper runs for signed-in users only'
+);
 
 select * from finish();
 rollback;

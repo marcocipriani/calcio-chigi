@@ -175,7 +175,6 @@ select has_function(
     'text',
     'text',
     'text',
-    'boolean',
     'date'
   ]
 );
@@ -206,7 +205,7 @@ select has_function(
 select has_function(
   'public',
   'publish_official_formation',
-  array['uuid', 'text', 'text', 'uuid', 'uuid', 'jsonb', 'jsonb']
+  array['uuid', 'text', 'text', 'uuid', 'uuid', 'jsonb', 'jsonb', 'text']
 );
 select has_function(
   'private',

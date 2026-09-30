@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Download, X, UserPlus, Shirt, Info, Trash2, Calendar, Plus, Crown, Award, FileSpreadsheet, Users, Image as ImageIcon, Copy, Send } from "lucide-react"
+import { Search, Download, X, UserPlus, Shirt, Info, Trash2, Calendar, Plus, Crown, Award, FileSpreadsheet, Users, Image as ImageIcon, Copy, Send, Eye, Lock } from "lucide-react"
 import Image from "next/image"
 
 import { FORMATIONS } from "@/lib/constants"
@@ -39,14 +39,14 @@ import { Event, FullProfile } from "@/lib/types"
 import { fetchEventById, fetchNextChigiMatch, fetchPublicFormationRoster, fetchRosterForEvent } from "@/lib/api"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
-import { buildOfficialFormationMessage, buildPersonalFormationMessage, isFormationBenchSlot, U35_FIELD_MAX, U35_SQUAD_MAX, u35Quota } from "@/lib/formations"
+import { buildMatchMessage, buildPersonalFormationMessage, isFormationBenchSlot, isOutsideDistinta, U35_FIELD_MAX, U35_SQUAD_MAX, u35Quota } from "@/lib/formations"
 import { getAge, isU35At } from "@/lib/utils"
 
 type Player = FullProfile & { training_only?: boolean }
 
 type FormationSlotDef = { id: string; top?: string; left?: string };
 
-const BENCH_SLOTS = Array.from({ length: 9 }, (_, i) => ({ id: `P${i + 1}` }));
+const BENCH_SLOTS = Array.from({ length: 12 }, (_, i) => ({ id: `P${i + 1}` }));
 const FORMATION_IMAGE_PLACEHOLDER =
     "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 
@@ -231,6 +231,7 @@ export function FormationBuilder({
     const [captainId, setCaptainId] = useState<string | null>(null)
     const [viceCaptainId, setViceCaptainId] = useState<string | null>(null)
     const [jerseyColor, setJerseyColor] = useState<'BLU' | 'ROSSA'>('BLU')
+    const [visibility, setVisibility] = useState<'PRIVATE' | 'PUBLIC'>('PRIVATE')
     const [nextMatch, setNextMatch] = useState<Event | null>(null)
     const [isMobile, setIsMobile] = useState(false)
     const [mobileSlotToFill, setMobileSlotToFill] = useState<string | null>(null)
@@ -245,7 +246,7 @@ export function FormationBuilder({
     const restoreSavedFormation = useCallback(async (eventId: string, roster: Player[]) => {
         const { data: saved, error } = await supabaseBrowser
             .from('official_formations')
-            .select('formation_module, shirt_color, captain_profile_id, vice_captain_profile_id, snapshot')
+            .select('formation_module, shirt_color, visibility, captain_profile_id, vice_captain_profile_id, snapshot')
             .eq('event_id', eventId)
             .maybeSingle()
         if (error) {
@@ -261,6 +262,8 @@ export function FormationBuilder({
         })
         if (FORMATIONS[saved.formation_module]) setModule(saved.formation_module)
         if (saved.shirt_color === 'BLU' || saved.shirt_color === 'ROSSA') setJerseyColor(saved.shirt_color)
+        // Ripubblicare una formazione già pubblica non deve riportarla a privata.
+        if (saved.visibility === 'PUBLIC') setVisibility('PUBLIC')
         setLineup(Object.fromEntries(restored))
         setCaptainId(saved.captain_profile_id)
         setViceCaptainId(saved.vice_captain_profile_id)
@@ -337,7 +340,9 @@ export function FormationBuilder({
             if (isHome) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
             else { worksheet.getCell('B6').value = nextMatch?.avversario || ""; worksheet.getCell('H6').value = "C. PAL. CHIGI"; }
 
-            const playersInLineup = Object.entries(lineup).map(([slotId, player]) => ({ ...player, isBench: isFormationBenchSlot(slotId), slotId }));
+            const outsideDistinta = Object.entries(lineup).filter(([slotId]) => isOutsideDistinta(slotId)).map(([, player]) => player.cognome);
+            if (outsideDistinta.length > 0) toast.warning(`Fuori distinta (ultimi 3 posti in panchina): ${outsideDistinta.join(', ')}`);
+            const playersInLineup = Object.entries(lineup).filter(([slotId]) => !isOutsideDistinta(slotId)).map(([slotId, player]) => ({ ...player, isBench: isFormationBenchSlot(slotId), slotId }));
             const sortPlayers = (list: (Player & { isBench: boolean; slotId: string })[]) => list.sort((a, b) => {
                 if (a.ruolo === 'PORTIERE' && b.ruolo !== 'PORTIERE') return -1;
                 if (b.ruolo === 'PORTIERE' && a.ruolo !== 'PORTIERE') return 1;
@@ -526,20 +531,21 @@ export function FormationBuilder({
             sort_order: index,
         }))
 
-    const copyWhatsAppMessage = async () => {
+    const copyWhatsAppMessage = async (lineupVariant: boolean) => {
         if (!nextMatch) {
             toast.error("Nessuna prossima partita disponibile.")
             return
         }
-        const message = buildOfficialFormationMessage(
+        const message = buildMatchMessage(
             nextMatch,
-            officialPlayers().map((entry) => ({
-                nome: String(entry.player_snapshot.nome ?? ''),
-                cognome: String(entry.player_snapshot.cognome ?? ''),
-                role: entry.player_snapshot.role as string | null,
-                birthDate: entry.player_snapshot.birth_date as string | null,
-                isStarter: entry.is_starter,
+            Object.entries(lineup).map(([positionKey, player]) => ({
+                nome: player.nome,
+                cognome: player.cognome,
+                role: player.ruolo,
+                birthDate: player.data_nascita,
+                isStarter: !isFormationBenchSlot(positionKey),
             })),
+            { lineup: lineupVariant, shirtColor: jerseyColor },
         )
         await copyOfficialFormationMessage(message)
     }
@@ -575,12 +581,17 @@ export function FormationBuilder({
                 ),
             },
             p_players: officialPlayers(),
+            p_visibility: visibility,
         })
         if (error) {
             toast.error("Formazione non pubblicata", { description: error.message })
             return
         }
-        toast.success("Formazione ufficiale pubblicata e notificata")
+        toast.success(
+            visibility === 'PUBLIC'
+                ? "Formazione ufficiale pubblicata e notificata"
+                : "Convocati pubblicati: la formazione resta visibile solo ai manager",
+        )
         await onPublished?.()
     }
 
@@ -684,15 +695,39 @@ export function FormationBuilder({
                                 </Popover>
                                 {showOfficialControls && (
                                     <>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    aria-label="Copia messaggio WhatsApp"
+                                                    className="h-9 w-9"
+                                                    size="icon"
+                                                    title="Copia messaggio WhatsApp"
+                                                    variant="outline"
+                                                >
+                                                    <Copy aria-hidden="true" className="h-4 w-4" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-48 p-2 flex flex-col gap-1" role="menu">
+                                                <Button onClick={() => void copyWhatsAppMessage(false)} role="menuitem" variant="ghost" className="justify-start text-xs h-8">
+                                                    <Users aria-hidden="true" className="mr-2 h-3 w-3" /> Copia convocati
+                                                </Button>
+                                                <Button onClick={() => void copyWhatsAppMessage(true)} role="menuitem" variant="ghost" className="justify-start text-xs h-8">
+                                                    <Copy aria-hidden="true" className="mr-2 h-3 w-3" /> Copia formazione
+                                                </Button>
+                                            </PopoverContent>
+                                        </Popover>
                                         <Button
-                                            aria-label="Copia messaggio WhatsApp"
+                                            aria-label={visibility === 'PUBLIC' ? "Formazione pubblica" : "Formazione privata"}
+                                            aria-pressed={visibility === 'PUBLIC'}
                                             className="h-9 w-9"
-                                            onClick={copyWhatsAppMessage}
+                                            onClick={() => setVisibility(visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC')}
                                             size="icon"
-                                            title="Copia messaggio WhatsApp"
+                                            title={visibility === 'PUBLIC' ? "Pubblica: clicca per renderla privata" : "Privata: clicca per renderla pubblica"}
                                             variant="outline"
                                         >
-                                            <Copy aria-hidden="true" className="h-4 w-4" />
+                                            {visibility === 'PUBLIC'
+                                                ? <Eye aria-hidden="true" className="h-4 w-4" />
+                                                : <Lock aria-hidden="true" className="h-4 w-4" />}
                                         </Button>
                                         <Button
                                             aria-describedby={[
@@ -713,6 +748,14 @@ export function FormationBuilder({
                             </div>
                         </div>
                     </div>
+
+                    {showOfficialControls && (
+                        <p className="text-xs font-medium text-muted-foreground">
+                            {visibility === 'PUBLIC'
+                                ? "Pubblica: tutti vedono titolari e panchina."
+                                : "Privata: i giocatori vedono solo l’elenco dei convocati."}
+                        </p>
+                    )}
 
                     {showOfficialControls && !captainId && !viceCaptainId && (
                         <p className="text-xs font-medium text-amber-700 dark:text-amber-400" id={officialRoleRequirementId}>
@@ -742,8 +785,9 @@ export function FormationBuilder({
                         </div>
                     </div>}
 
-                    <div ref={fieldRef} className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="relative flex-1 max-w-[450px] mx-auto aspect-[3/4] bg-gradient-to-b from-green-600 via-green-600 to-green-700 rounded-lg overflow-hidden shadow-2xl border-[3px] border-white/20 ring-1 ring-black/10">
+                    {/* Panchina sotto il campo: a fianco, con 12 posti, allungava il campo oltre il 3:4. */}
+                    <div ref={fieldRef} className="flex flex-col gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div className="relative w-full max-w-[450px] mx-auto aspect-[3/4] bg-gradient-to-b from-green-600 via-green-600 to-green-700 rounded-lg overflow-hidden shadow-2xl border-[3px] border-white/20 ring-1 ring-black/10">
                             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, #000 39px, #000 40px)' }}></div>
                             <div className="absolute inset-4 border-2 border-white/60 rounded-sm pointer-events-none"></div>
                             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/60 pointer-events-none"></div>
@@ -772,8 +816,8 @@ export function FormationBuilder({
                             ))}
                         </div>
 
-                        <div className="flex flex-col gap-1.5 p-1 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner w-14 items-center overflow-x-hidden overflow-y-auto scrollbar-hide">
-                            <span className="py-1 text-[10px] font-black uppercase tracking-widest text-slate-600 vertical-text dark:text-slate-300">Panchina</span>
+                        <div className="grid grid-cols-6 lg:grid-cols-12 justify-items-center gap-1 p-1.5 bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner">
+                            <span className="col-span-full text-center text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Panchina</span>
                             {BENCH_SLOTS.map((slot) => (
                                 <FormationSlot
                                     key={slot.id}

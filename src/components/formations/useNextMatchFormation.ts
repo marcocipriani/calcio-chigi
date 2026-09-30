@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 type PublishedFormation = {
   published_at: string
+  visibility: "PRIVATE" | "PUBLIC"
 }
 
 function normalizeError(cause: unknown) {
@@ -61,7 +62,7 @@ export function useNextMatchFormation(): {
 
       const { data, error: formationError } = await supabaseBrowser
         .from("public_published_formation_summaries")
-        .select("published_at")
+        .select("published_at, visibility")
         .eq("event_id", event.id)
         .maybeSingle()
       if (!active.current) return
@@ -74,6 +75,7 @@ export function useNextMatchFormation(): {
         opponentLogoUrl,
         startsAt: event.data_ora,
         publishedAt: formation?.published_at ?? null,
+        visibility: formation?.visibility ?? null,
       })
     } catch (cause) {
       if (!active.current) return

@@ -45,6 +45,23 @@ describe("NextMatchCapsule", () => {
     )
   })
 
+  it("announces call-ups, not the lineup, while the formation is private", () => {
+    render(
+      <NextMatchCapsule
+        match={{
+          ...match,
+          publishedAt: "2026-07-28T18:42:00+02:00",
+          visibility: "PRIVATE",
+        }}
+      />,
+    )
+    expect(
+      screen.getByRole("link", { name: "Convocati contro PSICOLOGOL" }),
+    ).toHaveAttribute("href", "/evento/match-1")
+    expect(screen.getByText("Convocati il 28 lug · 18:42")).toBeVisible()
+    expect(screen.queryByText(/Pubblicata/)).not.toBeInTheDocument()
+  })
+
   it("formats Rome wall-clock parts without browser timezone normalization", () => {
     render(
       <NextMatchCapsule

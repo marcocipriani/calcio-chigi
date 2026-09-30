@@ -387,6 +387,7 @@ async function seedPublishedOfficialFormation() {
     shirt_color: "BLU",
     snapshot: { source: "anonymous-capsule-e2e" },
     status: "PUBLISHED",
+    visibility: "PUBLIC",
   })
   if (error) throw error
 }
@@ -1410,9 +1411,13 @@ test(OFFICIAL_FORMATION_TEST_TITLE, async ({ context, page }, testInfo) => {
     .click()
   await page.keyboard.press("Escape")
   await page.getByRole("button", { name: "Copia messaggio WhatsApp" }).click()
+  await page.getByRole("menuitem", { name: "Copia formazione" }).click()
   const officialMessage = await page.evaluate(() => navigator.clipboard.readText())
-  expect(officialMessage).toContain("🟢 TITOLARI:\nMarco Forse [PORTIERE]")
+  expect(officialMessage).toContain("🟢 TITOLARI:\nMarco Forse (POR)")
   expect(officialMessage).toContain("🪑 PANCHINA:\nPiero Player")
+  await page.keyboard.press("Escape")
+  // Default privata: il test segue il flusso della formazione pubblica.
+  await page.getByRole("button", { name: "Formazione privata" }).click()
   await page
     .getByRole("button", { name: "Pubblica formazione ufficiale" })
     .click()

@@ -2,22 +2,24 @@ import { format, subMinutes } from "date-fns"
 import { it } from "date-fns/locale"
 
 import { FORMATIONS } from "@/lib/constants"
+import type { EventType } from "@/lib/types"
 import { isU35At } from "@/lib/utils"
 
-type FormationEvent = {
+export type MatchMessageEvent = {
   data_ora: string | null
+  tipo?: EventType | null
   luogo?: string | null
   squadra_casa?: string | null
   squadra_ospite?: string | null
   avversario?: string | null
 }
 
-type FormationMessagePlayer = {
+export type MatchMessagePlayer = {
   nome: string
   cognome: string
   role?: string | null
   birthDate?: string | null
-  isStarter: boolean
+  isStarter?: boolean
 }
 
 export type PersonalFormationEntry = {
@@ -32,8 +34,15 @@ type U35QuotaEntry = {
   role?: string | null
 }
 
+// Panchina P1–P12: stessa regex in publish_official_formation.
 export function isFormationBenchSlot(positionKey: string): boolean {
-  return /^P[1-9]$/.test(positionKey)
+  return /^P([1-9]|1[0-2])$/.test(positionKey)
+}
+
+// La distinta Excel ha 20 righe giocatore (titolari + P1–P9), poi lo staff:
+// P10–P12 sono convocati che restano fuori distinta.
+export function isOutsideDistinta(positionKey: string): boolean {
+  return /^P1[0-2]$/.test(positionKey)
 }
 
 // Regolamento 2026/27: fino a 5 Under 35 convocati (portiere escluso), di cui
@@ -70,60 +79,88 @@ export function isUnderPlayer(
   return isU35At(birthDate, matchDate)
 }
 
-function opponent(event: FormationEvent) {
+function opponent(event: MatchMessageEvent) {
   if (event.avversario) return event.avversario
   return event.squadra_casa?.toLocaleLowerCase("it").includes("chigi")
     ? event.squadra_ospite
     : event.squadra_casa
 }
 
-function playerLine(
-  player: FormationMessagePlayer,
-  matchDate: Date,
-) {
-  const badges: string[] = []
-  if (player.role === "PORTIERE") badges.push("PORTIERE")
-  if (isUnderPlayer(player.birthDate, matchDate)) {
-    badges.push("UNDER")
-  }
-  return `${player.nome} ${player.cognome}${
-    badges.length ? ` [${badges.join(" · ")}]` : ""
-  }`
+// Link Maps per campo, con il nome scritto come in events.luogo.
+// Campo non in mappa: nel messaggio resta solo il nome.
+export const FIELD_MAPS: Record<string, string> = {
+  "SS Romulea": "https://maps.app.goo.gl/3wF6VHvKWfo8ADNi9",
 }
 
-export function buildOfficialFormationMessage(
-  event: FormationEvent,
-  players: FormationMessagePlayer[],
+type Named = { nome?: string | null; cognome?: string | null }
+
+// Ordine alfabetico come lo si dice a voce: "Di Mucci" prima di "D'Oria".
+export const bySurname = (left: Named, right: Named) =>
+  (left.cognome ?? "").localeCompare(right.cognome ?? "", "it", {
+    ignorePunctuation: true,
+  }) ||
+  (left.nome ?? "").localeCompare(right.nome ?? "", "it", {
+    ignorePunctuation: true,
+  })
+
+export function buildMatchMessage(
+  event: MatchMessageEvent,
+  players: MatchMessagePlayer[],
+  { lineup, shirtColor }: { lineup: boolean; shirtColor?: string | null },
 ) {
   if (!event.data_ora) return "Partita senza data."
 
   const matchDate = new Date(event.data_ora)
-  const meetingDate = subMinutes(matchDate, 45)
-  const starters = players.filter(({ isStarter }) => isStarter)
-  const bench = players.filter(({ isStarter }) => !isStarter)
-  const lines = (group: FormationMessagePlayer[]) =>
-    group.length
-      ? group.map((player) => playerLine(player, matchDate)).join("\n")
-      : "Da definire"
+  const tipo = event.tipo ?? "PARTITA"
+  const line = (player: MatchMessagePlayer) => {
+    // La quota Under 35 vale solo in torneo e non conta i portieri.
+    const tag =
+      player.role?.toUpperCase() === "PORTIERE"
+        ? " (POR)"
+        : tipo === "PARTITA" && isU35At(player.birthDate, matchDate)
+          ? " (U35)"
+          : ""
+    return `${player.nome} ${player.cognome}${tag}`
+  }
+  const block = (title: string, group: MatchMessagePlayer[], empty: string) =>
+    `${title}\n${
+      group.length ? [...group].sort(bySurname).map(line).join("\n") : empty
+    }`
+  const field = event.luogo?.trim() || "campo da definire"
+  const map = FIELD_MAPS[field]
+  const shirt =
+    shirtColor === "ROSSA"
+      ? "🔴 Maglia rossa"
+      : shirtColor
+        ? "🔵 Maglia blu"
+        : null
 
-  return `⚽ INFO PARTITA per ${format(matchDate, "EEEE d MMMM", {
-    locale: it,
-  })} vs ${opponent(event) ?? "avversario da definire"}
-
-📍 DOVE E QUANDO:
-Ritrovo ore ${format(meetingDate, "HH:mm")} – ${event.luogo ?? "campo da definire"}
-Calcio d’inizio ore ${format(matchDate, "HH:mm")}
-
-🔴⚪️ DIVISA:
-Portate entrambe le divise complete (maglia, pantaloncino, calze) per sicurezza
-
-🟢 TITOLARI:
-${lines(starters)}
-
-🪑 PANCHINA:
-${lines(bench)}
-
-Ci vediamo al campo! 💪`
+  return [
+    `⚽ INFO ${tipo} per ${format(matchDate, "EEEE dd MMMM", {
+      locale: it,
+    })} vs ${opponent(event) ?? "avversario da definire"}`,
+    `📍 ${field}${map ? ` ${map}` : ""}\n🕘 Ritrovo ${format(
+      subMinutes(matchDate, 60),
+      "HH:mm",
+    )}, Calcio d’inizio ${format(matchDate, "HH:mm")}`,
+    shirt,
+    lineup
+      ? [
+          block(
+            "🟢 TITOLARI:",
+            players.filter(({ isStarter }) => isStarter),
+            "Da definire",
+          ),
+          block(
+            "🪑 PANCHINA:",
+            players.filter(({ isStarter }) => !isStarter),
+            "Da definire",
+          ),
+        ].join("\n\n")
+      : block("📋 CONVOCATI:", players, "Ancora nessun convocato."),
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 export function buildPersonalFormationMessage(

@@ -1,19 +1,33 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  buildOfficialFormationMessage,
+  buildMatchMessage,
   buildPersonalFormationMessage,
   isFormationBenchSlot,
+  isOutsideDistinta,
   isUnderPlayer,
   u35Quota,
 } from "@/lib/formations"
 
 describe("isFormationBenchSlot", () => {
-  it("keeps POR among starters and P1 on the bench", () => {
+  it("keeps POR among starters and P1–P12 on the bench", () => {
     expect(isFormationBenchSlot("POR")).toBe(false)
     expect(isFormationBenchSlot("P1")).toBe(true)
     expect(isFormationBenchSlot("P9")).toBe(true)
-    expect(isFormationBenchSlot("P10")).toBe(false)
+    expect(isFormationBenchSlot("P10")).toBe(true)
+    expect(isFormationBenchSlot("P12")).toBe(true)
+    expect(isFormationBenchSlot("P13")).toBe(false)
+    expect(isFormationBenchSlot("P0")).toBe(false)
+  })
+})
+
+describe("isOutsideDistinta", () => {
+  it("keeps starters and P1–P9 in the 20-row match sheet, P10–P12 out", () => {
+    expect(isOutsideDistinta("POR")).toBe(false)
+    expect(isOutsideDistinta("P1")).toBe(false)
+    expect(isOutsideDistinta("P9")).toBe(false)
+    expect(isOutsideDistinta("P10")).toBe(true)
+    expect(isOutsideDistinta("P12")).toBe(true)
   })
 })
 
@@ -95,37 +109,97 @@ describe("u35Quota", () => {
   })
 })
 
-describe("buildOfficialFormationMessage", () => {
-  it("keeps starters and bench separate with inline badges", () => {
-    const message = buildOfficialFormationMessage(
-      {
-        data_ora: "2026-06-23T21:15:00+02:00",
-        luogo: "Campo Vigor Perconti",
-        squadra_casa: "CIRCOLO CHIGI",
-        squadra_ospite: "PSICOLOGOL",
-      },
-      [
-        {
-          isStarter: true,
-          nome: "Marco",
-          cognome: "Portiere",
-          role: "PORTIERE",
-          birthDate: "1985-01-01",
-        },
-        {
-          isStarter: false,
-          nome: "Luca",
-          cognome: "Under",
-          role: "ATTACCANTE",
-          birthDate: "1998-01-01",
-        },
-      ],
+describe("buildMatchMessage", () => {
+  // Senza offset: l'orario è nel fuso della macchina, il test vale ovunque.
+  const event = {
+    data_ora: "2026-10-01T21:00:00",
+    tipo: "PARTITA" as const,
+    luogo: "SS Romulea",
+    squadra_casa: "CIRC. CHIGI",
+    squadra_ospite: "TASSISTI",
+  }
+  const players = [
+    { nome: "Lorenzo", cognome: "Troiani", role: "PORTIERE", birthDate: "2000-01-01", isStarter: true },
+    { nome: "Marco", cognome: "Cipriani", role: "CENTROCAMPISTA", birthDate: "1994-05-05", isStarter: true },
+    { nome: "Leonardo", cognome: "Campoli", role: "DIFENSORE", birthDate: "1980-01-01", isStarter: false },
+  ]
+
+  it("lists call-ups by surname with POR and U35 tags", () => {
+    expect(
+      buildMatchMessage(event, players, { lineup: false, shirtColor: "ROSSA" }),
+    ).toBe(`⚽ INFO PARTITA per giovedì 01 ottobre vs TASSISTI
+
+📍 SS Romulea https://maps.app.goo.gl/3wF6VHvKWfo8ADNi9
+🕘 Ritrovo 20:00, Calcio d’inizio 21:00
+
+🔴 Maglia rossa
+
+📋 CONVOCATI:
+Leonardo Campoli
+Marco Cipriani (U35)
+Lorenzo Troiani (POR)`)
+  })
+
+  it("splits starters and bench in the lineup variant", () => {
+    const message = buildMatchMessage(event, players, {
+      lineup: true,
+      shirtColor: "BLU",
+    })
+
+    expect(message).toContain("🔵 Maglia blu")
+    expect(message).toContain(
+      "🟢 TITOLARI:\nMarco Cipriani (U35)\nLorenzo Troiani (POR)\n\n🪑 PANCHINA:\nLeonardo Campoli",
+    )
+    expect(message).not.toContain("CONVOCATI")
+  })
+
+  it("drops U35 tags in friendlies, the link for unmapped fields and the shirt line without a colour", () => {
+    const message = buildMatchMessage(
+      { ...event, tipo: "AMICHEVOLE", luogo: "C.S. CAVALIERI" },
+      players,
+      { lineup: false },
     )
 
-    expect(message).toContain("TITOLARI")
-    expect(message).toContain("Marco Portiere [PORTIERE]")
-    expect(message).toContain("PANCHINA")
-    expect(message).toContain("Luca Under [UNDER]")
+    expect(message).toContain("⚽ INFO AMICHEVOLE per giovedì 01 ottobre")
+    expect(message).toContain("📍 C.S. CAVALIERI\n🕘")
+    expect(message).not.toContain("(U35)")
+    expect(message).toContain("Lorenzo Troiani (POR)")
+    expect(message).not.toContain("Maglia")
+  })
+
+  it("sorts surnames with apostrophes and particles the way they are spoken", () => {
+    const message = buildMatchMessage(
+      event,
+      [
+        { nome: "Michele", cognome: "D'Oria" },
+        { nome: "Andrea", cognome: "Di Mucci" },
+        { nome: "Domenico", cognome: "Crisci" },
+      ],
+      { lineup: false },
+    )
+
+    expect(message).toContain(
+      "📋 CONVOCATI:\nDomenico Crisci\nAndrea Di Mucci\nMichele D'Oria",
+    )
+  })
+
+  it("survives missing role, birth date, place and players", () => {
+    const message = buildMatchMessage(
+      { ...event, luogo: null },
+      [{ nome: "Luca", cognome: "Ursi", role: null, birthDate: null }],
+      { lineup: false },
+    )
+
+    expect(message).toContain("📍 campo da definire\n🕘")
+    expect(message).toContain("📋 CONVOCATI:\nLuca Ursi")
+    expect(message).not.toContain("undefined")
+    expect(message).not.toContain("(")
+    expect(buildMatchMessage(event, [], { lineup: false })).toContain(
+      "📋 CONVOCATI:\nAncora nessun convocato.",
+    )
+    expect(
+      buildMatchMessage({ ...event, data_ora: null }, players, { lineup: false }),
+    ).toBe("Partita senza data.")
   })
 })
 

@@ -61,6 +61,7 @@ describe("useNextMatchFormation", () => {
       data: {
         id: "formation-1",
         published_at: "2026-07-28T18:42:00+02:00",
+        visibility: "PRIVATE",
       },
       error: null,
     })
@@ -79,12 +80,15 @@ describe("useNextMatchFormation", () => {
         opponentLogoUrl: "/teams/psicologi.png",
         startsAt: "2026-07-30T21:15:00+02:00",
         publishedAt: "2026-07-28T18:42:00+02:00",
+        visibility: "PRIVATE",
       }),
     )
     expect(databaseMocks.from).toHaveBeenCalledWith(
       "public_published_formation_summaries",
     )
-    expect(databaseMocks.query.select).toHaveBeenCalledWith("published_at")
+    expect(databaseMocks.query.select).toHaveBeenCalledWith(
+      "published_at, visibility",
+    )
   })
 
   it("does not represent a failed official lookup as an unpublished formation", async () => {

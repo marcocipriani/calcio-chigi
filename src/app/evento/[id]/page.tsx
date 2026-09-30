@@ -23,7 +23,8 @@ import { fetchInjuryPeriods, isInjuredOn, type InjuryPeriod } from '@/lib/injuri
 import { romeDateKey } from '@/lib/season';
 import { ageGroupAt, EVENT_TYPE_LABEL, isMatchEvent, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
-import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
+import { OfficialFormationPanel, type PublishedCallups } from '@/components/formations/OfficialFormationPanel';
+import { buildMatchMessage } from '@/lib/formations';
 import { EventRosterPanel } from '@/components/events/EventRosterPanel';
 import { PageContainer } from "@/components/layout/PageContainer";
 
@@ -113,6 +114,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   const [event, setEvent] = useState<Event | null>(null);
   const [opponentLogo, setOpponentLogo] = useState<{ name: string; url: string | null } | null>(null);
   const [votedRoster, setRoster] = useState<RosterPlayer[]>([]);
+  const [publishedCallups, setPublishedCallups] = useState<PublishedCallups | null>(null);
   const [injuryPeriods, setInjuryPeriods] = useState<InjuryPeriod[]>([]);
   const [surnamesByProfileId, setSurnamesByProfileId] = useState<Record<string, string>>({});
 
@@ -298,7 +300,13 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         profiles: p
     }));
 
-    const testo = genMsgWhatsApp(event, formattedPresenze);
+    // Formazione pubblicata: i convocati sono i suoi giocatori, non le presenze.
+    const testo = isMatch && publishedCallups
+        ? buildMatchMessage(event, publishedCallups.players, {
+            lineup: false,
+            shirtColor: publishedCallups.shirtColor,
+        })
+        : genMsgWhatsApp(event, formattedPresenze);
 
     navigator.clipboard.writeText(testo).then(() => {
         toast.success('Messaggio copiato!', {
@@ -550,8 +558,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
               {/* Partita annullata: niente formazione né invito a crearla (la RPC non lo blocca). */}
               {isMatch && !isCancelled && (
                 <OfficialFormationPanel
-                  eventDate={event.data_ora}
+                  event={event}
                   eventId={id}
+                  onCallups={setPublishedCallups}
                 />
               )}
               <EventRosterPanel

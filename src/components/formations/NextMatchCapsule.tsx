@@ -11,6 +11,8 @@ export type NextMatchSummary = {
   opponentLogoUrl: string | null
   startsAt: string
   publishedAt: string | null
+  /** PRIVATE: ai giocatori sono usciti solo i convocati. */
+  visibility?: "PRIVATE" | "PUBLIC" | null
 }
 
 function formatInRome(value: string, includeWeekday: boolean) {
@@ -73,7 +75,7 @@ function CapsuleContent({ match }: { match: NextMatchSummary }) {
         </p>
         <p className="mt-0.5 text-[11px] font-semibold leading-tight">
           {published
-            ? `Pubblicata il ${formatInRome(match.publishedAt!, false)}`
+            ? `${match.visibility === "PRIVATE" ? "Convocati" : "Pubblicata"} il ${formatInRome(match.publishedAt!, false)}`
             : "Da pubblicare"}
         </p>
       </div>
@@ -89,7 +91,7 @@ export function NextMatchCapsule({
   if (match.publishedAt) {
     return (
       <Link
-        aria-label={`Formazione ufficiale contro ${match.opponent}`}
+        aria-label={`${match.visibility === "PRIVATE" ? "Convocati" : "Formazione ufficiale"} contro ${match.opponent}`}
         className="block min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         href={`/evento/${match.id}`}
       >

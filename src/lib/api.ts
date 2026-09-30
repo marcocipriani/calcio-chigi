@@ -29,6 +29,7 @@ export type Comunicato = {
     titolo: string
     data: string | null
     enjore_url: string
+    season_id: string
 }
 
 // ─── Auth / User context ───────────────────────────────────────────────────────
@@ -445,7 +446,7 @@ export async function fetchAttendanceForEvent(supabase: SupabaseClient, eventId:
 export async function fetchComunicati(supabase: SupabaseClient): Promise<Comunicato[]> {
     const { data } = await supabase
         .from('comunicati')
-        .select('id, titolo, data, enjore_url')
+        .select('id, titolo, data, enjore_url, season_id')
         .order('data', { ascending: false })
     return data ?? []
 }

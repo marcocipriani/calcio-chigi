@@ -6,10 +6,12 @@ import { existsSync, readFileSync } from 'node:fs';
 
 process.env.TZ = 'Europe/Rome';
 
-const DEFAULT_URL = 'https://asicalciolazio.enjore.com/t-printable.php?t=113994&sk=calendar';
+const DEFAULT_URL = 'https://asicalciolazio.enjore.com/t-printable.php?t=114793&sk=calendar';
 const MY_TEAM = 'CIRC. CHIGI';
-const SEASON_START_YEAR = 2025;
-const SEASON_END_YEAR = 2026;
+const SEASON_START_YEAR = 2026;
+const SEASON_END_YEAR = 2027;
+// Le partite si abbinano solo dentro questa stagione: stesse squadre e giornate si ripetono ogni anno.
+const SEASON_SLUG = `${SEASON_START_YEAR}-${SEASON_END_YEAR}`;
 
 const args = new Set(process.argv.slice(2));
 const shouldApply = args.has('--apply');
@@ -30,6 +32,11 @@ const TEAM_ALIASES = new Map([
   ['dopolavoro atac cotral', 'DOPOLAVORO ATAC COTRAL'],
   ['circ. chigi', MY_TEAM],
   ['vvf', 'VVF'],
+  // Nomi del calendario PDF 2026/27.
+  ['circolo palazzo chigi', MY_TEAM],
+  ['circolo palazzo madama', 'CIRC. PAL. MADAMA'],
+  ["banca d'italia", "CASC. BANCA D'ITALIA"],
+  ['iannaccone', 'IANNACCONE & ASS'],
 ]);
 
 // Stessi nomi canonici della migration events_amichevole_places: il dropdown dei campi non si duplica.
@@ -38,6 +45,8 @@ const PLACE_ALIASES = new Map([
   ['ss romulea', 'SS Romulea'],
   ['cs cavalieri', 'C.S. CAVALIERI'],
   ['c.s. cavalieri', 'C.S. CAVALIERI'],
+  ['dabliu', 'DABLIU EUR SPORT CLUB'],
+  ["banca d'italia", "C. S. BANCA D'ITALIA"],
 ]);
 
 const PHASE_ALIASES = [
@@ -47,8 +56,16 @@ const PHASE_ALIASES = [
   { includes: 'girone arti&mestieri', value: 'FASE_1' },
 ];
 
+const unknownTeams = new Set();
 const html = await fetchHtml(url);
 let matches = parseMatches(html);
+
+if (unknownTeams.size > 0) {
+  const names = [...unknownTeams].join(', ');
+  console.warn(`Squadre non in TEAM_ALIASES: ${names}`);
+  // Un nome non riconosciuto non abbina le partite già in calendario e le duplica.
+  if (shouldApply) throw new Error(`Sync annullata, aggiungi a TEAM_ALIASES: ${names}`);
+}
 
 if (shouldIncludeOnlyChigi) {
   matches = matches.filter((match) => match.squadra_casa === MY_TEAM || match.squadra_ospite === MY_TEAM);
@@ -158,7 +175,7 @@ function parseMatches(sourceHtml) {
       gol_ospite: played ? golOspite : null,
       cancellato: false,
       data_fine_ora: null,
-      tipo_campo: null,
+      tipo_campo: 'a11', // ponytail: torneo di calcio a 11, leggere il suffisso del campo se arrivano partite a 8
       fase: phase,
     });
   }
@@ -171,7 +188,9 @@ function parseMatches(sourceHtml) {
 }
 
 function normalizeTeam(value) {
-  return canonicalTeam(normalizeSpaces(decodeHtml(stripTags(value))));
+  const name = normalizeSpaces(decodeHtml(stripTags(value)));
+  if (name && !TEAM_ALIASES.has(name.toLowerCase())) unknownTeams.add(name);
+  return canonicalTeam(name);
 }
 
 function canonicalTeam(value) {
@@ -199,7 +218,9 @@ function parseOptionalInt(value) {
 function parseItalianDate(value) {
   const match = value.match(/(?:lun|mar|mer|gio|ven|sab|dom)\s+(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/i);
   if (!match) {
-    throw new Error(`Formato data non riconosciuto: ${value}`);
+    // Data senza orario (es. "lun 08/06"): non blocca la sync, la partita tiene la data_ora che ha già.
+    console.warn(`Formato data non riconosciuto, ignorato: ${value}`);
+    return null;
   }
 
   const [, day, month, hour, minute] = match.map(Number);
@@ -306,6 +327,7 @@ updated as (
     fase = source_events.fase
   from source_events
   where e.tipo = 'PARTITA'
+    and e.season_id = (select id from public.seasons where slug = ${sql(SEASON_SLUG)})
     and coalesce(e.fase, 'FASE_1') = source_events.fase
     and e.giornata = source_events.giornata
     and upper(trim(e.squadra_casa)) = source_events.squadra_casa
@@ -356,6 +378,7 @@ where not exists (
     select 1
     from public.events e
     where e.tipo = 'PARTITA'
+      and e.season_id = (select id from public.seasons where slug = ${sql(SEASON_SLUG)})
       and coalesce(e.fase, 'FASE_1') = source_events.fase
       and e.giornata = source_events.giornata
       and upper(trim(e.squadra_casa)) = source_events.squadra_casa
@@ -377,10 +400,19 @@ async function applyToSupabase(rows) {
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const { data: season, error: seasonError } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('slug', SEASON_SLUG)
+    .single();
+
+  if (seasonError) throw seasonError;
+
   const { data: existingRows, error } = await supabase
     .from('events')
     .select('id,tipo,fase,giornata,squadra_casa,squadra_ospite')
-    .eq('tipo', 'PARTITA');
+    .eq('tipo', 'PARTITA')
+    .eq('season_id', season.id);
 
   if (error) throw error;
 

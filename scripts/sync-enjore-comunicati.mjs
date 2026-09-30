@@ -5,8 +5,9 @@ import { existsSync, readFileSync } from 'node:fs';
 
 process.env.TZ = 'Europe/Rome';
 
-const ANNOUNCEMENTS_URL =
-  'https://asicalciolazio.enjore.com/it/announcement/113994/campionato-asi-over35_artimestieri_20252026/';
+const ANNOUNCEMENTS_URL = 'https://asicalciolazio.enjore.com/it/announcement/114793/o35-artimestieri/';
+// I comunicati sono per stagione: a inizio stagione cambiare URL e slug insieme.
+const SEASON_SLUG = '2026-2027';
 
 const HTML_ENTITIES = {
   nbsp: ' ', quot: '"', amp: '&', lt: '<', gt: '>',
@@ -105,7 +106,21 @@ async function applyToSupabase(rows) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { error } = await supabase.from('comunicati').upsert(rows, { onConflict: 'enjore_url' });
+  if (rows.length === 0) {
+    console.log('Nessun comunicato su Enjore: niente da sincronizzare.');
+    return;
+  }
+
+  const { data: season, error: seasonError } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('slug', SEASON_SLUG)
+    .single();
+  if (seasonError) throw seasonError;
+
+  const { error } = await supabase
+    .from('comunicati')
+    .upsert(rows.map((row) => ({ ...row, season_id: season.id })), { onConflict: 'enjore_url' });
   if (error) throw error;
 
   console.log(`Sync comunicati completata: ${rows.length} comunicati upsertati.`);

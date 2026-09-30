@@ -210,6 +210,11 @@ Gli script in [`scripts/`](./scripts) importano i dati del torneo da Enjore vers
 | `sync-enjore-calendar.mjs` | Upsert risultati e fixture in `events` (incluse partite a tavolino senza data) |
 | `sync-enjore-comunicati.mjs` | Upsert comunicati ufficiali (PDF) in `comunicati` |
 
+Entrambi puntano al torneo della stagione in corso (2026/27, Enjore `114793`): partite e comunicati
+vengono abbinati e salvati solo dentro quella stagione, quelli delle stagioni passate restano nello
+storico. A inizio stagione aggiornare URL e anni/slug in testa ai due script. La sync del calendario
+si ferma se trova una squadra non presente in `TEAM_ALIASES`, per non duplicare le partite già inserite.
+
 ```bash
 # Anteprima (nessuna scrittura)
 node scripts/sync-enjore-calendar.mjs

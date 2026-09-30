@@ -345,7 +345,7 @@ export default function TorneoPage() {
                             </DialogTitle>
                         </DialogHeader>
                         <div className="space-y-2 mt-2 max-h-[60vh] overflow-y-auto">
-                            {comunicati.map((com) => (
+                            {comunicati.filter((com) => com.season_id === seasonId).map((com) => (
                                 <a
                                     key={com.id}
                                     href={com.enjore_url}

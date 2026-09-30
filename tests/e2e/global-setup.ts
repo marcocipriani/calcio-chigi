@@ -357,6 +357,7 @@ export default async function globalSetup() {
         enjore_url: "https://example.test/comunicato-e2e",
         titolo: "Comunicato E2E",
         data: "2026-07-20",
+        season_id: oldSeason.id,
       })
     ).error,
   )

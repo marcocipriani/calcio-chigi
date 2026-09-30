@@ -210,13 +210,13 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto bg-card text-card-foreground border-border">
+      <DialogContent className="sm:max-w-[425px] max-h-[90dvh] overflow-y-auto bg-card text-card-foreground border-border">
         <DialogHeader>
           <DialogTitle>{eventToEdit ? 'Modifica Evento' : 'Nuovo Evento'}</DialogTitle>
           <DialogDescription>Gestisci i dettagli dell&apos;impegno.</DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className="grid gap-4 pt-4">
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -366,7 +366,8 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             />
           </div>
 
-          <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t bg-card px-6 pb-6 pt-3">
+          {/* Lo sticky si ferma al bordo interno del padding del popup: -bottom-6 lo porta a filo. */}
+          <DialogFooter className="sticky -bottom-6 -mx-6 -mb-6 border-t bg-card px-6 pb-6 pt-3">
             <Button type="submit" disabled={loading} className="w-full bg-operative text-operative-foreground hover:bg-operative/90">
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salva Modifiche

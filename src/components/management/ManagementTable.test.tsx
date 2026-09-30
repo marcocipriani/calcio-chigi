@@ -141,7 +141,7 @@ function renderAttendanceTable(onOpen = vi.fn()) {
   const player: ManagementPerson = {
     ...people[0],
     attendance: {
-      training: { present: 1, total: 1, percentage: 100 },
+      training: { present: 1, total: 1, all: 1, percentage: 100 },
       recentTraining: [
         {
           eventId: "training-1",

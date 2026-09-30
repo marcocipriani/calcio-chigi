@@ -118,10 +118,12 @@ export function DocumentPreview({
 
 export function DeleteDocumentButton({
   label,
+  description = "Il file viene cancellato e non si può recuperare.",
   disabled = false,
   onConfirm,
 }: {
   label: string
+  description?: string
   disabled?: boolean
   onConfirm: () => void
 }) {
@@ -141,9 +143,7 @@ export function DeleteDocumentButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Eliminare {label}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Il file viene cancellato e non si può recuperare.
-          </AlertDialogDescription>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annulla</AlertDialogCancel>

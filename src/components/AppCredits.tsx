@@ -14,7 +14,7 @@ interface AppCreditsProps {
 }
 
 export function AppCredits({ uid }: AppCreditsProps) {
-  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.3.2";
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || "2.4.0";
   const updatedAt = process.env.NEXT_PUBLIC_APP_UPDATED_AT;
 
   return (

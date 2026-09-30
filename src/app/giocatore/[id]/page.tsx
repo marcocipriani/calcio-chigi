@@ -10,11 +10,13 @@ import {
   CalendarCheck,
   Contact,
   CreditCard,
+  Cross,
   FileBadge,
   ShieldCheck,
 } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { InjuryHistory } from "@/components/injuries/InjuryHistory"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { AttendanceRing } from "@/components/stats/AttendanceRing"
@@ -23,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchSafePlayerProfile } from "@/lib/api"
+import { fetchInjuries, type Injury } from "@/lib/injuries"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import {
   certificateStatusLabel,
@@ -80,6 +83,7 @@ type PrivateData = {
   contacts: OperationalContacts | null
   events: EventRow[]
   presentIds: Set<string>
+  injuries: Injury[]
 }
 
 const emptyPrivateData: PrivateData = {
@@ -89,6 +93,7 @@ const emptyPrivateData: PrivateData = {
   contacts: null,
   events: [],
   presentIds: new Set(),
+  injuries: [],
 }
 
 function displayDate(value: string | null) {
@@ -273,6 +278,9 @@ export default function PlayerPage({
           }
         }
 
+        // La RLS restituisce la storia solo al giocatore stesso e ai manager.
+        const injuries = await fetchInjuries(supabaseBrowser, [id])
+
         if (active) {
           setPrivateData({
             membership,
@@ -281,6 +289,7 @@ export default function PlayerPage({
             contacts,
             events,
             presentIds,
+            injuries,
           })
           setLoading(false)
         }
@@ -563,6 +572,19 @@ export default function PlayerPage({
                 </dd>
               </div>
             </dl>
+          </section>
+        )}
+
+        {privateData.injuries.length > 0 && (
+          <section className="rounded-xl border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Cross aria-hidden="true" className="size-4 text-rose-600" />
+              <h2 className="font-bold">Infortuni</h2>
+              <span className="ml-auto text-[11px] text-muted-foreground">
+                Visibile solo al giocatore e ai manager
+              </span>
+            </div>
+            <InjuryHistory injuries={privateData.injuries} />
           </section>
         )}
 

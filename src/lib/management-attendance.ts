@@ -1,3 +1,6 @@
+import { isInjuredOn, type InjuryPeriod } from "@/lib/injuries"
+import { romeDateKey } from "@/lib/season"
+
 export type AttendanceEvent = {
   id: string
   startsAt: string
@@ -9,15 +12,12 @@ export type AttendanceCheckin = {
   status: "PRESENT" | "ABSENT"
 }
 
-/** Allenamento in cui il giocatore si è dichiarato KO: esce dal conteggio. */
-export type AttendanceInjury = {
-  eventId: string
-  profileId: string
-}
-
 export type AttendanceRate = {
   present: number
+  /** Allenamenti senza KO: il denominatore della percentuale. */
   total: number
+  /** Tutti gli allenamenti dall'ingresso in squadra, KO compresi. */
+  all: number
   percentage: number
 }
 
@@ -26,7 +26,7 @@ export type AttendanceSummary = {
   /**
    * Tutti gli allenamenti della stagione, gli stessi per ogni giocatore: così i
    * pallini restano incolonnati per data. Gli slot fuori dal conteggio sono
-   * NOT_JOINED (prima dell'ingresso in rosa) o KO.
+   * NOT_JOINED (prima dell'ingresso in rosa) o KO (dentro un infortunio).
    */
   recentTraining: Array<{
     eventId: string
@@ -43,53 +43,56 @@ type AttendancePerson = {
 /**
  * Presenze ufficiali: numeratore = check-in PRESENT del manager, denominatore =
  * tutti gli allenamenti della stagione (già filtrati a non annullati) dopo
- * l'ingresso in rosa, esclusi quelli in cui il giocatore si era dichiarato KO.
- * Le partite non entrano nel conteggio.
+ * l'ingresso in rosa, esclusi i giorni di infortunio. La presenza reale batte
+ * il KO. Le partite non entrano nel conteggio.
  */
 export function aggregateManagementAttendance(
   people: AttendancePerson[],
   trainings: AttendanceEvent[],
   checkins: AttendanceCheckin[],
-  injuries: AttendanceInjury[] = [],
+  injuries: InjuryPeriod[] = [],
 ) {
   const checkinByKey = new Map(
     checkins.map((row) => [`${row.profileId}:${row.eventId}`, row.status]),
   )
-  const injuredKeys = new Set(
-    injuries.map(({ profileId, eventId }) => `${profileId}:${eventId}`),
-  )
-  const sortedTrainings = [...trainings].sort((a, b) =>
-    a.startsAt.localeCompare(b.startsAt),
-  )
+  // Il giorno è quello di Roma, come nei periodi di infortunio.
+  const sortedTrainings = [...trainings]
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .map((training) => ({
+      ...training,
+      day: romeDateKey(new Date(training.startsAt)),
+    }))
 
   return new Map(
     people.map((person) => {
+      const ownInjuries = injuries.filter(
+        ({ profileId }) => profileId === person.profileId,
+      )
       const recentTraining = sortedTrainings.map(
-        ({ id, startsAt }): AttendanceSummary["recentTraining"][number] => ({
+        ({ id, startsAt, day }): AttendanceSummary["recentTraining"][number] => ({
           eventId: id,
           startsAt,
           status:
-            person.joinedOn && startsAt.slice(0, 10) < person.joinedOn
+            person.joinedOn && day < person.joinedOn
               ? "NOT_JOINED"
-              : injuredKeys.has(`${person.profileId}:${id}`)
-                ? "KO"
-                : // Assenza esplicita e check-in mancante valgono uguale.
-                  checkinByKey.get(`${person.profileId}:${id}`) === "PRESENT"
-                  ? "PRESENT"
-                  : "ABSENT",
+              : checkinByKey.get(`${person.profileId}:${id}`) === "PRESENT"
+                ? "PRESENT"
+                : isInjuredOn(ownInjuries, day)
+                  ? "KO"
+                  : // Assenza esplicita e check-in mancante valgono uguale.
+                    "ABSENT",
         }),
       )
-      const present = recentTraining.filter(
-        ({ status }) => status === "PRESENT",
-      ).length
-      const total = recentTraining.filter(
-        ({ status }) => status === "PRESENT" || status === "ABSENT",
-      ).length
+      const count = (status: AttendanceSummary["recentTraining"][number]["status"]) =>
+        recentTraining.filter((item) => item.status === status).length
+      const present = count("PRESENT")
+      const total = present + count("ABSENT")
 
       const summary: AttendanceSummary = {
         training: {
           present,
           total,
+          all: total + count("KO"),
           percentage: total ? (present / total) * 100 : 0,
         },
         recentTraining,

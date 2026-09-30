@@ -436,6 +436,7 @@ describe("protected player page", () => {
       "medical_certificates",
       "events",
       "event_checkins",
+      "injuries",
     ])
     expect(database.selections).toEqual(
       expect.arrayContaining([
@@ -478,6 +479,7 @@ describe("protected player page", () => {
       "payments",
       "medical_certificates",
       "profile_private_details",
+      "injuries",
     ])
     expect(database.selections).toContainEqual({
       table: "profile_private_details",

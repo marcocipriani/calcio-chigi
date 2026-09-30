@@ -62,14 +62,16 @@ function rowsPage(rows: StubRow[]) {
 function stubClient({
   events,
   checkins,
-  attendance,
+  injuries = [],
 }: {
   events: StubRow[]
   checkins: ReturnType<typeof rowsPage>
-  attendance: ReturnType<typeof rowsPage>
+  injuries?: StubRow[]
 }) {
   const checkinQuery = pagedQuery(checkins)
-  const attendanceQuery = pagedQuery(attendance)
+  const injuryQuery = {
+    in: vi.fn(async () => ({ data: injuries, error: null })),
+  }
   const eventsQuery = {
     eq: vi.fn(() => eventsQuery),
     lte: vi.fn(() => eventsQuery),
@@ -86,12 +88,14 @@ function stubClient({
       }
     }
     if (table === "events") return { select: () => eventsQuery }
-    if (table === "attendance") return { select: () => attendanceQuery }
+    if (table === "authenticated_injury_periods") {
+      return { select: () => injuryQuery }
+    }
     return { select: () => checkinQuery }
   })
 
   return {
-    attendanceQuery,
+    injuryQuery,
     checkinQuery,
     client: { from } as unknown as SupabaseClient,
     eventsQuery,
@@ -99,8 +103,8 @@ function stubClient({
 }
 
 describe("fetchManagementAttendance", () => {
-  it("counts trainings only, skips staff and drops the KO trainings", async () => {
-    const { attendanceQuery, checkinQuery, client, eventsQuery } = stubClient({
+  it("counts trainings only, skips staff and drops the injury days", async () => {
+    const { injuryQuery, checkinQuery, client, eventsQuery } = stubClient({
       events: [
         { id: "training-1", data_ora: "2026-07-20T18:30:00.000Z" },
         { id: "training-2", data_ora: "2026-07-23T18:30:00.000Z" },
@@ -108,13 +112,9 @@ describe("fetchManagementAttendance", () => {
       checkins: rowsPage([
         { event_id: "training-1", profile_id: "player-1", status: "PRESENT" },
       ]),
-      attendance: rowsPage([
-        {
-          event_id: "training-2",
-          profile_id: "player-1",
-          status: "INFORTUNATO_PRESENTE",
-        },
-      ]),
+      injuries: [
+        { profile_id: "player-1", started_on: "2026-07-23", ended_on: null },
+      ],
     })
     const people = [
       { profileId: "player-1", category: "PLAYER", joinedOn: null },
@@ -126,6 +126,7 @@ describe("fetchManagementAttendance", () => {
     expect(result.get("player-1")?.training).toEqual({
       present: 1,
       total: 1,
+      all: 2,
       percentage: 100,
     })
     expect(result.has("staff-1")).toBe(false)
@@ -139,10 +140,7 @@ describe("fetchManagementAttendance", () => {
       "training-2",
     ])
     expect(checkinQuery.in).toHaveBeenCalledWith("profile_id", ["player-1"])
-    expect(attendanceQuery.eq).toHaveBeenCalledWith(
-      "status",
-      "INFORTUNATO_PRESENTE",
-    )
+    expect(injuryQuery.in).toHaveBeenCalledWith("profile_id", ["player-1"])
   })
 
   it("paginates check-ins deterministically and includes the second page", async () => {
@@ -161,7 +159,6 @@ describe("fetchManagementAttendance", () => {
     const { checkinQuery, client } = stubClient({
       events,
       checkins: rowsPage(checkins),
-      attendance: rowsPage([]),
     })
     const people = [
       { profileId: "player-1", category: "PLAYER", joinedOn: null },
@@ -174,6 +171,7 @@ describe("fetchManagementAttendance", () => {
     expect(result.get("player-1")?.training).toEqual({
       present: 1,
       total: 501,
+      all: 501,
       percentage: 0.19960079840319359,
     })
     expect(result.get("player-1")?.recentTraining.at(-1)).toEqual({
@@ -206,7 +204,6 @@ describe("fetchManagementAttendance", () => {
         from === 0
           ? { data: fullPage, error: null }
           : { data: null, error: pageError },
-      attendance: rowsPage([]),
     })
 
     await expect(

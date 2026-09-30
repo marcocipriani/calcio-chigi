@@ -53,9 +53,10 @@ describe("AttendanceStreak", () => {
     expect(
       screen.getByLabelText("Lunedì 27 luglio 2026: non ancora in squadra"),
     ).toHaveClass("border-dashed")
-    expect(screen.getByLabelText("Giovedì 30 luglio 2026: KO")).toHaveClass(
-      "border-dashed",
-    )
+    // Infermeria: croce rossa su bianco.
+    const ko = screen.getByLabelText("Giovedì 30 luglio 2026: KO")
+    expect(ko).toHaveClass("bg-white", "text-rose-600")
+    expect(ko.querySelector("svg")).not.toBeNull()
     expect(screen.getByTestId("week-separator")).toBeVisible()
   })
 
@@ -106,7 +107,7 @@ describe("AttendanceStreak", () => {
   it("colours the percentage from red to green and hides it without trainings", () => {
     const { rerender } = render(
       <AttendancePercentage
-        rate={{ present: 0, total: 4, percentage: 0 }}
+        rate={{ present: 0, total: 4, all: 4, percentage: 0 }}
       />,
     )
     // jsdom normalizza hsl() in rgba().
@@ -116,7 +117,7 @@ describe("AttendanceStreak", () => {
 
     rerender(
       <AttendancePercentage
-        rate={{ present: 2, total: 4, percentage: 50 }}
+        rate={{ present: 2, total: 4, all: 4, percentage: 50 }}
       />,
     )
     expect(screen.getByText("50%")).toHaveStyle({
@@ -125,7 +126,7 @@ describe("AttendanceStreak", () => {
 
     rerender(
       <AttendancePercentage
-        rate={{ present: 4, total: 4, percentage: 100 }}
+        rate={{ present: 4, total: 4, all: 4, percentage: 100 }}
       />,
     )
     expect(screen.getByText("100%")).toHaveStyle({
@@ -134,7 +135,7 @@ describe("AttendanceStreak", () => {
 
     rerender(
       <AttendancePercentage
-        rate={{ present: 0, total: 0, percentage: 0 }}
+        rate={{ present: 0, total: 0, all: 0, percentage: 0 }}
       />,
     )
     expect(screen.getByText("—")).toBeVisible()

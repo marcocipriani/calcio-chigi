@@ -76,7 +76,7 @@ function availabilityTone(status: string | null, isMatch: boolean) {
       : {
           row: "bg-amber-50/60 dark:bg-amber-950/20",
           dot: "bg-amber-500",
-          text: "PRESENTE (KO)",
+          text: "KO",
           color: "text-amber-700 dark:text-amber-400",
         }
   }

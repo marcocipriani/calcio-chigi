@@ -28,6 +28,7 @@ import {
   PaymentReceipt,
   useMembershipDocuments,
 } from "@/components/documents/MembershipDocuments"
+import { InjuryHistory } from "@/components/injuries/InjuryHistory"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import {
   AttendancePercentage,
@@ -62,10 +63,12 @@ import { UNIFORM_SIZES } from "@/lib/domain"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
+import type { Injury } from "@/lib/injuries"
 import type { MembershipDocument } from "@/lib/membership-documents"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 const NO_DOCUMENTS: MembershipDocument[] = []
+const NO_INJURIES: Injury[] = []
 
 const selectClass =
   "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -750,12 +753,26 @@ export function PersonDrawer({
                       />
                     </strong>{" "}
                     <span className="text-muted-foreground">
-                      ({person.attendance.training.present}/
-                      {person.attendance.training.total} allenamenti)
+                      ({person.attendance.training.present} presenze su{" "}
+                      {person.attendance.training.total} senza KO,{" "}
+                      {person.attendance.training.all} in tutto)
                     </span>
                   </span>
                   <AttendanceStreak
                     items={person.attendance.recentTraining}
+                  />
+                </div>
+              </section>
+            )}
+
+            {category === "PLAYER" && (
+              <section className="grid content-start gap-2 md:col-span-2">
+                <h3 className="text-sm font-semibold">Infermeria</h3>
+                <div className="rounded-lg border p-3">
+                  <InjuryHistory
+                    injuries={person.injuries ?? NO_INJURIES}
+                    onChanged={() => void onSaved()}
+                    profileId={person.profileId}
                   />
                 </div>
               </section>

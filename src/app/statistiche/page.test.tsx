@@ -208,7 +208,7 @@ function privateQueries() {
     [
       "events",
       "event_checkins",
-      "attendance",
+      "authenticated_injury_periods",
       "authenticated_season_join_dates",
     ].includes(table),
   )
@@ -379,18 +379,13 @@ describe("StatisticsPage seasonal rankings", () => {
         { method: "in", column: "profile_id", value: ["player-1"] },
       ],
     })
-    // Stessa regola della dashboard: gli allenamenti con KO escono dal conteggio.
-    expect(queryFor("attendance")).toEqual({
-      table: "attendance",
-      columns: "event_id, profile_id, status",
+    // Stessa regola della dashboard: i giorni di infortunio escono dal
+    // conteggio, letti dalla proiezione con le sole date.
+    expect(queryFor("authenticated_injury_periods")).toEqual({
+      table: "authenticated_injury_periods",
+      columns: "profile_id, started_on, ended_on",
       filters: [
-        { method: "in", column: "event_id", value: ["training-1"] },
         { method: "in", column: "profile_id", value: ["player-1"] },
-        {
-          method: "eq",
-          column: "status",
-          value: "INFORTUNATO_PRESENTE",
-        },
       ],
     })
   })

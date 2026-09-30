@@ -78,7 +78,9 @@ import {
   saveManagementColumnPreferences,
   saveManagementDisplayPreferences,
 } from "@/lib/management-api"
+import { isInjuredOn } from "@/lib/injuries"
 import type { AttendanceSummary } from "@/lib/management-attendance"
+import { romeDateKey } from "@/lib/season"
 import {
   activeColumnFilters,
   applyTableState,
@@ -103,6 +105,7 @@ const selectClass =
 const views = [
   { id: "PEOPLE", label: "Persone" },
   { id: "ATTENDANCE", label: "Presenze" },
+  { id: "INJURIES", label: "Infermeria" },
   { id: "PAYMENTS", label: "Quote" },
   { id: "REGISTRATIONS", label: "Tesseramenti" },
   { id: "CERTIFICATES", label: "Certificati" },
@@ -142,7 +145,13 @@ type RosterLoadError = {
 function attendanceRosterSignature(people: ManagementPerson[]) {
   return people
     .filter(({ category }) => category === "PLAYER")
-    .map(({ profileId, joinedOn }) => `${profileId}:${joinedOn ?? ""}`)
+    // Anche gli infortuni cambiano le presenze: entrano nella firma.
+    .map(
+      ({ profileId, joinedOn, injuries }) =>
+        `${profileId}:${joinedOn ?? ""}:${(injuries ?? [])
+          .map(({ startedOn, endedOn }) => `${startedOn}>${endedOn ?? ""}`)
+          .join(",")}`,
+    )
     .sort()
     .join("|")
 }
@@ -452,7 +461,9 @@ export function ManagementDashboard() {
     () =>
       view === "ATTENDANCE"
         ? peopleWithAttendance.filter(({ category }) => category === "PLAYER")
-        : peopleWithAttendance,
+        : view === "INJURIES"
+          ? peopleWithAttendance.filter(({ injuries }) => injuries?.length)
+          : peopleWithAttendance,
     [peopleWithAttendance, view],
   )
   const filtered = useMemo(
@@ -517,6 +528,10 @@ export function ManagementDashboard() {
     PEOPLE: kpis.total,
     ATTENDANCE: currentPeople.filter(
       ({ category, status }) => category === "PLAYER" && status !== "NO",
+    ).length,
+    // Quanti sono KO oggi; la vista elenca chiunque abbia una storia.
+    INJURIES: currentPeople.filter(({ injuries }) =>
+      isInjuredOn(injuries ?? [], romeDateKey(new Date())),
     ).length,
     PAYMENTS: kpis.paymentsOpen,
     REGISTRATIONS: kpis.registrationsOpen,

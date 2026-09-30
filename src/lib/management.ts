@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   RegistrationStatus,
 } from "@/lib/domain"
+import type { Injury } from "@/lib/injuries"
 import type { AttendanceSummary } from "@/lib/management-attendance"
 import type { MembershipDocument } from "@/lib/membership-documents"
 import { romeDateKey } from "@/lib/season"
@@ -59,6 +60,8 @@ export type ManagementPerson = {
   certificateLaboratory?: string | null
   certificateDocumentPath?: string | null
   documents?: MembershipDocument[]
+  /** Storia infortuni, dal più recente. */
+  injuries?: Injury[]
   attendance?: AttendanceSummary
 }
 

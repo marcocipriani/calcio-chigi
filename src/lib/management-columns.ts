@@ -1,6 +1,7 @@
 export type ManagementView =
   | "PEOPLE"
   | "ATTENDANCE"
+  | "INJURIES"
   | "PAYMENTS"
   | "REGISTRATIONS"
   | "CERTIFICATES"
@@ -9,6 +10,7 @@ export type ManagementView =
 export const DEFAULT_COLUMNS: Record<ManagementView, string[]> = {
   PEOPLE: ["person", "role", "phone", "tags"],
   ATTENDANCE: ["person", "trainingStreak", "trainingRate", "joinedOn"],
+  INJURIES: ["person", "injury", "injuryCount", "trainingStreak"],
   PAYMENTS: ["person", "payments", "nextPayment", "dueOn", "paymentAction", "method"],
   REGISTRATIONS: ["person", "registration", "asiCard", "passportPhoto", "identityDocument", "registrationForm", "joinedOn", "completedOn"],
   CERTIFICATES: ["person", "certificate", "expiresOn", "document", "certificateAction"],
@@ -63,6 +65,8 @@ export const ALL_COLUMN_IDS = [
   "tags",
   "trainingStreak",
   "trainingRate",
+  "injury",
+  "injuryCount",
   "payments",
   "nextPayment",
   "dueOn",

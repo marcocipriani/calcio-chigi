@@ -1,5 +1,6 @@
 import { format } from "date-fns"
 import { it } from "date-fns/locale"
+import { Plus } from "lucide-react"
 
 import {
   Tooltip,
@@ -21,14 +22,13 @@ const statusLabel: Record<Status, string> = {
   KO: "KO",
 }
 
-// Slot fuori dal conteggio: vuoto tratteggiato, tiene solo la colonna.
-const excludedClass = "border border-dashed border-muted-foreground/40"
-
 const statusClass: Record<Status, string> = {
   PRESENT: "border-0 bg-emerald-500",
   ABSENT: "border-0 bg-slate-300",
-  NOT_JOINED: excludedClass,
-  KO: excludedClass,
+  // Fuori dal conteggio: vuoto tratteggiato, tiene solo la colonna.
+  NOT_JOINED: "border border-dashed border-muted-foreground/40",
+  // Infermeria: croce rossa su bianco.
+  KO: "grid place-items-center border border-rose-300 bg-white text-rose-600",
 }
 
 /** Percentuale su sfondo da rosso (0%) a giallo (50%) a verde (100%). */
@@ -99,7 +99,15 @@ export function AttendanceStreak({
                     onClick={(event) => event.stopPropagation()}
                     tabIndex={0}
                     type="button"
-                  />
+                  >
+                    {item.status === "KO" && (
+                      <Plus
+                        aria-hidden="true"
+                        className="size-2.5"
+                        strokeWidth={5}
+                      />
+                    )}
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {accessibleDay}: {statusLabel[item.status]}

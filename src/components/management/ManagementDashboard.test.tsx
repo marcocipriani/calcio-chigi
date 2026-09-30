@@ -639,8 +639,8 @@ describe("ManagementDashboard operational state", () => {
         [
           "profile-luca",
           {
-            training: { present: 1, total: 1, percentage: 100 },
-            matches: { present: 0, total: 0, percentage: 0 },
+            training: { present: 1, total: 1, all: 1, percentage: 100 },
+            matches: { present: 0, total: 0, all: 0, percentage: 0 },
             recentTraining: [
               {
                 eventId: "new-training",

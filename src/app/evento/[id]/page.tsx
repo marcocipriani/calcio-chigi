@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from 'react';
+import { useCallback, useEffect, useMemo, useState, use } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabaseBrowser';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { genMsgWhatsApp } from '@/lib/whatsappTemplate';
 import { Event } from '@/lib/types';
 import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent, type AttendanceRow } from '@/lib/api';
+import { fetchInjuryPeriods, isInjuredOn, type InjuryPeriod } from '@/lib/injuries';
+import { romeDateKey } from '@/lib/season';
 import { ageGroupAt, EVENT_TYPE_LABEL, isMatchEvent, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel } from '@/components/formations/OfficialFormationPanel';
@@ -110,7 +112,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const [event, setEvent] = useState<Event | null>(null);
   const [opponentLogo, setOpponentLogo] = useState<{ name: string; url: string | null } | null>(null);
-  const [roster, setRoster] = useState<RosterPlayer[]>([]);
+  const [votedRoster, setRoster] = useState<RosterPlayer[]>([]);
+  const [injuryPeriods, setInjuryPeriods] = useState<InjuryPeriod[]>([]);
   const [surnamesByProfileId, setSurnamesByProfileId] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
@@ -147,11 +150,24 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     return () => { active = false; };
   }, [id, isAssociated, sessionLoading]);
 
+  // Un voto può aprire o chiudere un infortunio: si rileggono insieme ai voti.
+  const refreshInjuries = useCallback(() => {
+    if (!isAssociated) return;
+    fetchInjuryPeriods(supabase)
+      .then(setInjuryPeriods)
+      .catch(error => console.error("Errore caricamento infortuni:", error));
+  }, [isAssociated]);
+
+  useEffect(() => {
+    if (!sessionLoading) refreshInjuries();
+  }, [refreshInjuries, sessionLoading]);
+
   useEffect(() => {
     const refreshAttendance = () => {
       fetchAttendanceForEvent(supabase, id)
         .then(rows => setRoster(prev => withAttendance(prev, rows)))
         .catch(error => console.error("Errore aggiornamento presenze:", error));
+      refreshInjuries();
     };
 
     let channel = supabase
@@ -175,7 +191,21 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
     channel.subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [id, isAssociated]);
+  }, [id, isAssociated, refreshInjuries]);
+
+  // Allenamenti: chi è in infermeria e non ha votato risulta KO.
+  const eventDay = event?.tipo === 'ALLENAMENTO' && event.data_ora
+    ? romeDateKey(new Date(event.data_ora))
+    : null;
+  const roster = useMemo(() => {
+    if (!eventDay) return votedRoster;
+    return votedRoster.map(player =>
+      player.status === null &&
+      isInjuredOn(injuryPeriods.filter(({ profileId }) => profileId === player.id), eventDay)
+        ? { ...player, status: 'INFORTUNATO_PRESENTE' }
+        : player
+    );
+  }, [eventDay, injuryPeriods, votedRoster]);
 
   useEffect(() => {
     if (!opponent) return;
@@ -198,7 +228,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         return;
     }
 
-    const prevRoster = roster;
+    const prevRoster = votedRoster;
     const now = new Date().toISOString();
 
     setRoster(prev => prev.map(p => p.id === myProfileId ? {
@@ -228,7 +258,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const handleResetVote = async () => {
       if (!user || !myProfileId) return;
-      const prevRoster = roster;
+      const prevRoster = votedRoster;
 
       setRoster(prev => prev.map(p => p.id === myProfileId ? { ...p, status: null, vote_time: null, modified_by: null } : p));
 
@@ -489,7 +519,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                             >
                                 {isMatch ? <Eye className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
                                 <span className="text-[11px] font-bold leading-tight text-center whitespace-normal">
-                                    {isMatch ? "SPETTATORE" : "PRESENTE (KO)"}
+                                    {isMatch ? "SPETTATORE" : "KO"}
                                 </span>
                             </Button>
 
@@ -504,7 +534,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                             </Button>
                         </div>
 
-                        {userStatus && (
+                        {/* Il KO da infermeria non è un voto: non c'è nulla da rimuovere. */}
+                        {votedRoster.some(p => p.id === myProfileId && p.status) && (
                             <Button variant="ghost" size="sm" onClick={handleResetVote} className="w-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                                 <Trash2 aria-hidden="true" className="h-3 w-3 mr-1" /> Rimuovi la mia scelta
                             </Button>

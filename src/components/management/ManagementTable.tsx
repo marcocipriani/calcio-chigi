@@ -32,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { openInjury } from "@/lib/injuries"
 import type { ManagementPerson } from "@/lib/management"
 import {
   DOCUMENT_BUCKET,
@@ -274,6 +275,19 @@ const statusLabel: Record<ManagementPerson["status"], string> = {
   NO: "Archiviato",
 }
 
+/** "KO dal …" se è ancora fermo, altrimenti l'ultimo giorno di KO. */
+function latestInjury(injuries: ManagementPerson["injuries"]) {
+  return injuries?.length ? (openInjury(injuries) ?? injuries[0]) : undefined
+}
+
+function injuryLabel(injuries: ManagementPerson["injuries"]) {
+  const latest = latestInjury(injuries)
+  if (!latest) return ""
+  return latest.endedOn
+    ? `KO fino al ${displayDate(latest.endedOn)}`
+    : `KO dal ${displayDate(latest.startedOn)}`
+}
+
 function displayDate(value: string | null | undefined) {
   return value
     ? new Intl.DateTimeFormat("it").format(new Date(value))
@@ -478,12 +492,54 @@ const managementColumns: ManagementColumn[] = [
       render: (person) => (
         <span className="text-xs tabular-nums">
           <AttendancePercentage rate={person.attendance?.training} />
-          {Boolean(person.attendance?.training.total) && (
-            <span className="ml-1 text-muted-foreground">
+          {Boolean(person.attendance?.training.all) && (
+            <span
+              className="ml-1 text-muted-foreground"
+              title="presenze / allenamenti senza KO / tutti"
+            >
               ({person.attendance?.training.present}/
-              {person.attendance?.training.total})
+              {person.attendance?.training.total}/
+              {person.attendance?.training.all})
             </span>
           )}
+        </span>
+      ),
+    },
+    {
+      id: "injury",
+      label: "Infortunio",
+      filterValue: (person) => injuryLabel(person.injuries),
+      // KO in corso prima, poi i rientri più recenti.
+      sortValue: (person) => {
+        const latest = latestInjury(person.injuries)
+        return latest ? `${latest.endedOn ? 0 : 1}${latest.startedOn}` : ""
+      },
+      render: (person) => {
+        const latest = latestInjury(person.injuries)
+        if (!latest) {
+          return <span className="text-xs text-muted-foreground">—</span>
+        }
+        return (
+          <Badge
+            className={cn(
+              !latest.endedOn &&
+                "border-rose-300 bg-white text-rose-700 dark:bg-white",
+            )}
+            variant="outline"
+          >
+            {injuryLabel(person.injuries)}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: "injuryCount",
+      label: "Infortuni",
+      filterValue: (person) => person.injuries?.length ?? 0,
+      sortValue: (person) => person.injuries?.length ?? 0,
+      render: (person) => (
+        <span className="text-xs tabular-nums">
+          {person.injuries?.length ?? 0}
         </span>
       ),
     },

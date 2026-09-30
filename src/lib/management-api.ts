@@ -13,6 +13,11 @@ import {
   type ManagementPayment,
   type ManagementPerson,
 } from "@/lib/management"
+import {
+  fetchInjuries,
+  fetchInjuryPeriods,
+  type Injury,
+} from "@/lib/injuries"
 import { aggregateManagementAttendance } from "@/lib/management-attendance"
 import type {
   ColumnPreferences,
@@ -68,6 +73,7 @@ export async function fetchManagementPeople(
     { data: certificates, error: certificatesError },
     { data: requests, error: requestsError },
     documents,
+    injuries,
   ] = await Promise.all([
     client.from("profiles").select("*").in("id", profileIds),
     client
@@ -85,6 +91,7 @@ export async function fetchManagementPeople(
       .select("id, profile_id, status, requested_at")
       .in("profile_id", profileIds),
     fetchMembershipDocuments(client, membershipIds),
+    fetchInjuries(client, profileIds),
   ])
 
   const firstError = [
@@ -118,6 +125,13 @@ export async function fetchManagementPeople(
     documentsByMembership.set(document.membershipId, [
       ...(documentsByMembership.get(document.membershipId) ?? []),
       document,
+    ])
+  }
+  const injuriesByProfile = new Map<string, Injury[]>()
+  for (const injury of injuries) {
+    injuriesByProfile.set(injury.profileId, [
+      ...(injuriesByProfile.get(injury.profileId) ?? []),
+      injury,
     ])
   }
   const requestsByProfile = new Map(
@@ -202,6 +216,7 @@ export async function fetchManagementPeople(
         certificateLaboratory: asText(latestCertificate?.laboratory),
         certificateDocumentPath: asText(latestCertificate?.document_path),
         documents: documentsByMembership.get(String(membership.id)) ?? [],
+        injuries: injuriesByProfile.get(profileId) ?? [],
       }
     })
     .filter((person): person is ManagementPerson => Boolean(person))
@@ -334,19 +349,15 @@ export async function fetchSeasonAttendance(
   const eventIds = trainings.map(({ id }) => id)
   const profileIds = players.map(({ profileId }) => profileId)
 
-  async function fetchPaged(
-    table: "event_checkins" | "attendance",
-    status?: string,
-  ) {
+  async function fetchCheckins() {
     if (!eventIds.length || !profileIds.length) return [] as UnknownRow[]
     const rows: UnknownRow[] = []
     for (let from = 0; ; from += CHECKIN_PAGE_SIZE) {
-      const query = client
-        .from(table)
+      const { data, error } = await client
+        .from("event_checkins")
         .select("event_id, profile_id, status")
         .in("event_id", eventIds)
         .in("profile_id", profileIds)
-      const { data, error } = await (status ? query.eq("status", status) : query)
         .order("event_id", { ascending: true })
         .order("profile_id", { ascending: true })
         .range(from, from + CHECKIN_PAGE_SIZE - 1)
@@ -359,9 +370,9 @@ export async function fetchSeasonAttendance(
   }
 
   const [checkins, injuries] = await Promise.all([
-    fetchPaged("event_checkins"),
-    // Il KO dichiarato dal giocatore toglie l'allenamento dal denominatore.
-    fetchPaged("attendance", "INFORTUNATO_PRESENTE"),
+    fetchCheckins(),
+    // I giorni dentro un infortunio escono dal denominatore.
+    fetchInjuryPeriods(client, profileIds),
   ])
 
   return aggregateManagementAttendance(
@@ -372,10 +383,7 @@ export async function fetchSeasonAttendance(
       profileId: String(row.profile_id),
       status: row.status as "PRESENT" | "ABSENT",
     })),
-    injuries.map((row) => ({
-      eventId: String(row.event_id),
-      profileId: String(row.profile_id),
-    })),
+    injuries,
   )
 }
 

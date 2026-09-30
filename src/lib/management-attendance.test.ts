@@ -20,6 +20,7 @@ describe("aggregateManagementAttendance", () => {
     expect(result?.training).toEqual({
       present: 1,
       total: 2,
+      all: 2,
       percentage: 50,
     })
     expect(result?.recentTraining.map(({ status }) => status)).toEqual([
@@ -29,31 +30,58 @@ describe("aggregateManagementAttendance", () => {
     ])
   })
 
-  it("drops the trainings the player declared KO for", () => {
+  it("keeps injury days out of the percentage but in the full count", () => {
     const result = aggregateManagementAttendance(
       [{ profileId: "p1", joinedOn: null }],
       [
         { id: "t1", startsAt: "2026-07-10T18:00:00Z" },
         { id: "t2", startsAt: "2026-07-13T18:00:00Z" },
         { id: "t3", startsAt: "2026-07-17T18:00:00Z" },
+        { id: "t4", startsAt: "2026-07-20T18:00:00Z" },
       ],
       [{ eventId: "t1", profileId: "p1", status: "PRESENT" }],
       [
-        { eventId: "t2", profileId: "p1" },
-        { eventId: "t3", profileId: "p1" },
+        // Estremi inclusi: t2 è il primo giorno, t3 l'ultimo.
+        { profileId: "p1", startedOn: "2026-07-13", endedOn: "2026-07-17" },
+        { profileId: "other", startedOn: "2026-07-01", endedOn: null },
       ],
     ).get("p1")
 
     expect(result?.training).toEqual({
       present: 1,
-      total: 1,
-      percentage: 100,
+      total: 2,
+      all: 4,
+      percentage: 50,
     })
     expect(result?.recentTraining.map(({ status }) => status)).toEqual([
       "PRESENT",
       "KO",
       "KO",
+      "ABSENT",
     ])
+  })
+
+  it("lets a real presence beat an open injury", () => {
+    const result = aggregateManagementAttendance(
+      [{ profileId: "p1", joinedOn: null }],
+      [
+        { id: "t1", startsAt: "2026-07-10T18:00:00Z" },
+        { id: "t2", startsAt: "2026-07-13T18:00:00Z" },
+      ],
+      [{ eventId: "t1", profileId: "p1", status: "PRESENT" }],
+      [{ profileId: "p1", startedOn: "2026-07-10", endedOn: null }],
+    ).get("p1")
+
+    expect(result?.recentTraining.map(({ status }) => status)).toEqual([
+      "PRESENT",
+      "KO",
+    ])
+    expect(result?.training).toEqual({
+      present: 1,
+      total: 1,
+      all: 2,
+      percentage: 100,
+    })
   })
 
   it("shows an explicit absence like a missing check-in", () => {

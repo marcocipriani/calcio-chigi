@@ -88,21 +88,23 @@ function TeamPageContent() {
               ? "Crea la tua formazione"
               : "Formazione ufficiale"
           }
-          className="relative scroll-mt-20 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="scroll-mt-20 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
           ref={builderRef}
           tabIndex={-1}
         >
-          <Button
-            aria-label="Chiudi formazione"
-            className="absolute right-2 top-2 z-20"
-            onClick={() => chooseMode(null)}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <X aria-hidden="true" />
-            Chiudi
-          </Button>
+          {/* In flusso, non absolute: sopra al builder copriva titolo, toolbar e ricerca. */}
+          <div className="flex justify-end px-4">
+            <Button
+              aria-label="Chiudi formazione"
+              onClick={() => chooseMode(null)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <X aria-hidden="true" />
+              Chiudi
+            </Button>
+          </div>
           <FormationBuilder
             eventId={builderEventId}
             key={`${activeMode}-${builderEventId ?? "next"}`}

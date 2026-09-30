@@ -1049,6 +1049,24 @@ test("builder formazione monta tra titlebar e rosa, riceve focus e si chiude", a
     formationBeforeRoster: true,
   })
 
+  // Chiudi non deve coprire titolo, toolbar o ricerca del builder.
+  const closeOverlaps = await builder.evaluate((section) => {
+    const close = section.querySelector('[aria-label="Chiudi formazione"]')!
+    const a = close.getBoundingClientRect()
+    return [...section.querySelectorAll("button, input, h2, [role=combobox]")]
+      .filter((el) => el !== close && !close.contains(el))
+      .filter((el) => {
+        const b = el.getBoundingClientRect()
+        return (
+          b.width > 0 &&
+          Math.min(a.right, b.right) > Math.max(a.left, b.left) &&
+          Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top)
+        )
+      })
+      .map((el) => el.getAttribute("aria-label") ?? el.textContent)
+  })
+  expect(closeOverlaps).toEqual([])
+
   await builder.getByRole("button", { name: "Chiudi formazione" }).click()
   await expect(builder).toHaveCount(0)
 })
@@ -1390,7 +1408,7 @@ test(OFFICIAL_FORMATION_TEST_TITLE, async ({ context, page }, testInfo) => {
     .click()
   await page.getByRole("dialog").getByText("Marco", { exact: true }).click()
   await page
-    .getByRole("button", { name: "Seleziona giocatore per P1" })
+    .getByRole("button", { name: "Seleziona giocatore per P1", exact: true })
     .click()
   await page.getByRole("dialog").getByText("Piero", { exact: true }).click()
   await page

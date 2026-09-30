@@ -641,13 +641,13 @@ export function FormationBuilder({
             <div className="container max-w-7xl mx-auto p-4 pb-24 lg:flex lg:gap-6 lg:items-start" data-formation-builder-mode={mode}>
 
                 <div className="flex-none lg:w-[55%] lg:sticky lg:top-20 space-y-3 z-10 bg-background pb-2 lg:pb-0">
-                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-stretch xl:flex-row xl:items-center">
                         <div className="min-w-0 flex-1">
                             <h2 className="text-2xl font-black text-foreground tracking-tight">{title}</h2>
                             <p className="text-xs text-muted-foreground font-bold">{subtitle}</p>
                         </div>
 
-                        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap lg:w-full xl:w-auto">
                             <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-md p-0.5 border border-slate-200">
                                 <button aria-label="Maglia blu" aria-pressed={jerseyColor === 'BLU'} onClick={() => setJerseyColor('BLU')} className={`p-1.5 rounded-sm transition-[opacity,box-shadow,background-color] ${jerseyColor === 'BLU' ? 'bg-white shadow-sm ring-1 ring-black/5' : 'opacity-60 hover:opacity-100'}`} type="button">
                                     <Shirt aria-hidden="true" className="h-5 w-5 text-blue-700 fill-blue-700" />
@@ -769,12 +769,12 @@ export function FormationBuilder({
                         </p>
                     )}
 
-                    {!isFriendly && <div className={`w-full flex items-center justify-between px-4 py-2 rounded-lg border mb-3 transition-colors ${quota.exceeded ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
+                    {!isFriendly && <div className={`w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 rounded-lg border mb-3 transition-colors ${quota.exceeded ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-card border-border'}`}>
                         <div className="flex items-center gap-2">
                             <Users className={`h-4 w-4 ${quota.exceeded ? 'text-red-500' : 'text-primary'}`} />
-                            <span className="text-xs font-bold uppercase tracking-wider text-foreground">Quota Under 35</span>
+                            <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-foreground">Quota Under 35</span>
                         </div>
-                        <div className="flex items-center gap-4 text-xs font-medium">
+                        <div className="flex items-center gap-4 whitespace-nowrap text-xs font-medium">
                             <div className={quota.fieldExceeded ? "text-red-600 font-bold" : "text-muted-foreground"}>
                                 Campo: <span className="text-foreground font-bold">{quota.field}</span>/{U35_FIELD_MAX}
                             </div>

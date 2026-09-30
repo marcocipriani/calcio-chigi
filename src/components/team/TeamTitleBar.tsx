@@ -49,7 +49,7 @@ export function TeamTitleBar({
           >
             <Link href="/gestione">
               <Settings2 aria-hidden="true" />
-              <span className="sr-only sm:not-sr-only">Gestione</span>
+              <span className="sr-only lg:not-sr-only">Gestione</span>
             </Link>
           </Button>
         )}
@@ -57,18 +57,18 @@ export function TeamTitleBar({
           <TooltipTrigger asChild>
             <Button
               aria-label="Crea la tua formazione"
-              className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+              className="size-11 rounded-full px-0 lg:h-8 lg:w-auto lg:rounded-md lg:px-3"
               onClick={onOpenPlayground}
               size="sm"
               variant="outline"
             >
               <ClipboardList aria-hidden="true" />
-              <span className="sr-only sm:not-sr-only">
+              <span className="sr-only lg:not-sr-only">
                 Crea la tua formazione
               </span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent className="sm:hidden">
+          <TooltipContent className="lg:hidden">
             Crea la tua formazione
           </TooltipContent>
         </Tooltip>
@@ -94,20 +94,20 @@ export function TeamTitleBar({
                     matchUnavailable ? unavailableDescriptionId : undefined
                   }
                   aria-label="Pubblica formazione"
-                  className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                  className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 lg:h-8 lg:w-auto lg:rounded-md lg:px-3"
                   disabled={matchUnavailable}
                   onClick={onOpenOfficial}
                   size="sm"
                 >
                   <Radio aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">
+                  <span className="sr-only lg:not-sr-only">
                     Pubblica formazione
                   </span>
                 </Button>
               </span>
             </TooltipTrigger>
             <TooltipContent
-              className={matchUnavailable ? undefined : "sm:hidden"}
+              className={matchUnavailable ? undefined : "lg:hidden"}
             >
               {matchUnavailable
                 ? unavailableDescription

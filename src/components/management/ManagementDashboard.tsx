@@ -966,10 +966,10 @@ export function ManagementDashboard() {
               role="tab"
               type="button"
             >
-              {item.label}
+              <span className="truncate">{item.label}</span>
               <span
                 className={cn(
-                  "rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
+                  "shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
                   view === item.id &&
                     "bg-operative-foreground/15 text-operative-foreground",
                 )}

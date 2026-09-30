@@ -12,7 +12,11 @@ import {
   X,
 } from "lucide-react"
 
-import { AttendanceStreak } from "@/components/management/AttendanceStreak"
+import { DocumentPreview } from "@/components/documents/DocumentControls"
+import {
+  AttendancePercentage,
+  AttendanceStreak,
+} from "@/components/management/AttendanceStreak"
 import {
   PassportPhotoPreview,
   type PassportPhotoState,
@@ -29,6 +33,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { ManagementPerson } from "@/lib/management"
+import {
+  DOCUMENT_BUCKET,
+  type DocumentKind,
+} from "@/lib/membership-documents"
 import {
   clampColumnWidth,
   DEFAULT_COLUMNS,
@@ -204,14 +212,66 @@ function personTags(person: ManagementPerson) {
   return tagDefinitions.filter(([, , matches]) => matches(person))
 }
 
+/** Apre l'anteprima dalla tabella senza aprire la scheda della persona. */
+function DocumentCell({
+  bucket,
+  path,
+  image,
+  title,
+  label,
+}: {
+  bucket: string
+  path: string
+  image: boolean
+  title: string
+  label: string
+}) {
+  return (
+    <DocumentPreview bucket={bucket} image={image} path={path} title={title}>
+      <button
+        aria-label={`Apri ${title}`}
+        className="rounded text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        type="button"
+      >
+        {label}
+      </button>
+    </DocumentPreview>
+  )
+}
+
+function documentColumn(
+  id: string,
+  label: string,
+  kind: DocumentKind,
+): ManagementColumn {
+  const find = (person: ManagementPerson) =>
+    person.documents?.find((document) => document.kind === kind)
+  return {
+    id,
+    label,
+    filterValue: (person) => (find(person) ? "Caricato" : "Mancante"),
+    sortValue: (person) => (find(person) ? 1 : 0),
+    render: (person) => {
+      const document = find(person)
+      return document ? (
+        <DocumentCell
+          bucket={DOCUMENT_BUCKET}
+          image={document.contentType.startsWith("image/")}
+          label="Caricato"
+          path={document.path}
+          title={`${label} di ${person.nome} ${person.cognome}`}
+        />
+      ) : (
+        <span className="text-xs text-muted-foreground">Mancante</span>
+      )
+    },
+  }
+}
+
 const statusLabel: Record<ManagementPerson["status"], string> = {
   YES: "In rosa",
   TRAINING_ONLY: "Solo allenamenti",
   NO: "Archiviato",
-}
-
-function percentage(value: number | undefined) {
-  return `${Math.round(value ?? 0)}%`
 }
 
 function displayDate(value: string | null | undefined) {
@@ -417,11 +477,13 @@ const managementColumns: ManagementColumn[] = [
       sortValue: (person) => person.attendance?.training.percentage,
       render: (person) => (
         <span className="text-xs tabular-nums">
-          {percentage(person.attendance?.training.percentage)}
-          <span className="ml-1 text-muted-foreground">
-            ({person.attendance?.training.present ?? 0}/
-            {person.attendance?.training.total ?? 0})
-          </span>
+          <AttendancePercentage rate={person.attendance?.training} />
+          {Boolean(person.attendance?.training.total) && (
+            <span className="ml-1 text-muted-foreground">
+              ({person.attendance?.training.present}/
+              {person.attendance?.training.total})
+            </span>
+          )}
         </span>
       ),
     },
@@ -533,6 +595,8 @@ const managementColumns: ManagementColumn[] = [
         />
       ),
     },
+    documentColumn("identityDocument", "Documento identità", "IDENTITY"),
+    documentColumn("registrationForm", "Modulo iscrizione", "REGISTRATION_FORM"),
     {
       id: "joinedOn",
       label: "In squadra",
@@ -584,11 +648,18 @@ const managementColumns: ManagementColumn[] = [
       label: "Certificato PDF",
       filterValue: (person) => person.certificateDocumentPath,
       sortValue: (person) => person.certificateDocumentPath,
-      render: (person) => (
-        <span className="text-xs">
-          {person.certificateDocumentPath ? "PDF caricato" : "—"}
-        </span>
-      ),
+      render: (person) =>
+        person.certificateDocumentPath ? (
+          <DocumentCell
+            bucket="medical-certificates"
+            image={false}
+            label="PDF caricato"
+            path={person.certificateDocumentPath}
+            title={`Certificato di ${person.nome} ${person.cognome}`}
+          />
+        ) : (
+          <span className="text-xs">—</span>
+        ),
     },
     {
       id: "certificateAction",

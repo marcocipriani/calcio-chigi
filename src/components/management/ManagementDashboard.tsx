@@ -932,7 +932,6 @@ export function ManagementDashboard() {
       />
 
       <div className="sticky top-16 z-20 min-w-0 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
-        <div className="flex min-w-0 items-start gap-1">
         <div
           aria-label="Viste dashboard"
           className="grid min-w-0 flex-1 grid-cols-3 gap-0.5 sm:flex sm:overflow-x-auto"
@@ -982,25 +981,6 @@ export function ManagementDashboard() {
             </button>
           ))}
         </div>
-        <ViewMenu
-          custom={Boolean(customView)}
-          disabled={!columnPreferencesReady}
-          key={view}
-          layout={layout}
-          onCreate={createView}
-          onDelete={() => customView && deleteView(customView.id)}
-          onLayoutChange={changeLayout}
-          onRename={(label) =>
-            customView && updateCustomView(customView.id, { label })
-          }
-          onReset={() => builtInView && resetBuiltInView(builtInView)}
-          viewLabel={
-            customView?.label ??
-            views.find(({ id }) => id === builtInView)?.label ??
-            "Vista"
-          }
-        />
-        </div>
         <div
           aria-label="Strumenti dashboard"
           className="mt-1.5 flex min-w-0 items-center gap-1 border-t pt-1.5"
@@ -1049,6 +1029,15 @@ export function ManagementDashboard() {
               type="checkbox"
             />
           </label>
+          <ColumnFilters
+            columns={filterableColumns}
+            disabled={!columnPreferencesReady}
+            onChange={(columnId, value) =>
+              changeColumnFilters({ ...columnFilters, [columnId]: value })
+            }
+            onReset={() => changeColumnFilters({})}
+            values={columnFilters}
+          />
           <Button
             aria-label={
               filters.archived ? "Nascondi archiviati" : "Mostra archiviati"
@@ -1071,26 +1060,6 @@ export function ManagementDashboard() {
               {kpis.archived}
             </span>
           </Button>
-          <ColumnFilters
-            columns={filterableColumns}
-            disabled={!columnPreferencesReady}
-            onChange={(columnId, value) =>
-              changeColumnFilters({ ...columnFilters, [columnId]: value })
-            }
-            onReset={() => changeColumnFilters({})}
-            values={columnFilters}
-          />
-          <ColumnCustomizer
-            availableColumns={availableColumns}
-            columns={visibleColumnIds}
-            disabled={!columnPreferencesReady}
-            onChange={updateColumns}
-            onReset={() =>
-              updateColumns([
-                ...DEFAULT_COLUMNS[builtInView ?? "PEOPLE"],
-              ])
-            }
-          />
           <SortControl
             className={cn("shrink-0", layout === "TABLE" && "md:hidden")}
             columns={sortableColumns}
@@ -1101,6 +1070,36 @@ export function ManagementDashboard() {
             {visiblePeople.length} risultati · {selectedPeople.length}{" "}
             selezionati
           </span>
+          <ViewMenu
+            custom={Boolean(customView)}
+            disabled={!columnPreferencesReady}
+            key={view}
+            layout={layout}
+            onCreate={createView}
+            onDelete={() => customView && deleteView(customView.id)}
+            onLayoutChange={changeLayout}
+            onRename={(label) =>
+              customView && updateCustomView(customView.id, { label })
+            }
+            onReset={() => builtInView && resetBuiltInView(builtInView)}
+            viewLabel={
+              customView?.label ??
+              views.find(({ id }) => id === builtInView)?.label ??
+              "Vista"
+            }
+          >
+            <ColumnCustomizer
+              availableColumns={availableColumns}
+              columns={visibleColumnIds}
+              disabled={!columnPreferencesReady}
+              onChange={updateColumns}
+              onReset={() =>
+                updateColumns([
+                  ...DEFAULT_COLUMNS[builtInView ?? "PEOPLE"],
+                ])
+              }
+            />
+          </ViewMenu>
         </div>
       </div>
 

@@ -18,6 +18,10 @@ import type {
   ColumnPreferences,
   DisplayPreferences,
 } from "@/lib/management-columns"
+import {
+  fetchMembershipDocuments,
+  type MembershipDocument,
+} from "@/lib/membership-documents"
 
 type UnknownRow = Record<string, unknown>
 
@@ -63,6 +67,7 @@ export async function fetchManagementPeople(
     { data: payments, error: paymentsError },
     { data: certificates, error: certificatesError },
     { data: requests, error: requestsError },
+    documents,
   ] = await Promise.all([
     client.from("profiles").select("*").in("id", profileIds),
     client
@@ -79,6 +84,7 @@ export async function fetchManagementPeople(
       .from("account_association_requests")
       .select("id, profile_id, status, requested_at")
       .in("profile_id", profileIds),
+    fetchMembershipDocuments(client, membershipIds),
   ])
 
   const firstError = [
@@ -107,6 +113,13 @@ export async function fetchManagementPeople(
     (certificates ?? []) as UnknownRow[],
     "membership_id",
   )
+  const documentsByMembership = new Map<string, MembershipDocument[]>()
+  for (const document of documents) {
+    documentsByMembership.set(document.membershipId, [
+      ...(documentsByMembership.get(document.membershipId) ?? []),
+      document,
+    ])
+  }
   const requestsByProfile = new Map(
     ((requests ?? []) as UnknownRow[]).map((row) => [
       String(row.profile_id),
@@ -188,6 +201,7 @@ export async function fetchManagementPeople(
         certificateVisitOn: asText(latestCertificate?.visit_on),
         certificateLaboratory: asText(latestCertificate?.laboratory),
         certificateDocumentPath: asText(latestCertificate?.document_path),
+        documents: documentsByMembership.get(String(membership.id)) ?? [],
       }
     })
     .filter((person): person is ManagementPerson => Boolean(person))

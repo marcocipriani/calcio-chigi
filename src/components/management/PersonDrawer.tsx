@@ -9,7 +9,7 @@ import {
 import {
   Camera,
   CreditCard,
-  ExternalLink,
+  Eye,
   FileText,
   IdCard,
   Trash2,
@@ -19,8 +19,20 @@ import {
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import {
+  DeleteDocumentButton,
+  DocumentPreview,
+} from "@/components/documents/DocumentControls"
+import {
+  MembershipDocuments,
+  PaymentReceipt,
+  useMembershipDocuments,
+} from "@/components/documents/MembershipDocuments"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
-import { AttendanceStreak } from "@/components/management/AttendanceStreak"
+import {
+  AttendancePercentage,
+  AttendanceStreak,
+} from "@/components/management/AttendanceStreak"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,7 +62,10 @@ import { UNIFORM_SIZES } from "@/lib/domain"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
+import type { MembershipDocument } from "@/lib/membership-documents"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+
+const NO_DOCUMENTS: MembershipDocument[] = []
 
 const selectClass =
   "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -125,6 +140,30 @@ export function PersonDrawer({
       active = false
     }
   }, [profileId])
+
+  const passportPath = person?.passportPhotoPath
+  const [passportUrl, setPassportUrl] = useState<string | null>(null)
+  useEffect(() => {
+    setPassportUrl(null)
+    if (!passportPath) return
+    let active = true
+    void supabaseBrowser.storage
+      .from("passport-photos")
+      .createSignedUrl(passportPath, 300)
+      .then(({ data }) => {
+        if (active) setPassportUrl(data?.signedUrl ?? null)
+      })
+    return () => {
+      active = false
+    }
+  }, [passportPath])
+
+  const documents = useMembershipDocuments(
+    person ? { profileId: person.profileId, membershipId: person.id } : null,
+    person?.documents ?? NO_DOCUMENTS,
+    // La scheda resta aperta: si aggiorna solo la tabella sotto.
+    () => void onSaved(),
+  )
 
   if (!person) return null
   const currentPerson = person
@@ -229,16 +268,48 @@ export function PersonDrawer({
     await onSaved()
   }
 
-  async function openPrivateDocument(bucket: string, path?: string | null) {
+  async function deletePassport() {
+    const path = currentPerson.passportPhotoPath
     if (!path) return
-    const { data, error } = await supabaseBrowser.storage
-      .from(bucket)
-      .createSignedUrl(path, 60)
+    setUploading("PASSPORT")
+    // Prima il riferimento: un file orfano non si vede, un percorso rotto sì.
+    const { error } = await supabaseBrowser
+      .from("season_memberships")
+      .update({ passport_photo_path: null })
+      .eq("id", currentPerson.id)
     if (error) {
-      toast.error("Documento non disponibile", { description: error.message })
+      setUploading(null)
+      toast.error("Fototessera non eliminata", { description: error.message })
       return
     }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer")
+    await supabaseBrowser.storage.from("passport-photos").remove([path])
+    setUploading(null)
+    toast.success("Fototessera eliminata")
+    onOpenChange(false)
+    await onSaved()
+  }
+
+  async function deleteCertificate() {
+    if (!currentPerson.certificateId) return
+    setCertBusy(true)
+    const { error } = await supabaseBrowser
+      .from("medical_certificates")
+      .delete()
+      .eq("id", currentPerson.certificateId)
+    if (error) {
+      setCertBusy(false)
+      toast.error("Certificato non eliminato", { description: error.message })
+      return
+    }
+    if (currentPerson.certificateDocumentPath) {
+      await supabaseBrowser.storage
+        .from("medical-certificates")
+        .remove([currentPerson.certificateDocumentPath])
+    }
+    setCertBusy(false)
+    toast.success("Certificato eliminato")
+    onOpenChange(false)
+    await onSaved()
   }
 
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
@@ -673,8 +744,10 @@ export function PersonDrawer({
                 <h3 className="text-sm font-semibold">Presenze</h3>
                 <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
                   <span className="text-sm">
-                    <strong className="text-base tabular-nums">
-                      {Math.round(person.attendance.training.percentage)}%
+                    <strong className="text-base">
+                      <AttendancePercentage
+                        rate={person.attendance.training}
+                      />
                     </strong>{" "}
                     <span className="text-muted-foreground">
                       ({person.attendance.training.present}/
@@ -694,10 +767,20 @@ export function PersonDrawer({
               </h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
-                  <IdCard
-                    aria-hidden="true"
-                    className="size-5 shrink-0 text-primary"
-                  />
+                  {passportUrl ? (
+                    // Signed storage URLs are not compatible with static image optimization.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt=""
+                      className="size-10 shrink-0 rounded object-cover"
+                      src={passportUrl}
+                    />
+                  ) : (
+                    <IdCard
+                      aria-hidden="true"
+                      className="size-5 shrink-0 text-primary"
+                    />
+                  )}
                   <span className="min-w-0 flex-1">
                     <strong className="block text-sm">Fototessera</strong>
                     <span className="block truncate text-xs text-muted-foreground">
@@ -705,20 +788,28 @@ export function PersonDrawer({
                     </span>
                   </span>
                   {person.passportPhotoPath && (
-                    <Button
-                      aria-label="Apri fototessera"
-                      onClick={() =>
-                        void openPrivateDocument(
-                          "passport-photos",
-                          person.passportPhotoPath,
-                        )
-                      }
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <ExternalLink aria-hidden="true" />
-                    </Button>
+                    <>
+                      <DocumentPreview
+                        bucket="passport-photos"
+                        image
+                        path={person.passportPhotoPath}
+                        title={`Fototessera di ${person.nome} ${person.cognome}`}
+                      >
+                        <Button
+                          aria-label="Apri fototessera"
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Eye aria-hidden="true" />
+                        </Button>
+                      </DocumentPreview>
+                      <DeleteDocumentButton
+                        disabled={Boolean(uploading)}
+                        label="fototessera"
+                        onConfirm={() => void deletePassport()}
+                      />
+                    </>
                   )}
                   <label className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border transition-colors hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
                     <Upload aria-hidden="true" className="size-4" />
@@ -762,20 +853,28 @@ export function PersonDrawer({
                     )}
                   </span>
                   {person.certificateDocumentPath && (
-                    <Button
-                      aria-label="Apri certificato PDF"
-                      onClick={() =>
-                        void openPrivateDocument(
-                          "medical-certificates",
-                          person.certificateDocumentPath,
-                        )
-                      }
-                      size="icon"
-                      type="button"
-                      variant="ghost"
+                    <DocumentPreview
+                      bucket="medical-certificates"
+                      image={false}
+                      path={person.certificateDocumentPath}
+                      title={`Certificato di ${person.nome} ${person.cognome}`}
                     >
-                      <ExternalLink aria-hidden="true" />
-                    </Button>
+                      <Button
+                        aria-label="Apri certificato PDF"
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Eye aria-hidden="true" />
+                      </Button>
+                    </DocumentPreview>
+                  )}
+                  {person.certificateId && (
+                    <DeleteDocumentButton
+                      disabled={certBusy}
+                      label="certificato"
+                      onConfirm={() => void deleteCertificate()}
+                    />
                   )}
                   <Button
                     aria-label="Carica o correggi certificato"
@@ -787,6 +886,7 @@ export function PersonDrawer({
                     <Upload aria-hidden="true" />
                   </Button>
                 </div>
+                <MembershipDocuments canDelete={() => true} state={documents} />
               </div>
             </section>
 
@@ -829,6 +929,14 @@ export function PersonDrawer({
                           {paymentLabels[payment.status]}
                         </Badge>
                       </span>
+                      {payment.id && (
+                        <PaymentReceipt
+                          canDelete={() => true}
+                          label={`ricevuta ${payment.description ?? "quota"}`}
+                          paymentId={payment.id}
+                          state={documents}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>

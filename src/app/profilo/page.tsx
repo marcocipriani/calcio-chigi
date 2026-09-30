@@ -26,6 +26,11 @@ import { it } from "date-fns/locale"
 import { toast } from "sonner"
 
 import { AppCredits } from "@/components/AppCredits"
+import {
+  MembershipDocuments,
+  PaymentReceipt,
+  useMembershipDocuments,
+} from "@/components/documents/MembershipDocuments"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -50,6 +55,10 @@ import {
   fetchOwnJerseyPreferences,
   type JerseyHistoryEntry,
 } from "@/lib/jersey-api"
+import {
+  fetchMembershipDocuments,
+  type MembershipDocument,
+} from "@/lib/membership-documents"
 import {
   canEditPassportPhoto,
   certificateStatusLabel,
@@ -156,6 +165,7 @@ export default function ProfilePage() {
   const [membership, setMembership] = useState<Membership | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [ownDocuments, setOwnDocuments] = useState<MembershipDocument[]>([])
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
   const [hasJerseyPreferences, setHasJerseyPreferences] = useState(false)
   const [jerseyChoiceClosed, setJerseyChoiceClosed] = useState(false)
@@ -166,6 +176,16 @@ export default function ProfilePage() {
     expiresOn: "",
     laboratory: "",
   })
+
+  const documents = useMembershipDocuments(
+    profile && membership
+      ? { profileId: profile.id, membershipId: membership.id }
+      : null,
+    ownDocuments,
+  )
+  // Il giocatore elimina solo ciò che ha caricato lui.
+  const canDeleteDocument = (document: MembershipDocument) =>
+    document.uploadedBy === profile?.id
 
   const loadProfile = useCallback(async () => {
     setLoading(true)
@@ -192,6 +212,7 @@ export default function ProfilePage() {
     let latestMembership: Membership | null = null
     let ownPayments: Payment[] = []
     let ownCertificates: Certificate[] = []
+    let loadedDocuments: MembershipDocument[] = []
 
     if (latestSeason) {
       const { data } = await supabase
@@ -221,7 +242,7 @@ export default function ProfilePage() {
     ])
 
     if (latestMembership) {
-      const [{ data: paymentRows }, { data: certificateRows }] = await Promise.all([
+      const [{ data: paymentRows }, { data: certificateRows }, documentRows] = await Promise.all([
         supabase
           .from("payments")
           .select("id, description, amount_due, due_on, status, method, declared_at")
@@ -232,9 +253,11 @@ export default function ProfilePage() {
           .select("id, document_path, visit_on, expires_on, laboratory, status, rejection_reason, created_at")
           .eq("membership_id", latestMembership.id)
           .order("created_at", { ascending: false }),
+        fetchMembershipDocuments(supabase, [latestMembership.id]).catch(() => []),
       ])
       ownPayments = (paymentRows ?? []) as Payment[]
       ownCertificates = (certificateRows ?? []) as Certificate[]
+      loadedDocuments = documentRows
     }
 
     const nextForm: ProfileForm = {
@@ -253,6 +276,7 @@ export default function ProfilePage() {
     setMembership(latestMembership)
     setPayments(ownPayments)
     setCertificates(ownCertificates)
+    setOwnDocuments(loadedDocuments)
     setJerseyHistory(history)
     setHasJerseyPreferences(jerseyPreferences !== null)
     setJerseyChoiceClosed(Boolean(jerseyDraft?.confirmedAt))
@@ -997,6 +1021,23 @@ export default function ProfilePage() {
             </Card>
           )}
 
+          {membership && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
+                  Documenti
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-2">
+                <MembershipDocuments
+                  canDelete={canDeleteDocument}
+                  state={documents}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -1051,6 +1092,15 @@ export default function ProfilePage() {
                         Dichiarato {payment.method === "CASH" ? "in contanti" : "con bonifico"}; in attesa del manager.
                       </p>
                     )}
+                    <div className="mt-2 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                      Ricevuta
+                      <PaymentReceipt
+                        canDelete={canDeleteDocument}
+                        label={`ricevuta ${payment.description}`}
+                        paymentId={payment.id}
+                        state={documents}
+                      />
+                    </div>
                   </div>
                 ))
               )}

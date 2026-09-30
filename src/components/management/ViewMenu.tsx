@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, type ReactNode } from "react"
 import {
   LayoutGrid,
   Plus,
@@ -27,9 +27,9 @@ const layouts = [
 ] satisfies Array<{ id: ManagementLayout; label: string; icon: typeof Rows3 }>
 
 /**
- * Impostazioni della vista attiva: disposizione, salvataggio come nuova vista
- * e, a seconda del tipo, rinomina/elimina (personalizzate) o ripristina
- * (predefinite, che non si possono eliminare).
+ * Impostazioni della vista attiva: disposizione, colonne (children),
+ * salvataggio come nuova vista e, a seconda del tipo, rinomina/elimina
+ * (personalizzate) o ripristina (predefinite, che non si possono eliminare).
  */
 export function ViewMenu({
   viewLabel,
@@ -41,6 +41,7 @@ export function ViewMenu({
   onRename,
   onDelete,
   onReset,
+  children,
 }: {
   viewLabel: string
   custom: boolean
@@ -51,6 +52,7 @@ export function ViewMenu({
   onRename: (label: string) => void
   onDelete: () => void
   onReset: () => void
+  children?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const [newLabel, setNewLabel] = useState("")
@@ -87,7 +89,7 @@ export function ViewMenu({
       <PopoverTrigger asChild>
         <Button
           aria-label="Impostazioni vista"
-          className="shrink-0 px-2"
+          className="ml-auto shrink-0 px-2"
           disabled={disabled}
           size="sm"
           variant="outline"
@@ -96,7 +98,10 @@ export function ViewMenu({
           <span className="sr-only lg:not-sr-only">Vista</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-4">
+      <PopoverContent
+        align="end"
+        className="max-h-[var(--radix-popover-content-available-height)] w-80 space-y-4 overflow-y-auto"
+      >
         <div className="space-y-1.5">
           <strong className="block text-sm">{viewLabel}</strong>
           <div
@@ -127,6 +132,8 @@ export function ViewMenu({
             Sul telefono i risultati sono sempre a schede.
           </p>
         </div>
+
+        {children}
 
         {custom ? (
           <div className="space-y-2 border-t pt-3">

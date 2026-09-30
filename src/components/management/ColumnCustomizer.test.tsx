@@ -21,7 +21,6 @@ describe("ColumnCustomizer", () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Colonne" }))
     expect(screen.getByRole("checkbox", { name: "Persona" })).toBeDisabled()
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Telefono" }))
@@ -46,7 +45,6 @@ describe("ColumnCustomizer", () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole("button", { name: "Colonne" }))
     fireEvent.click(
       screen.getByRole("button", { name: "Sposta Account in alto" }),
     )

@@ -141,7 +141,7 @@ describe("ManagementDashboard operational state", () => {
     storage.createSignedUrls.mockResolvedValue({ data: [], error: null })
   })
 
-  it("keeps search, columns, result count and selection in one compact tool group", async () => {
+  it("keeps search, view menu, result count and selection in one compact tool group", async () => {
     render(<ManagementDashboard />)
 
     const tools = await screen.findByRole("group", {
@@ -150,7 +150,15 @@ describe("ManagementDashboard operational state", () => {
     expect(
       within(tools).getByPlaceholderText("Nome o telefono"),
     ).toBeVisible()
-    expect(within(tools).getByRole("button", { name: /Colonne/ })).toBeVisible()
+    const toolButtons = within(tools)
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label"))
+    expect(toolButtons.slice(0, 2)).toEqual(["Filtri", "Mostra archiviati"])
+    // Colonne vive nel menu Vista, ultimo della riga.
+    expect(toolButtons.at(-1)).toBe("Impostazioni vista")
+    expect(
+      within(tools).queryByRole("button", { name: /Colonne/ }),
+    ).not.toBeInTheDocument()
     expect(within(tools).getByText("2 risultati · 0 selezionati")).toBeVisible()
     expect(
       within(tools).getByRole("checkbox", { name: "Seleziona visibili" }),
@@ -665,7 +673,7 @@ describe("ManagementDashboard operational state", () => {
 
     render(<ManagementDashboard />)
     const columnsButton = await screen.findByRole("button", {
-      name: "Colonne",
+      name: "Impostazioni vista",
     })
     expect(columnsButton).toBeDisabled()
     fireEvent.click(columnsButton)

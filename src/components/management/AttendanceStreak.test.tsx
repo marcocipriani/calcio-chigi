@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
-import { AttendanceStreak } from "@/components/management/AttendanceStreak"
+import {
+  AttendancePercentage,
+  AttendanceStreak,
+} from "@/components/management/AttendanceStreak"
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -30,7 +33,12 @@ describe("AttendanceStreak", () => {
           {
             eventId: "training-3",
             startsAt: "2026-07-27T18:30:00.000Z",
-            status: "MISSING",
+            status: "NOT_JOINED",
+          },
+          {
+            eventId: "training-4",
+            startsAt: "2026-07-30T18:30:00.000Z",
+            status: "KO",
           },
         ]}
       />,
@@ -41,10 +49,13 @@ describe("AttendanceStreak", () => {
     ).toHaveClass("bg-emerald-500")
     expect(
       screen.getByLabelText("Giovedì 23 luglio 2026: assente"),
-    ).toHaveClass("bg-rose-500")
-    expect(
-      screen.getByLabelText("Lunedì 27 luglio 2026: non registrato"),
     ).toHaveClass("bg-slate-300")
+    expect(
+      screen.getByLabelText("Lunedì 27 luglio 2026: non ancora in squadra"),
+    ).toHaveClass("border-dashed")
+    expect(screen.getByLabelText("Giovedì 30 luglio 2026: KO")).toHaveClass(
+      "border-dashed",
+    )
     expect(screen.getByTestId("week-separator")).toBeVisible()
   })
 
@@ -90,5 +101,42 @@ describe("AttendanceStreak", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Lunedì 20 luglio 2026: assente",
     )
+  })
+
+  it("colours the percentage from red to green and hides it without trainings", () => {
+    const { rerender } = render(
+      <AttendancePercentage
+        rate={{ present: 0, total: 4, percentage: 0 }}
+      />,
+    )
+    // jsdom normalizza hsl() in rgba().
+    expect(screen.getByText("0%")).toHaveStyle({
+      backgroundColor: "rgba(236, 19, 19, 0.3)",
+    })
+
+    rerender(
+      <AttendancePercentage
+        rate={{ present: 2, total: 4, percentage: 50 }}
+      />,
+    )
+    expect(screen.getByText("50%")).toHaveStyle({
+      backgroundColor: "rgba(236, 236, 19, 0.3)",
+    })
+
+    rerender(
+      <AttendancePercentage
+        rate={{ present: 4, total: 4, percentage: 100 }}
+      />,
+    )
+    expect(screen.getByText("100%")).toHaveStyle({
+      backgroundColor: "rgba(19, 236, 19, 0.3)",
+    })
+
+    rerender(
+      <AttendancePercentage
+        rate={{ present: 0, total: 0, percentage: 0 }}
+      />,
+    )
+    expect(screen.getByText("—")).toBeVisible()
   })
 })

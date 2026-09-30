@@ -40,33 +40,36 @@ export function PassportPhotoPreview({
   const signedUrl = state.signedUrl
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          aria-label={`Apri fototessera di ${personName}`}
-          onClick={(event) => event.stopPropagation()}
-          type="button"
-        >
-          {/* Signed storage URLs are not compatible with static image optimization. */}
+    // Il dialog vive in un portale, ma per React resta figlio della riga: senza
+    // questo anche i click al suo interno aprirebbero la scheda.
+    <span className="contents" onClick={(event) => event.stopPropagation()}>
+      <Dialog>
+        <DialogTrigger asChild>
+          <button
+            aria-label={`Apri fototessera di ${personName}`}
+            type="button"
+          >
+            {/* Signed storage URLs are not compatible with static image optimization. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`Fototessera di ${personName}`}
+              className="size-10 rounded object-cover"
+              src={signedUrl}
+            />
+          </button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fototessera di {personName}</DialogTitle>
+          </DialogHeader>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             alt={`Fototessera di ${personName}`}
-            className="size-10 rounded object-cover"
+            className="max-h-[70dvh] w-full object-contain"
             src={signedUrl}
           />
-        </button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Fototessera di {personName}</DialogTitle>
-        </DialogHeader>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={`Fototessera di ${personName}`}
-          className="max-h-[70dvh] w-full object-contain"
-          src={signedUrl}
-        />
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </span>
   )
 }

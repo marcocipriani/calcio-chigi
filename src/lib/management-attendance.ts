@@ -23,10 +23,15 @@ export type AttendanceRate = {
 
 export type AttendanceSummary = {
   training: AttendanceRate
+  /**
+   * Tutti gli allenamenti della stagione, gli stessi per ogni giocatore: così i
+   * pallini restano incolonnati per data. Gli slot fuori dal conteggio sono
+   * NOT_JOINED (prima dell'ingresso in rosa) o KO.
+   */
   recentTraining: Array<{
     eventId: string
     startsAt: string
-    status: "PRESENT" | "ABSENT" | "MISSING"
+    status: "PRESENT" | "ABSENT" | "NOT_JOINED" | "KO"
   }>
 }
 
@@ -59,27 +64,35 @@ export function aggregateManagementAttendance(
 
   return new Map(
     people.map((person) => {
-      const eligible = sortedTrainings.filter(
-        ({ id, startsAt }) =>
-          (!person.joinedOn || startsAt.slice(0, 10) >= person.joinedOn) &&
-          !injuredKeys.has(`${person.profileId}:${id}`),
+      const recentTraining = sortedTrainings.map(
+        ({ id, startsAt }): AttendanceSummary["recentTraining"][number] => ({
+          eventId: id,
+          startsAt,
+          status:
+            person.joinedOn && startsAt.slice(0, 10) < person.joinedOn
+              ? "NOT_JOINED"
+              : injuredKeys.has(`${person.profileId}:${id}`)
+                ? "KO"
+                : // Assenza esplicita e check-in mancante valgono uguale.
+                  checkinByKey.get(`${person.profileId}:${id}`) === "PRESENT"
+                  ? "PRESENT"
+                  : "ABSENT",
+        }),
       )
-      const present = eligible.filter(
-        ({ id }) => checkinByKey.get(`${person.profileId}:${id}`) === "PRESENT",
+      const present = recentTraining.filter(
+        ({ status }) => status === "PRESENT",
+      ).length
+      const total = recentTraining.filter(
+        ({ status }) => status === "PRESENT" || status === "ABSENT",
       ).length
 
       const summary: AttendanceSummary = {
         training: {
           present,
-          total: eligible.length,
-          percentage: eligible.length ? (present / eligible.length) * 100 : 0,
+          total,
+          percentage: total ? (present / total) * 100 : 0,
         },
-        recentTraining: eligible.slice(-8).map((event) => ({
-          eventId: event.id,
-          startsAt: event.startsAt,
-          status:
-            checkinByKey.get(`${person.profileId}:${event.id}`) ?? "MISSING",
-        })),
+        recentTraining,
       }
 
       return [person.profileId, summary]

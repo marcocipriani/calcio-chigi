@@ -7,6 +7,7 @@ import type {
   RegistrationStatus,
 } from "@/lib/domain"
 import type { AttendanceSummary } from "@/lib/management-attendance"
+import type { MembershipDocument } from "@/lib/membership-documents"
 import { romeDateKey } from "@/lib/season"
 
 export type ManagementPayment = {
@@ -57,6 +58,7 @@ export type ManagementPerson = {
   certificateVisitOn?: string | null
   certificateLaboratory?: string | null
   certificateDocumentPath?: string | null
+  documents?: MembershipDocument[]
   attendance?: AttendanceSummary
 }
 

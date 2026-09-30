@@ -1,13 +1,8 @@
 "use client"
 
-import { ArrowDown, ArrowUp, Columns3, RotateCcw } from "lucide-react"
+import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { moveColumn } from "@/lib/management-columns"
 
 export type AvailableManagementColumn = {
@@ -16,6 +11,7 @@ export type AvailableManagementColumn = {
   required?: boolean
 }
 
+/** Sezione "Colonne" del menu Vista: non ha un suo popover. */
 export function ColumnCustomizer({
   columns,
   availableColumns,
@@ -43,97 +39,83 @@ export function ColumnCustomizer({
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <div className="space-y-2 border-t pt-3">
+      <div className="flex items-center justify-between">
+        <strong className="text-sm">Colonne visibili</strong>
         <Button
-          aria-label="Colonne"
-          className="shrink-0 px-2"
+          aria-label="Ripristina colonne"
           disabled={disabled}
-          size="sm"
-          variant="outline"
+          onClick={onReset}
+          size="icon-sm"
+          variant="ghost"
         >
-          <Columns3 aria-hidden="true" />
-          <span className="sr-only lg:not-sr-only">Colonne</span>
+          <RotateCcw aria-hidden="true" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 space-y-3">
-        <div className="flex items-center justify-between">
-          <strong className="text-sm">Colonne visibili</strong>
-          <Button
-            aria-label="Ripristina colonne"
-            disabled={disabled}
-            onClick={onReset}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <RotateCcw aria-hidden="true" />
-          </Button>
-        </div>
+      </div>
 
-        <div className="-mx-1 max-h-[min(60vh,28rem)] space-y-1 overflow-y-auto px-1">
-          {columns.map((id, index) => {
-            const column = availableById.get(id)
-            if (!column) return null
-            return (
-              <div
-                className="flex min-h-9 items-center gap-2 rounded-md px-1 hover:bg-muted"
-                key={id}
-              >
-                <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-                  <input
-                    aria-label={column.label}
-                    checked
-                    className="size-4 accent-primary"
-                    disabled={disabled || column.required}
-                    onChange={() => toggle(column)}
-                    type="checkbox"
-                  />
-                  <span className="truncate">{column.label}</span>
-                </label>
-                <Button
-                  aria-label={`Sposta ${column.label} in alto`}
-                  disabled={disabled || index === 0}
-                  onClick={() => onChange(moveColumn(columns, id, -1))}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <ArrowUp aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label={`Sposta ${column.label} in basso`}
-                  disabled={disabled || index === columns.length - 1}
-                  onClick={() => onChange(moveColumn(columns, id, 1))}
-                  size="icon-sm"
-                  variant="ghost"
-                >
-                  <ArrowDown aria-hidden="true" />
-                </Button>
-              </div>
-            )
-          })}
-          <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Altri campi
-          </p>
-          {availableColumns
-            .filter((column) => !columns.includes(column.id))
-            .map((column) => (
-              <label
-                className="flex min-h-9 items-center gap-2 rounded-md px-1 text-sm hover:bg-muted"
-                key={column.id}
-              >
+      <div className="-mx-1 max-h-56 space-y-1 overflow-y-auto px-1">
+        {columns.map((id, index) => {
+          const column = availableById.get(id)
+          if (!column) return null
+          return (
+            <div
+              className="flex min-h-9 items-center gap-2 rounded-md px-1 hover:bg-muted"
+              key={id}
+            >
+              <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
                 <input
                   aria-label={column.label}
-                  checked={false}
+                  checked
                   className="size-4 accent-primary"
-                  disabled={disabled}
+                  disabled={disabled || column.required}
                   onChange={() => toggle(column)}
                   type="checkbox"
                 />
                 <span className="truncate">{column.label}</span>
               </label>
-            ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+              <Button
+                aria-label={`Sposta ${column.label} in alto`}
+                disabled={disabled || index === 0}
+                onClick={() => onChange(moveColumn(columns, id, -1))}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ArrowUp aria-hidden="true" />
+              </Button>
+              <Button
+                aria-label={`Sposta ${column.label} in basso`}
+                disabled={disabled || index === columns.length - 1}
+                onClick={() => onChange(moveColumn(columns, id, 1))}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <ArrowDown aria-hidden="true" />
+              </Button>
+            </div>
+          )
+        })}
+        <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Altri campi
+        </p>
+        {availableColumns
+          .filter((column) => !columns.includes(column.id))
+          .map((column) => (
+            <label
+              className="flex min-h-9 items-center gap-2 rounded-md px-1 text-sm hover:bg-muted"
+              key={column.id}
+            >
+              <input
+                aria-label={column.label}
+                checked={false}
+                className="size-4 accent-primary"
+                disabled={disabled}
+                onChange={() => toggle(column)}
+                type="checkbox"
+              />
+              <span className="truncate">{column.label}</span>
+            </label>
+          ))}
+      </div>
+    </div>
   )
 }

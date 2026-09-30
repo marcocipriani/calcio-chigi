@@ -16,6 +16,19 @@ import {
   type TableSort,
 } from "@/lib/management-columns"
 
+vi.mock("@/lib/supabaseBrowser", () => ({
+  supabaseBrowser: {
+    storage: {
+      from: () => ({
+        createSignedUrl: async () => ({
+          data: { signedUrl: "https://signed.example/cert.pdf" },
+          error: null,
+        }),
+      }),
+    },
+  },
+}))
+
 vi.stubGlobal(
   "ResizeObserver",
   class ResizeObserver {
@@ -331,9 +344,46 @@ describe("ManagementTable", () => {
       }),
     )
 
+    const dialog = screen.getByRole("dialog", {
+      name: "Fototessera di Anna Rossi",
+    })
+    expect(dialog).toBeVisible()
+    expect(onOpen).not.toHaveBeenCalled()
+
+    // Il dialog è in un portale ma i click risalgono comunque alla riga.
+    fireEvent.click(within(dialog).getByRole("img"))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chiudi" }))
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it("opens the certificate PDF from the table without opening the person drawer", async () => {
+    const onOpen = vi.fn()
+    render(
+      <ManagementTable
+        {...actions}
+        columns={["person", "document"]}
+        onOpen={onOpen}
+        people={[
+          { ...people[1], certificateDocumentPath: "profile/membership/cert.pdf" },
+        ]}
+        selected={new Set()}
+        view="CERTIFICATES"
+      />,
+    )
+
+    fireEvent.click(
+      within(screen.getByRole("table")).getByRole("button", {
+        name: "Apri Certificato di Anna Rossi",
+      }),
+    )
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Certificato di Anna Rossi",
+    })
     expect(
-      screen.getByRole("dialog", { name: "Fototessera di Anna Rossi" }),
-    ).toBeVisible()
+      await within(dialog).findByTitle("Certificato di Anna Rossi"),
+    ).toHaveAttribute("src", "https://signed.example/cert.pdf")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chiudi" }))
     expect(onOpen).not.toHaveBeenCalled()
   })
 

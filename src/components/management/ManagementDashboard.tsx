@@ -67,6 +67,9 @@ import {
 import {
   filterManagementRows,
   managementKpis,
+  PERSON_GROUPS,
+  personGroup,
+  viewGroups,
   type ManagementFilters,
   type ManagementPerson,
 } from "@/lib/management"
@@ -457,13 +460,14 @@ export function ManagementDashboard() {
     })()
   }, [currentPeople, loadedSeasonSlug, loading, seasonSlug, showsPassportPhotos])
 
+  const groups = viewGroups(view)
   const tablePeople = useMemo(
     () =>
-      view === "ATTENDANCE"
-        ? peopleWithAttendance.filter(({ category }) => category === "PLAYER")
-        : view === "INJURIES"
-          ? peopleWithAttendance.filter(({ injuries }) => injuries?.length)
-          : peopleWithAttendance,
+      peopleWithAttendance.filter(
+        (person) =>
+          viewGroups(view).includes(personGroup(person)) &&
+          (view !== "INJURIES" || Boolean(person.injuries?.length)),
+      ),
     [peopleWithAttendance, view],
   )
   const filtered = useMemo(
@@ -520,6 +524,10 @@ export function ManagementDashboard() {
     [selected, visiblePeople],
   )
   const selectedMembershipIds = selectedPeople.map(({ id }) => id)
+  // Lo staff non paga quote: resta fuori anche se selezionato in Persone.
+  const payableMembershipIds = selectedPeople
+    .filter((person) => personGroup(person) !== "STAFF")
+    .map(({ id }) => id)
   const selectedUserIds = selectedPeople
     .map(({ userId }) => userId)
     .filter((id): id is string => Boolean(id))
@@ -708,6 +716,7 @@ export function ManagementDashboard() {
     // I filtri temporanei valgono per la vista che si lascia; ordinamento,
     // layout e larghezze salvati tornano com'erano.
     setTransientFilters({})
+    setFilters((current) => ({ ...current, group: undefined }))
     updateDisplay((current) => ({ ...current, view: nextView }))
   }
 
@@ -996,6 +1005,44 @@ export function ManagementDashboard() {
             </button>
           ))}
         </div>
+        {groups.length > 1 ? (
+          <div
+            aria-label="Gruppo"
+            className="mt-1.5 flex min-w-0 gap-1 overflow-x-auto border-t pt-1.5"
+            role="group"
+          >
+            {[{ id: undefined, label: "Tutti" }, ...PERSON_GROUPS]
+              .filter(({ id }) => !id || groups.includes(id))
+              .map((item) => (
+                <button
+                  aria-pressed={filters.group === item.id}
+                  className={cn(
+                    "inline-flex min-h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    filters.group === item.id
+                      ? "border-transparent bg-operative text-operative-foreground"
+                      : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
+                  )}
+                  key={item.id ?? "ALL"}
+                  onClick={() => {
+                    setSelected(new Set())
+                    setFilters((current) => ({ ...current, group: item.id }))
+                  }}
+                  type="button"
+                >
+                  {item.label}
+                  <span className="tabular-nums opacity-70">
+                    {
+                      filterManagementRows(tablePeople, {
+                        ...filters,
+                        query: "",
+                        group: item.id,
+                      }).length
+                    }
+                  </span>
+                </button>
+              ))}
+          </div>
+        ) : null}
         <div
           aria-label="Strumenti dashboard"
           className="mt-1.5 flex min-w-0 items-center gap-1 border-t pt-1.5"
@@ -1225,7 +1272,13 @@ export function ManagementDashboard() {
               <Button
                 aria-label="Registra quota"
                 disabled={actionBusy}
-                onClick={() => setPaymentOpen(true)}
+                onClick={() => {
+                  if (!payableMembershipIds.length) {
+                    toast.error("Lo staff non paga quote")
+                    return
+                  }
+                  setPaymentOpen(true)
+                }}
                 size="sm"
                 variant="outline"
               >
@@ -1289,7 +1342,7 @@ export function ManagementDashboard() {
       />
       <BulkPaymentDialog
         managerProfileId={profile?.id ?? ""}
-        membershipIds={currentRosterLoaded ? selectedMembershipIds : []}
+        membershipIds={currentRosterLoaded ? payableMembershipIds : []}
         onOpenChange={setPaymentOpen}
         onSaved={load}
         open={paymentOpen}

@@ -4,6 +4,8 @@ import {
   effectiveCertificateStatus,
   filterManagementRows,
   managementKpis,
+  personGroup,
+  viewGroups,
   type ManagementPerson,
 } from "@/lib/management"
 
@@ -109,10 +111,42 @@ describe("managementKpis", () => {
     expect(managementKpis(people)).toEqual({
       total: 2,
       registrationsOpen: 1,
-      paymentsOpen: 1,
+      // Lo staff non paga quote: la sua quota aperta non conta.
+      paymentsOpen: 0,
       certificatesOpen: 0,
       accountsOpen: 1,
       archived: 0,
+    })
+  })
+})
+
+describe("person groups", () => {
+  const trainee: ManagementPerson = {
+    ...people[0],
+    id: "membership-3",
+    status: "TRAINING_ONLY",
+    registrationStatus: "TODO",
+    payments: [{ status: "DUE", amountDue: 30 }],
+    certificateStatus: "MISSING",
+  }
+  const all = [...people, trainee]
+
+  it("splits players, training-only and staff", () => {
+    expect(all.map(personGroup)).toEqual(["PLAYER", "STAFF", "TRAINING_ONLY"])
+    expect(
+      filterManagementRows(all, { query: "", group: "TRAINING_ONLY" }),
+    ).toEqual([trainee])
+  })
+
+  it("scopes each view: quote no staff, tesseramenti and certificati no training-only", () => {
+    expect(viewGroups("PEOPLE")).toEqual(["PLAYER", "TRAINING_ONLY", "STAFF"])
+    expect(viewGroups("PAYMENTS")).toEqual(["PLAYER", "TRAINING_ONLY"])
+    expect(viewGroups("REGISTRATIONS")).toEqual(["PLAYER", "STAFF"])
+    expect(viewGroups("CERTIFICATES")).toEqual(["PLAYER"])
+    expect(managementKpis(all)).toMatchObject({
+      registrationsOpen: 1,
+      paymentsOpen: 1,
+      certificatesOpen: 0,
     })
   })
 })

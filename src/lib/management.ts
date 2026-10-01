@@ -75,10 +75,40 @@ export function effectiveCertificateStatus(
     : status
 }
 
+/** Solo allenamenti = giocatore senza tesseramento né certificato finché non entra in rosa. */
+export type PersonGroup = "PLAYER" | "TRAINING_ONLY" | "STAFF"
+
+export const PERSON_GROUPS: Array<{ id: PersonGroup; label: string }> = [
+  { id: "PLAYER", label: "Giocatori" },
+  { id: "TRAINING_ONLY", label: "Solo allenamenti" },
+  { id: "STAFF", label: "Staff" },
+]
+
+export function personGroup({
+  category,
+  status,
+}: Pick<ManagementPerson, "category" | "status">): PersonGroup {
+  if (category === "STAFF") return "STAFF"
+  return status === "TRAINING_ONLY" ? "TRAINING_ONLY" : "PLAYER"
+}
+
+/** Chi compare in ogni vista; assente = tutti. Lo staff non paga quote. */
+export const VIEW_GROUPS: Partial<Record<string, PersonGroup[]>> = {
+  ATTENDANCE: ["PLAYER", "TRAINING_ONLY"],
+  PAYMENTS: ["PLAYER", "TRAINING_ONLY"],
+  REGISTRATIONS: ["PLAYER", "STAFF"],
+  CERTIFICATES: ["PLAYER"],
+}
+
+export function viewGroups(view: string): PersonGroup[] {
+  return VIEW_GROUPS[view] ?? PERSON_GROUPS.map(({ id }) => id)
+}
+
 export type ManagementFilters = {
   query: string
   /** true = mostra solo gli archiviati (elenco separato). */
   archived?: boolean
+  group?: PersonGroup
 }
 
 export function filterManagementRows(
@@ -89,6 +119,7 @@ export function filterManagementRows(
 
   return people.filter((person) => {
     if ((person.status === "NO") !== Boolean(filters.archived)) return false
+    if (filters.group && personGroup(person) !== filters.group) return false
 
     if (
       query &&
@@ -113,20 +144,19 @@ export function filterManagementRows(
 
 export function managementKpis(allPeople: ManagementPerson[]) {
   const people = allPeople.filter(({ status }) => status !== "NO")
+  const inView = (view: string) =>
+    people.filter((person) => viewGroups(view).includes(personGroup(person)))
 
   return {
     total: people.length,
-    registrationsOpen: people.filter(
+    registrationsOpen: inView("REGISTRATIONS").filter(
       ({ registrationStatus }) => registrationStatus !== "ACTIVE",
     ).length,
-    paymentsOpen: people.filter(({ payments }) =>
+    paymentsOpen: inView("PAYMENTS").filter(({ payments }) =>
       payments.some(({ status }) => status !== "PAID"),
     ).length,
-    certificatesOpen: people.filter(
-      ({ category, status, certificateStatus }) =>
-        category === "PLAYER" &&
-        status === "YES" &&
-        certificateStatus !== "VALID",
+    certificatesOpen: inView("CERTIFICATES").filter(
+      ({ certificateStatus }) => certificateStatus !== "VALID",
     ).length,
     accountsOpen: people.filter(
       ({ accountStatus }) => accountStatus !== "ACTIVE",

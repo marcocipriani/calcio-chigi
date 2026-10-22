@@ -139,7 +139,7 @@ export default function LoginPage() {
                 <div role="status">
                     <h2 className="font-bold text-lg text-green-700 dark:text-green-300">Email inviata!</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Apri il link oppure inserisci qui il codice a 6 cifre (controlla anche lo spam).
+                        Apri il link oppure inserisci qui il codice ricevuto (controlla anche lo spam).
                     </p>
                 </div>
                 <form onSubmit={handleVerify} className="space-y-3">
@@ -149,15 +149,16 @@ export default function LoginPage() {
                         name="code"
                         inputMode="numeric"
                         autoComplete="one-time-code"
-                        pattern="[0-9]{6}"
-                        maxLength={6}
+                        // La lunghezza dipende dalla config Auth di Supabase (6–8).
+                        pattern="[0-9]{6,8}"
+                        maxLength={8}
                         placeholder="123456"
                         value={code}
                         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                         required
                         className="h-11 text-center font-mono text-lg tracking-[0.4em]"
                     />
-                    <Button className="w-full h-11 font-bold" type="submit" disabled={loading || code.length !== 6}>
+                    <Button className="w-full h-11 font-bold" type="submit" disabled={loading || code.length < 6}>
                         {loading ? <><Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" /> Verifica…</> : 'Accedi con il codice'}
                     </Button>
                 </form>

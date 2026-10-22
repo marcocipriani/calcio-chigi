@@ -14,7 +14,7 @@ Successo: dopo la partita i giocatori aprono l'app, votano in pochi tap, e a vot
 
 ### Finestra
 - **Fine partita** = `data_fine_ora` se presente, altrimenti `data_ora + 2h` (le partite sincronizzate da Enjore hanno `data_fine_ora` nullo). *Scelta di Claude.*
-- **Apertura automatica** (deciso: opzione A): la votazione si apre al primo momento, dopo la fine partita, in cui esiste almeno un votabile (formazione pubblicata + almeno un convocato con check-in PRESENT). Il cron continua a controllare; se il check-in arriva tardi, la votazione si apre allora.
+- **Apertura automatica** (deciso: opzione A): la votazione si apre al primo momento, dopo la fine partita, in cui esiste almeno un votabile (almeno un giocatore con check-in PRESENT). Il cron continua a controllare; se il check-in arriva tardi, la votazione si apre allora.
 - **Ritardo massimo:** se entro `fine partita + 48h` non c'è alcun votabile, la votazione per quella partita non si apre mai (niente notifiche).
 - **Snapshot all'apertura:** votanti e votabili sono congelati al momento dell'apertura. Check-in o presenze modificati dopo non cambiano liste né voti. *Scelta di Claude.*
 - **Chiusura** al primo di:
@@ -22,16 +22,16 @@ Successo: dopo la partita i giocatori aprono l'app, votano in pochi tap, e a vot
   2. tutti i votanti dello snapshot hanno votato;
   3. il manager chiude manualmente (slide "Scorri per chiudere la votazione", viola = azione manager).
 - Il risultato della partita non influisce in nessun modo.
-- **Solo partite nuove:** la funzione vale per partite la cui fine è successiva al rilascio; le partite passate vengono ignorate (nessuna votazione, nessuna notifica). *Scelta di Claude.*
+- **Solo partite nuove:** la funzione vale per partite la cui fine è successiva al rilascio; le partite passate vengono ignorate (nessuna votazione, nessuna notifica). *Scelta di Claude.* Eccezione chiesta dall'utente: Palazzo Madama (22/10) apre una tantum venerdì 23/10 alle 8:00 Roma.
 - **Eventi modificati:** se data/ora cambia prima dell'apertura, la finestra segue la nuova data (calcolata al volo). Dopo l'apertura la votazione resta com'è. Eventi annullati (`cancellato`) o eliminati: la votazione non si apre; se già aperta/chiusa, l'evento è escluso da Statistiche e profilo. *Scelta di Claude.*
 
 ### Chi vota (votanti)
 - Profili con `attendance.status in ('PRESENTE','INFORTUNATO_PRESENTE')` ("Ci sono" o "Spettatore") per quell'evento.
-- Serve un account collegato (utente autenticato il cui profilo è quello).
+- Anche senza account (deciso 2026-10-23): entrano nello snapshot e contano nel denominatore; se si registrano prima della chiusura possono votare. La notifica di apertura arriva solo a chi ha già l'account.
 - Lo snapshot dei votanti è preso all'apertura: è il denominatore di "X/Y hanno votato" e della chiusura per "tutti hanno votato". *Scelta di Claude.*
 
 ### Chi si può votare (votabili)
-- Convocati = `official_formation_players` della formazione pubblicata dell'evento, **e** con `event_checkins.status = 'PRESENT'`.
+- Check-in `event_checkins.status = 'PRESENT'`, staff escluso. La formazione pubblicata non è richiesta (rivisto 2026-10-23: il check-in del manager dice già chi ha giocato).
 - Non si può votare sé stessi. *Scelta di Claude.*
 
 ### Il voto

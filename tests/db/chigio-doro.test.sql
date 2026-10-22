@@ -8,7 +8,8 @@ values
   ('00000000-0000-0000-0000-000000000d02', 'chigio-anna@test.local', 'authenticated', 'authenticated', now(), now()),
   ('00000000-0000-0000-0000-000000000d03', 'chigio-bruno@test.local', 'authenticated', 'authenticated', now(), now()),
   ('00000000-0000-0000-0000-000000000d04', 'chigio-carlo@test.local', 'authenticated', 'authenticated', now(), now()),
-  ('00000000-0000-0000-0000-000000000d05', 'chigio-dario@test.local', 'authenticated', 'authenticated', now(), now());
+  ('00000000-0000-0000-0000-000000000d05', 'chigio-dario@test.local', 'authenticated', 'authenticated', now(), now()),
+  ('00000000-0000-0000-0000-000000000d07', 'chigio-sara@test.local', 'authenticated', 'authenticated', now(), now());
 
 insert into public.profiles (id, user_id, nome, cognome, is_manager)
 values
@@ -18,6 +19,9 @@ values
   ('10000000-0000-0000-0000-000000000d04', '00000000-0000-0000-0000-000000000d04', 'Carlo', 'Centrale', false),
   ('10000000-0000-0000-0000-000000000d05', '00000000-0000-0000-0000-000000000d05', 'Dario', 'Spettatore', false),
   ('10000000-0000-0000-0000-000000000d06', null, 'Ugo', 'Assente', false);
+
+insert into public.profiles (id, user_id, nome, cognome, is_manager, is_staff)
+values ('10000000-0000-0000-0000-000000000d07', null, 'Sara', 'Staff', false, true);
 
 insert into public.season_memberships (profile_id, season_id, category, status)
 select p.id, s.id, 'PLAYER', 'YES'
@@ -50,7 +54,8 @@ from (values
   ('10000000-0000-0000-0000-000000000d02'::uuid, 'PRESENT'),
   ('10000000-0000-0000-0000-000000000d03'::uuid, 'PRESENT'),
   ('10000000-0000-0000-0000-000000000d04'::uuid, 'PRESENT'),
-  ('10000000-0000-0000-0000-000000000d06'::uuid, 'ABSENT')
+  ('10000000-0000-0000-0000-000000000d06'::uuid, 'ABSENT'),
+  ('10000000-0000-0000-0000-000000000d07'::uuid, 'PRESENT')
 ) v(p, s);
 
 insert into public.attendance (event_id, profile_id, status)
@@ -60,20 +65,21 @@ from (values
   ('10000000-0000-0000-0000-000000000d02'::uuid, 'PRESENTE'),
   ('10000000-0000-0000-0000-000000000d03'::uuid, 'PRESENTE'),
   ('10000000-0000-0000-0000-000000000d04'::uuid, 'PRESENTE'),
-  ('10000000-0000-0000-0000-000000000d05'::uuid, 'INFORTUNATO_PRESENTE')
+  ('10000000-0000-0000-0000-000000000d05'::uuid, 'INFORTUNATO_PRESENTE'),
+  ('10000000-0000-0000-0000-000000000d07'::uuid, 'INFORTUNATO_PRESENTE')
 ) v(p, s);
 
 select private.chigio_tick();
 
 select is(
   (select voters_total from public.chigio_polls where event_id = '40000000-0000-0000-0000-000000000d01'),
-  5,
-  'poll opens with players and spectators as voters'
+  6,
+  'poll opens with players and spectators as voters, even without an account'
 );
 select is(
   (select count(*)::int from public.chigio_poll_candidates where event_id = '40000000-0000-0000-0000-000000000d01'),
   4,
-  'only called-up players checked in PRESENT are candidates'
+  'only non-staff players checked in PRESENT are candidates'
 );
 select ok(
   exists (select 1 from public.notifications where idempotency_key = 'chigio-open:40000000-0000-0000-0000-000000000d01'),
@@ -87,6 +93,11 @@ select ok(
   not exists (select 1 from public.chigio_polls where event_id = '40000000-0000-0000-0000-000000000d02'),
   'a match not yet over has no poll'
 );
+
+-- Sara si registra dopo l'apertura: può votare lo stesso (collegata dal manager).
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000d01', true);
+update public.profiles set user_id = '00000000-0000-0000-0000-000000000d07'
+where id = '10000000-0000-0000-0000-000000000d07';
 
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
@@ -141,6 +152,8 @@ select public.submit_chigio_vote('40000000-0000-0000-0000-000000000d01', '100000
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000d05', true);
 select public.submit_chigio_vote('40000000-0000-0000-0000-000000000d01', '10000000-0000-0000-0000-000000000d02',
   array['10000000-0000-0000-0000-000000000d03']::uuid[]);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000d07', true);
+select public.submit_chigio_vote('40000000-0000-0000-0000-000000000d01', '10000000-0000-0000-0000-000000000d01');
 
 select is(
   (select closed_reason from public.chigio_polls where event_id = '40000000-0000-0000-0000-000000000d01'),

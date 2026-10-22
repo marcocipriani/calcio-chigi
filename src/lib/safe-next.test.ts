@@ -9,7 +9,7 @@ describe("safeNext", () => {
   })
 
   it("scarta host esterni e valori vuoti", () => {
-    for (const value of [null, "", "maglie", "//evil.com", "/\\evil.com", "https://evil.com"]) {
+    for (const value of [null, "", "maglie", "//evil.com", "/\\evil.com", "https://evil.com", "/\t/evil.com", "/\n/evil.com"]) {
       expect(safeNext(value)).toBe("/")
     }
   })

@@ -141,7 +141,7 @@ export default function PlayerPage({
   useEffect(() => {
     if (sessionLoading) return
     if (!userId) {
-      replace("/login")
+      replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
       return
     }
     if (!isAssociated) {

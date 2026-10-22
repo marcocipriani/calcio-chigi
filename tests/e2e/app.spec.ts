@@ -49,6 +49,10 @@ async function authenticate(
     }
   }
   if (!session) throw new Error("E2E login failed")
+  // Il benvenuto del primo accesso è modale: lo copre il suo test unitario.
+  await context.addInitScript((userId) => {
+    window.localStorage.setItem(`welcome-done:${userId}`, "1")
+  }, session.user.id)
   const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`
   const encoded = `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`
   const chunks = Array.from(
@@ -857,7 +861,7 @@ test("rosa e dettaglio anonimi non espongono profili", async ({
     }
   })
   await page.goto(`/giocatore/${E2E_PLAYER_ID}`)
-  await expect(page).toHaveURL(/\/login$/)
+  await expect(page).toHaveURL(/\/login\?next=%2Fgiocatore%2F/)
   await expect(page.getByText("+39 333 0000002")).toHaveCount(0)
   await expect(page.getByText(/NON ESPORRE/)).toHaveCount(0)
   expect(detailRequests).toEqual([])

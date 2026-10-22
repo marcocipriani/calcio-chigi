@@ -131,6 +131,42 @@ describe("AppGates", () => {
     })
   })
 
+  it("links straight away when the account email matches a roster profile", async () => {
+    const client = fakeClient({
+      profile: null,
+      associationStatus: "NONE",
+      membership: null,
+      unreadNotifications: 0,
+    })
+    const baseRpc = client.rpc.getMockImplementation()!
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "my_email_profile_match"
+        ? { data: [{ id: "profile-2", nome: "Luca", cognome: "Verdi" }] as never, error: null }
+        : baseRpc(name),
+    )
+
+    render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      /corrisponde a Luca Verdi/i,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Sì, sono io/i }))
+
+    await waitFor(() => {
+      expect(client.rpc).toHaveBeenCalledWith("claim_profile_by_email", {
+        p_profile_id: "profile-2",
+      })
+    })
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      "request_profile_association",
+      expect.anything(),
+    )
+  })
+
   it("lets an unmatched account postpone the association or sign out", async () => {
     sessionStorage.clear()
     const client = fakeClient({
@@ -255,6 +291,7 @@ describe("AppGates", () => {
 
   it("keeps the jersey reminder until confirmation, collapsible into a shirt button", async () => {
     window.localStorage.clear()
+    window.localStorage.setItem("welcome-done:user-1", "1")
     const client = jerseyClient({ preference: null, confirmedAt: null })
 
     const { unmount } = render(
@@ -294,6 +331,7 @@ describe("AppGates", () => {
 
   it("starts collapsed for players who already chose and hides once confirmed", async () => {
     window.localStorage.clear()
+    window.localStorage.setItem("welcome-done:user-1", "1")
     const open = jerseyClient({
       preference: { membership_id: "membership-1" },
       confirmedAt: null,
@@ -321,5 +359,33 @@ describe("AppGates", () => {
     )
     await waitFor(() => expect(closed.from).toHaveBeenCalledTimes(2))
     expect(screen.queryByRole("button", { name: /Numero di maglia/ })).toBeNull()
+  })
+
+  it("welcomes a newly linked player once, before the open payments reminder", async () => {
+    window.localStorage.clear()
+    const client = jerseyClient({ preference: null, confirmedAt: "2026-09-01" })
+    const baseRpc = client.rpc.getMockImplementation()!
+    client.rpc.mockImplementation(async (name: string) => {
+      const result = await baseRpc(name)
+      return name === "get_app_context"
+        ? { ...result, data: { ...result.data, openPayments: { count: 1, amount: 50 } } }
+        : result
+    })
+
+    const { unmount } = render(
+      <AppSessionProvider client={client as never}>
+        <AppGates client={client as never} />
+      </AppSessionProvider>,
+    )
+
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent(/Benvenuto, Marco/)
+    expect(dialog).toHaveTextContent(/Mancano: foto, data di nascita/)
+    expect(screen.queryByText(/quota aperta/)).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fatto" }))
+    expect(await screen.findByText(/Hai una quota aperta/)).toBeInTheDocument()
+    expect(window.localStorage.getItem("welcome-done:user-1")).toBe("1")
+    unmount()
   })
 })

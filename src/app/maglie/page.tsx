@@ -86,7 +86,7 @@ export default function JerseyNumbersPage() {
   useEffect(() => {
     if (sessionLoading) return
     if (!user) {
-      replace("/login")
+      replace(`/login?next=${encodeURIComponent(window.location.pathname)}`)
       return
     }
     if (!isAssociated) {

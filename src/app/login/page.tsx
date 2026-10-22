@@ -11,35 +11,60 @@ import { Loader2, Mail } from 'lucide-react'
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { PageContainer } from "@/components/layout/PageContainer"
+import { safeNext } from "@/lib/safe-next"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [code, setCode] = useState('')
+  const [next, setNext] = useState('/')
   const router = useRouter()
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const target = safeNext(params.get('next'))
+    setNext(target)
+    if (params.get('error')) {
+      toast.error("Link scaduto o già usato", {
+        description: "Richiedine uno nuovo oppure usa il codice dell’email.",
+      })
+    }
+
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.replace('/')
+        router.replace(target)
       }
     }
     checkUser()
   }, [router])
 
+  const callbackUrl = () => {
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    return `${origin}/auth/callback?next=${encodeURIComponent(next)}`
+  }
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    setLoading(false)
+    if (error) {
+      toast.error("Codice non valido o scaduto")
+      return
+    }
+    router.replace(next)
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
-    const origin = process.env.NEXT_PUBLIC_SITE_URL 
-      ? process.env.NEXT_PUBLIC_SITE_URL 
-      : window.location.origin;
 
-    const redirectTo = `${origin}/auth/callback`
+    const redirectTo = callbackUrl()
 
-    const { error } = await supabase.auth.signInWithOtp({ 
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: redirectTo,
@@ -58,21 +83,11 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
-    const origin = process.env.NEXT_PUBLIC_SITE_URL 
-      ? process.env.NEXT_PUBLIC_SITE_URL 
-      : window.location.origin;
-      
-    const redirectTo = `${origin}/auth/callback`
 
+    // Niente prompt=consent: Google chiede il consenso solo al primo accesso.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: redirectTo,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
+      options: { redirectTo: callbackUrl() },
     })
 
     if (error) {
@@ -122,10 +137,31 @@ export default function LoginPage() {
                     <Mail aria-hidden="true" className="h-6 w-6" />
                 </div>
                 <div role="status">
-                    <h2 className="font-bold text-lg text-green-700 dark:text-green-300">Link inviato!</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Controlla la tua casella di posta (anche nello spam).</p>
+                    <h2 className="font-bold text-lg text-green-700 dark:text-green-300">Email inviata!</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Apri il link oppure inserisci qui il codice a 6 cifre (controlla anche lo spam).
+                    </p>
                 </div>
-                <Button variant="outline" onClick={() => setSent(false)} className="w-full mt-2">
+                <form onSubmit={handleVerify} className="space-y-3">
+                    <Label className="sr-only" htmlFor="login-code">Codice</Label>
+                    <Input
+                        id="login-code"
+                        name="code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
+                        placeholder="123456"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                        required
+                        className="h-11 text-center font-mono text-lg tracking-[0.4em]"
+                    />
+                    <Button className="w-full h-11 font-bold" type="submit" disabled={loading || code.length !== 6}>
+                        {loading ? <><Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" /> Verifica…</> : 'Accedi con il codice'}
+                    </Button>
+                </form>
+                <Button variant="ghost" onClick={() => { setSent(false); setCode('') }} className="w-full">
                     Torna indietro
                 </Button>
             </div>

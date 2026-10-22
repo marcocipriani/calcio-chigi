@@ -350,7 +350,7 @@ describe("protected player page", () => {
     renderPlayerPage()
 
     await waitFor(() => {
-      expect(navigation.replace).toHaveBeenCalledWith("/login")
+      expect(navigation.replace).toHaveBeenCalledWith(expect.stringMatching(/^\/login\?next=/))
     })
     expect(database.from).not.toHaveBeenCalled()
     expect(database.rpc).not.toHaveBeenCalled()

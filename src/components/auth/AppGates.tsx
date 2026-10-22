@@ -6,16 +6,20 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   Archive,
+  Bell,
   Check,
   ChevronDown,
   Search,
   Shirt,
+  Smartphone,
+  UserRound,
   UserRoundCheck,
   WalletCards,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
+import { detectPushPlatform, enablePushNotifications, supportsWebPush } from "@/lib/push"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,7 +46,8 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   const [profiles, setProfiles] = useState<ClaimableProfile[]>([])
   const [selected, setSelected] = useState<ClaimableProfile | null>(null)
   const [query, setQuery] = useState("")
-  const [step, setStep] = useState<"PICK" | "CONFIRM">("PICK")
+  const [step, setStep] = useState<"PICK" | "CONFIRM" | "EMAIL_MATCH">("PICK")
+  const [emailMatch, setEmailMatch] = useState<ClaimableProfile | null>(null)
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -79,6 +84,13 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
     if (!open) return
 
     let active = true
+    // Email dell'account già sul profilo: basta confermare, niente approvazione.
+    void client.rpc("my_email_profile_match").then(({ data }) => {
+      const match = (data as ClaimableProfile[] | null)?.[0]
+      if (!active || !match) return
+      setEmailMatch(match)
+      setStep("EMAIL_MATCH")
+    })
     void client
       .from("claimable_profile_directory")
       .select("id, nome, cognome")
@@ -104,6 +116,24 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
       `${nome} ${cognome}`.toLocaleLowerCase("it").includes(normalizedQuery),
     )
   }, [profiles, query])
+
+  async function claimEmailMatch() {
+    if (!emailMatch) return
+    setBusy(true)
+    setError(null)
+    const { error: claimError } = await client.rpc("claim_profile_by_email", {
+      p_profile_id: emailMatch.id,
+    })
+    setBusy(false)
+    if (claimError) {
+      setError("Collegamento non riuscito. Scegli il tuo nome dall’elenco.")
+      setStep("PICK")
+      return
+    }
+    setSubmitted(true)
+    toast.success(`Benvenuto, ${emailMatch.nome}!`)
+    await refresh()
+  }
 
   async function submit() {
     if (!selected) return
@@ -147,7 +177,34 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
           </DialogDescription>
         </DialogHeader>
 
-        {step === "PICK" ? (
+        {step === "EMAIL_MATCH" && emailMatch ? (
+          <>
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+              La tua email corrisponde a{" "}
+              <strong>
+                {emailMatch.nome} {emailMatch.cognome}
+              </strong>
+              . Sei tu? L’account verrà collegato subito.
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                disabled={busy}
+                variant="outline"
+                onClick={() => setStep("PICK")}
+              >
+                Non sono io
+              </Button>
+              <Button disabled={busy} onClick={claimEmailMatch}>
+                {busy ? "Collegamento…" : "Sì, sono io"}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : step === "PICK" ? (
           <>
             <label className="relative block shrink-0">
               <span className="sr-only">Cerca nome o cognome</span>
@@ -316,12 +373,168 @@ function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
   )
 }
 
-function OpenPaymentsPrompt() {
+type InstallPromptEvent = Event & { prompt: () => Promise<void> }
+
+/**
+ * Benvenuto al primo accesso dopo il collegamento: cosa manca al profilo,
+ * installazione della PWA e notifiche. Compare una volta per account.
+ */
+function WelcomePrompt({
+  client,
+  onOpenChange,
+}: {
+  client: SupabaseClient
+  onOpenChange: (open: boolean) => void
+}) {
+  const { user, profile, isAssociated } = useAppSession()
+  const [open, setOpen] = useState(false)
+  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null)
+  const [standalone, setStandalone] = useState(false)
+  const [platform, setPlatform] = useState<ReturnType<typeof detectPushPlatform>>("web")
+  const [pushOn, setPushOn] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const key = `welcome-done:${user?.id}`
+
+  useEffect(() => {
+    const capture = (event: Event) => {
+      event.preventDefault()
+      setInstallEvent(event as InstallPromptEvent)
+    }
+    window.addEventListener("beforeinstallprompt", capture)
+    return () => window.removeEventListener("beforeinstallprompt", capture)
+  }, [])
+
+  const missingProfile = [
+    !profile?.avatar_url && "foto",
+    !profile?.data_nascita && "data di nascita",
+  ].filter(Boolean) as string[]
+
+  useEffect(() => {
+    if (!isAssociated || !user) return
+    try {
+      if (window.localStorage.getItem(key)) return onOpenChange(false)
+    } catch {
+      // Senza storage il benvenuto compare a ogni visita finché non si chiude.
+    }
+    const isStandalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+    const needsPush = supportsWebPush() && Notification.permission === "default"
+    setStandalone(isStandalone)
+    setPlatform(detectPushPlatform({ userAgent: navigator.userAgent, standalone: isStandalone }))
+    setPushOn(!needsPush)
+    // Niente da proporre: non disturbare.
+    if (missingProfile.length === 0 && isStandalone && !needsPush) {
+      return onOpenChange(false)
+    }
+    setOpen(true)
+    // missingProfile deriva da profile: basta l'identità dell'utente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAssociated, user?.id])
+
+  function close() {
+    try {
+      window.localStorage.setItem(key, "1")
+    } catch {
+      // Vedi sopra.
+    }
+    setOpen(false)
+    onOpenChange(false)
+  }
+
+  async function install() {
+    await installEvent?.prompt()
+    setInstallEvent(null)
+  }
+
+  async function enablePush() {
+    if (!user) return
+    setBusy(true)
+    try {
+      await enablePushNotifications(client, user.id)
+      setPushOn(true)
+      toast.success("Notifiche push attivate")
+    } catch {
+      toast.error("Notifiche non attivate. Puoi riprovare dalla campanella.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const step = "flex items-start gap-3 rounded-lg border p-3 text-sm"
+  const icon = "mt-0.5 size-5 shrink-0 text-primary"
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && close()}>
+      <DialogContent className="gap-3 p-4 sm:max-w-sm">
+        <DialogHeader className="text-left">
+          <DialogTitle>Benvenuto{profile?.nome ? `, ${profile.nome}` : ""}!</DialogTitle>
+          <DialogDescription>
+            Tre passi per avere tutto pronto per la stagione.
+          </DialogDescription>
+        </DialogHeader>
+
+        {missingProfile.length > 0 && (
+          <div className={step}>
+            <UserRound aria-hidden="true" className={icon} />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Completa il profilo</p>
+              <p className="text-muted-foreground">Mancano: {missingProfile.join(", ")}.</p>
+            </div>
+            <Button asChild onClick={close} size="sm" variant="outline">
+              <Link href="/profilo">Apri</Link>
+            </Button>
+          </div>
+        )}
+
+        {!standalone && (
+          <div className={step}>
+            <Smartphone aria-hidden="true" className={icon} />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Installa l’app</p>
+              <p className="text-muted-foreground">
+                {platform === "ios-browser"
+                  ? "In Safari tocca Condividi, poi “Aggiungi alla schermata Home”."
+                  : installEvent
+                    ? "Si apre come un’app, senza barra del browser."
+                    : "Dal menu del browser scegli “Installa app” o “Aggiungi a schermata Home”."}
+              </p>
+            </div>
+            {installEvent && (
+              <Button onClick={() => void install()} size="sm" variant="outline">
+                Installa
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!pushOn && platform !== "ios-browser" && (
+          <div className={step}>
+            <Bell aria-hidden="true" className={icon} />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Attiva le notifiche</p>
+              <p className="text-muted-foreground">Convocazioni, quote e cambi di programma.</p>
+            </div>
+            <Button disabled={busy} onClick={() => void enablePush()} size="sm" variant="outline">
+              Attiva
+            </Button>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button onClick={close}>Fatto</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function OpenPaymentsPrompt({ suppressed }: { suppressed: boolean }) {
   const { isAssociated, openPayments, targetSeason } = useAppSession()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAssociated || openPayments.count === 0) return
+    if (suppressed || !isAssociated || openPayments.count === 0) return
     const today = new Date().toISOString().slice(0, 10)
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
     try {
@@ -330,7 +543,7 @@ function OpenPaymentsPrompt() {
       // Senza storage il promemoria compare a ogni visita.
     }
     setOpen(true)
-  }, [isAssociated, openPayments.count, targetSeason?.id])
+  }, [suppressed, isAssociated, openPayments.count, targetSeason?.id])
 
   function dismiss() {
     const today = new Date().toISOString().slice(0, 10)
@@ -528,11 +741,16 @@ export function AppGates({
   client?: SupabaseClient
   seasonSlug?: string
 }) {
+  // Un dialog alla volta: le quote aspettano che il benvenuto sia chiuso o
+  // non serva (lo segnala WelcomePrompt).
+  const [welcomeOpen, setWelcomeOpen] = useState(true)
+
   return (
     <>
       <AccountAssociationPrompt client={client} />
       <ArchivedMemberNotice client={client} />
-      <OpenPaymentsPrompt />
+      <WelcomePrompt client={client} onOpenChange={setWelcomeOpen} />
+      <OpenPaymentsPrompt suppressed={welcomeOpen} />
       <JerseyPreferencePrompt client={client} />
     </>
   )

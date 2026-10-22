@@ -27,6 +27,7 @@ import { OfficialFormationPanel, type PublishedCallups } from '@/components/form
 import { buildMatchMessage } from '@/lib/formations';
 import { EventRosterPanel } from '@/components/events/EventRosterPanel';
 import { PageContainer } from "@/components/layout/PageContainer";
+import { ChigioDoroCard } from '@/components/chigio/ChigioDoroCard';
 
 interface RosterPlayer {
   id: string;
@@ -550,6 +551,10 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         )}
                     </CardContent>
                 </Card>
+            )}
+
+            {isAssociated && isMatch && !isCancelled && (
+                <ChigioDoroCard eventId={id} isManager={isManager} myProfileId={myProfileId} players={votedRoster} />
             )}
           </div>
 

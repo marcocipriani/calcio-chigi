@@ -412,7 +412,7 @@ describe("protected player page", () => {
     )
     expect(screen.getByLabelText("Ammonizioni: 3")).toBeVisible()
     expect(screen.getByLabelText("Espulsioni: 1")).toBeVisible()
-    expect(queriedTables()).toEqual(["seasons"])
+    expect(queriedTables()).toEqual(["seasons", "chigio_season_stats"])
     expect(screen.queryByText("Tesseramento")).not.toBeInTheDocument()
     expect(screen.queryByText("Contatti operativi")).not.toBeInTheDocument()
   })
@@ -431,6 +431,7 @@ describe("protected player page", () => {
     expect(screen.queryByText("Contatti operativi")).not.toBeInTheDocument()
     expect(queriedTables()).toEqual([
       "seasons",
+      "chigio_season_stats",
       "season_memberships",
       "payments",
       "medical_certificates",
@@ -475,6 +476,7 @@ describe("protected player page", () => {
     expect(screen.getByText("elio@example.test")).toBeVisible()
     expect(queriedTables()).toEqual([
       "seasons",
+      "chigio_season_stats",
       "season_memberships",
       "payments",
       "medical_certificates",
@@ -530,7 +532,7 @@ describe("protected player page", () => {
     renderPlayerPage()
 
     expect(await screen.findByText("Giocatore non trovato.")).toBeVisible()
-    expect(queriedTables()).toEqual(["seasons"])
+    expect(queriedTables()).toEqual(["seasons", "chigio_season_stats"])
   })
 
   it("renders a non-leaking alert when the safe RPC fails", async () => {
@@ -549,7 +551,7 @@ describe("protected player page", () => {
     )
     expect(screen.queryByText("private RPC detail")).not.toBeInTheDocument()
     expect(screen.queryByText("Elio Dorbolò")).not.toBeInTheDocument()
-    expect(queriedTables()).toEqual(["seasons"])
+    expect(queriedTables()).toEqual(["seasons", "chigio_season_stats"])
   })
 
   it("ignores a stale safe-profile response after the player id changes", async () => {

@@ -1231,6 +1231,62 @@ test("manager salva goal assist MVP ammonizioni ed espulsioni ufficiali", async 
   expect(award).toEqual({ profile_id: E2E_PLAYER_ID })
 })
 
+test("chigio d'oro: voto anonimo del giocatore e chiusura a slide del manager", async ({
+  browser,
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop")
+  const eventId = "92000000-0000-0000-0000-000000000003"
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  await serviceClient.from("chigio_polls").delete().eq("event_id", eventId)
+  const { error: pollError } = await serviceClient.from("chigio_polls").insert({
+    event_id: eventId,
+    closes_at: new Date(Date.now() + 20 * 3600_000).toISOString(),
+    voters_total: 2,
+  })
+  expect(pollError).toBeNull()
+  await serviceClient.from("chigio_poll_candidates").insert([
+    { event_id: eventId, profile_id: E2E_MANAGER_ID },
+    { event_id: eventId, profile_id: E2E_MAYBE_ID },
+  ])
+  await serviceClient.from("chigio_poll_voters").insert([
+    { event_id: eventId, profile_id: E2E_PLAYER_ID },
+    { event_id: eventId, profile_id: E2E_MANAGER_ID },
+  ])
+
+  await authenticate(context, "player@chigi.test", "Player123!")
+  await page.goto(`/evento/${eventId}`)
+  await dismissPaymentReminder(page)
+  await expect(page.getByText("0/2 hanno votato")).toBeVisible()
+  await expect(page.getByText(/nemmeno i manager/)).toBeVisible()
+  // Tap ciclico: Forse 🔝 → 👏, poi Manager 🔝.
+  await page.getByRole("button", { name: "Marco Forse" }).click()
+  await page.getByRole("button", { name: "Marco Forse: Er Mejo" }).click()
+  await page.getByRole("button", { name: "Mario Manager" }).click()
+  await page.getByRole("button", { name: "Invia voto" }).click()
+  await expect(page.getByText("1/2 hanno votato")).toBeVisible()
+  await page.screenshot({ fullPage: true, path: testInfo.outputPath("chigio-voto.png") })
+
+  const managerContext = await browser.newContext()
+  const managerPage = await managerContext.newPage()
+  await authenticate(managerContext, "manager@chigi.test", "Manager123!")
+  await managerPage.goto(`/evento/${eventId}`)
+  const slider = managerPage.getByLabel("Scorri per chiudere la votazione")
+  await slider.focus()
+  await slider.press("End")
+  await expect(managerPage.getByText("Votazione chiusa", { exact: true })).toBeVisible()
+  await expect(managerPage.getByText("🏆 Manager")).toBeVisible()
+  await managerPage.screenshot({ fullPage: true, path: testInfo.outputPath("chigio-risultati.png") })
+  await managerContext.close()
+  // Le altre prove contano i link giocatore in Statistiche: niente residui.
+  await serviceClient.from("chigio_polls").delete().eq("event_id", eventId)
+})
+
 test("il playground anonimo usa soltanto la rosa pubblica", async ({
   context,
   page,

@@ -25,6 +25,11 @@ import {
   type SeasonPlayerDirectoryEntry,
 } from "@/lib/season-statistics"
 import { fetchSeasonAttendance } from "@/lib/management-api"
+import {
+  fetchChigioSeasonStats,
+  sortSeasonStats,
+  type ChigioSeasonStat,
+} from "@/lib/chigio"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { cn } from "@/lib/utils"
 
@@ -187,6 +192,108 @@ function RankingCard({
         >
           {expanded ? "Mostra meno" : `Mostra tutti (${ranked.length})`}
         </Button>
+      )}
+    </section>
+  )
+}
+
+// Chigio d'Oro: classifica interna di stagione, Torneo e Amichevoli separati.
+function ChigioSection({
+  players,
+  seasonId,
+  seasonSlug,
+}: {
+  players: readonly SeasonPlayerDirectoryEntry[]
+  seasonId: string
+  seasonSlug: SeasonSlug
+}) {
+  const [tipo, setTipo] = useState<ChigioSeasonStat["tipo"]>("PARTITA")
+  const [stats, setStats] = useState<ChigioSeasonStat[] | null>(null)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    setStats(null)
+    fetchChigioSeasonStats(supabaseBrowser, seasonId)
+      .then((rows) => { if (active) setStats(rows) })
+      .catch(() => { if (active) setStats([]) })
+    return () => { active = false }
+  }, [seasonId])
+
+  const byId = new Map(players.map((player) => [player.profile_id, player]))
+  const ranked = sortSeasonStats((stats ?? []).filter((row) => row.tipo === tipo))
+    .filter((row) => byId.has(row.profile_id))
+  const visible = expanded ? ranked : ranked.slice(0, RANKING_PREVIEW)
+
+  return (
+    <section aria-labelledby="chigio-stats-title" className="min-w-0 space-y-3">
+      <h2 className="font-bold" id="chigio-stats-title">
+        🏆 Chigio d&apos;Oro
+      </h2>
+      <div
+        aria-label="Classifica Chigio d'Oro"
+        className="grid grid-cols-2 gap-1 rounded-lg bg-muted/50 p-1"
+        role="group"
+      >
+        {(["PARTITA", "AMICHEVOLE"] as const).map((value) => (
+          <Button
+            aria-pressed={tipo === value}
+            className={cn(
+              "h-9 text-xs font-bold",
+              tipo === value
+                ? "bg-background text-foreground shadow-xs hover:bg-background"
+                : "text-muted-foreground",
+            )}
+            key={value}
+            onClick={() => setTipo(value)}
+            size="sm"
+            variant="ghost"
+          >
+            {value === "PARTITA" ? "Torneo" : "Amichevoli"}
+          </Button>
+        ))}
+      </div>
+      {stats === null ? (
+        <Skeleton className="h-40 rounded-xl" />
+      ) : ranked.length === 0 ? (
+        <p className="rounded-xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
+          Nessuna votazione chiusa.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="grid grid-cols-[24px_minmax(0,1fr)_36px_36px_36px] gap-2 border-b bg-muted/50 px-3 py-2 text-right text-xs font-black">
+            <span />
+            <span className="text-left uppercase tracking-wide">Giocatore</span>
+            <span aria-label="Chigio d'Oro vinti">🏆</span>
+            <span aria-label="Er Mejo">🔝</span>
+            <span aria-label="Applausi">👏</span>
+          </div>
+          <ol className="divide-y">
+            {visible.map((row, index) => (
+              <li
+                className="grid grid-cols-[24px_minmax(0,1fr)_36px_36px_36px] items-center gap-2 px-3 py-2 text-xs"
+                key={row.profile_id}
+              >
+                <span className="font-bold tabular-nums text-muted-foreground">{index + 1}</span>
+                <PlayerIdentity canLink player={byId.get(row.profile_id)!} seasonSlug={seasonSlug} />
+                <strong className="text-right text-sm tabular-nums">{row.wins}</strong>
+                <span className="text-right tabular-nums">{row.tops}</span>
+                <span className="text-right tabular-nums">{row.applause}</span>
+              </li>
+            ))}
+          </ol>
+          {ranked.length > RANKING_PREVIEW && (
+            <Button
+              aria-expanded={expanded}
+              className="w-full rounded-none border-t text-xs"
+              onClick={() => setExpanded(!expanded)}
+              size="sm"
+              variant="ghost"
+            >
+              {expanded ? "Mostra meno" : `Mostra tutti (${ranked.length})`}
+            </Button>
+          )}
+        </div>
       )}
     </section>
   )
@@ -688,6 +795,14 @@ export default function StatisticsPage() {
               </>
             )}
           </section>
+
+          {isAssociated && !sessionLoading && selectedSeasonId && !directoryLoading && (
+            <ChigioSection
+              players={players}
+              seasonId={selectedSeasonId}
+              seasonSlug={selectedSeasonSlug}
+            />
+          )}
         </div>
       )}
     </PageContainer>

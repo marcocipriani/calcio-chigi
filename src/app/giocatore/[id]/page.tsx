@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchSafePlayerProfile } from "@/lib/api"
+import { fetchChigioSeasonStats, type ChigioSeasonStat } from "@/lib/chigio"
 import { fetchInjuries, type Injury } from "@/lib/injuries"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import {
@@ -129,6 +130,7 @@ export default function PlayerPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
+  const [chigio, setChigio] = useState<ChigioSeasonStat[]>([])
 
   const isSelf = viewerProfile?.id === id
   const canViewPrivate = isSelf || isManager
@@ -153,6 +155,7 @@ export default function PlayerPage({
     setLoading(true)
     setError(null)
     setPrivateData(emptyPrivateData)
+    setChigio([])
 
     void (async () => {
       try {
@@ -191,6 +194,10 @@ export default function PlayerPage({
           }
           return
         }
+
+        fetchChigioSeasonStats(supabaseBrowser, seasonId, id)
+          .then((rows) => { if (active) setChigio(rows) })
+          .catch(() => { if (active) setChigio([]) })
 
         const safePlayer = await fetchSafePlayerProfile(
           supabaseBrowser,
@@ -443,6 +450,28 @@ export default function PlayerPage({
             ))}
           </dl>
         </section>
+
+        {chigio.length > 0 && (
+          <section className="rounded-xl border bg-card p-4">
+            <h2 className="font-bold">🏆 Chigio d&apos;Oro</h2>
+            <dl className="mt-3 grid gap-2 text-sm">
+              {[...chigio]
+                .sort((a) => (a.tipo === "PARTITA" ? -1 : 1))
+                .map((row) => (
+                  <div className="flex items-center justify-between gap-2" key={row.tipo}>
+                    <dt className="text-muted-foreground">
+                      {row.tipo === "PARTITA" ? "Torneo" : "Amichevoli"}
+                    </dt>
+                    <dd className="flex gap-4 font-semibold tabular-nums">
+                      <span aria-label={`${row.wins} Chigio d'Oro`}>🏆 {row.wins}</span>
+                      <span aria-label={`${row.tops} Er Mejo`}>🔝 {row.tops}</span>
+                      <span aria-label={`${row.applause} applausi`}>👏 {row.applause}</span>
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          </section>
+        )}
 
         <JerseyHistory entries={jerseyHistory} />
 

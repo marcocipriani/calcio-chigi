@@ -77,15 +77,15 @@ function parseComunicati(sourceHtml) {
     const rawLabel = normalizeSpaces(decodeHtml(stripTags(labelMatch[1])));
     const url = hrefMatch[1];
 
-    // Label may end with "del DD/MM/YYYY"
-    const dateMatch = rawLabel.match(/\s+del\s+(\d{2})\/(\d{2})\/(\d{4})\s*$/i);
+    // "del DD/MM/YYYY" a fine label ("Comunicato n. 1 del ...") o in mezzo ("Comunicato del ... - ROSE ..."): va nella data, non nel titolo.
+    const dateMatch = rawLabel.match(/\bdel\s+(\d{2})\/(\d{2})\/(\d{4})/i);
     let data = null;
     let titolo = rawLabel;
 
     if (dateMatch) {
       const [, day, month, year] = dateMatch;
-      data = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      titolo = rawLabel.slice(0, dateMatch.index).trim();
+      data = `${year}-${month}-${day}`;
+      titolo = normalizeSpaces(rawLabel.replace(dateMatch[0], ' '));
     }
 
     results.push({ enjore_url: url, titolo, data });

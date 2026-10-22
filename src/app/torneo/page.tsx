@@ -56,7 +56,7 @@ export default function TorneoPage() {
   const [seasonsLoading, setSeasonsLoading] = useState(true)
   const [seasonError, setSeasonError] = useState<string | null>(null)
   const [tournamentSlug, setTournamentSlug] = useState<string>(SEASON_OPTIONS[0].slug)
-  const [activePhase, setActivePhase] = useState<PhaseFilter>('ALL')
+  const [phaseOverride, setPhaseOverride] = useState<PhaseFilter | null>(null)
   const [historicalStats, setHistoricalStats] = useState<{
     season_id: string
     phase_key: Event["fase"]
@@ -171,6 +171,16 @@ export default function TorneoPage() {
     }
   }, [seasonError, seasonId, seasonsLoading, tournamentSlug])
 
+  // Fase della prossima partita: a stagione in corso si apre sulla fase attuale, a stagione chiusa su tutte.
+  const currentPhase = useMemo<PhaseFilter>(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const next = allMatches.find(m => m.tipo === 'PARTITA' && m.data_ora && new Date(m.data_ora) >= today)
+    return next ? (next.fase ?? 'FASE_1') : 'ALL'
+  }, [allMatches])
+
+  const activePhase = phaseOverride ?? currentPhase
+
   const phaseOptions = useMemo(
     () =>
         seasonId
@@ -186,7 +196,7 @@ export default function TorneoPage() {
 
   const handleTournamentChange = (slug: string) => {
     setTournamentSlug(slug)
-    setActivePhase('ALL')
+    setPhaseOverride(null)
     setSelectedGiornataOverride(null)
     setAllMatches([])
     setHistoricalStats([])
@@ -355,7 +365,7 @@ export default function TorneoPage() {
                                 >
                                     <div>
                                         <p className="font-bold text-sm">{com.titolo}</p>
-                                        <p className="text-[10px] text-muted-foreground">{com.data ?? ''}</p>
+                                        <p className="text-[10px] text-muted-foreground">{com.data?.split('-').reverse().join('/') ?? ''}</p>
                                     </div>
                                     <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                                 </a>
@@ -383,7 +393,7 @@ export default function TorneoPage() {
             filters={
                 <TournamentSelector
                     onPhaseChange={(phase) => {
-                        setActivePhase(phase)
+                        setPhaseOverride(phase)
                         setSelectedGiornataOverride(null)
                     }}
                     onSeasonChange={handleTournamentChange}

@@ -37,6 +37,8 @@ const TEAM_ALIASES = new Map([
   ['circolo palazzo madama', 'CIRC. PAL. MADAMA'],
   ["banca d'italia", "CASC. BANCA D'ITALIA"],
   ['iannaccone', 'IANNACCONE & ASS'],
+  // Nomi Enjore 2026/27.
+  ['iannaccone ag. assicurativi', 'IANNACCONE & ASS'],
 ]);
 
 // Stessi nomi canonici della migration events_amichevole_places: il dropdown dei campi non si duplica.
@@ -47,6 +49,10 @@ const PLACE_ALIASES = new Map([
   ['c.s. cavalieri', 'C.S. CAVALIERI'],
   ['dabliu', 'DABLIU EUR SPORT CLUB'],
   ["banca d'italia", "C. S. BANCA D'ITALIA"],
+  ["c.s. banca d'italia", "C. S. BANCA D'ITALIA"],
+  ['asd atletico 2000', 'ATLETICO 2000'],
+  ['alba roma (carlo mazzone)', 'ALBA ROMA'],
+  ['totti soccer school', 'TOTTI SOCCER'],
 ]);
 
 const PHASE_ALIASES = [
@@ -198,10 +204,10 @@ function canonicalTeam(value) {
   return TEAM_ALIASES.get(key) || key.toUpperCase();
 }
 
-// Enjore aggiunge il tipo di campo al nome (" - 11", " - *"): lo togliamo.
+// Enjore aggiunge al nome il tipo di campo (" - 11", " - *") o l'indirizzo (" - Roma, Via ..."): li togliamo.
 function normalizePlace(value) {
   if (!value) return null;
-  const place = value.replace(/\s+-\s+(\d+|\*)$/, '');
+  const place = value.split(' - ')[0].trim();
   return PLACE_ALIASES.get(place.toLowerCase()) || place;
 }
 
@@ -433,17 +439,22 @@ async function applyToSupabase(rows) {
       ...(row.data_ora ? { data_ora: row.data_ora } : {}),
       ...(row.luogo ? { luogo: row.luogo } : {}),
       avversario: row.avversario,
-      note: row.note,
-      gol_nostri: row.gol_nostri,
-      gol_avversario: row.gol_avversario,
-      giocata: row.giocata,
+      // Enjore pubblica i risultati giorni dopo: senza risultato o nota non tocchiamo quelli
+      // messi dal manager. Annullamento e orario di fine restano solo manuali.
+      // ponytail: un risultato tolto da Enjore resta in DB, va corretto a mano.
+      ...(row.note ? { note: row.note } : {}),
+      ...(row.giocata && row.gol_casa !== null && row.gol_ospite !== null
+        ? {
+            gol_nostri: row.gol_nostri,
+            gol_avversario: row.gol_avversario,
+            giocata: true,
+            gol_casa: row.gol_casa,
+            gol_ospite: row.gol_ospite,
+          }
+        : {}),
       giornata: row.giornata,
       squadra_casa: row.squadra_casa,
       squadra_ospite: row.squadra_ospite,
-      gol_casa: row.gol_casa,
-      gol_ospite: row.gol_ospite,
-      cancellato: row.cancellato,
-      data_fine_ora: row.data_fine_ora,
       tipo_campo: row.tipo_campo,
       fase: row.fase,
     };

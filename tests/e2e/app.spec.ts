@@ -665,7 +665,7 @@ test("overflow orizzontale assente su squadra e torneo", async ({
   }
 })
 
-test("torneo stagionale resetta fase e mantiene il contratto comunicati", async ({
+test("torneo stagionale apre sulla fase attuale e mantiene il contratto comunicati", async ({
   page,
 }, testInfo) => {
   await page.goto("/torneo")
@@ -702,8 +702,9 @@ test("torneo stagionale resetta fase e mantiene il contratto comunicati", async 
   await page
     .getByRole("option", { name: "Campionato ASI Over35 2025/26" })
     .click()
+  // Con l'orologio del test la prossima partita 2025/26 è in Fase 1: si apre lì.
   await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
-    "Tutte le fasi",
+    "Fase 1",
   )
   await page.getByRole("combobox", { name: "Fase" }).click()
   await expect(page.getByRole("option", { name: "Fase 1" })).toBeVisible()
@@ -744,8 +745,9 @@ test("torneo stagionale resetta fase e mantiene il contratto comunicati", async 
   await page
     .getByRole("option", { name: "Campionato ASI Over35 2025/26" })
     .click()
+  // Con l'orologio del test la prossima partita 2025/26 è in Fase 1: si apre lì.
   await expect(page.getByRole("combobox", { name: "Fase" })).toHaveText(
-    "Tutte le fasi",
+    "Fase 1",
   )
   await page.getByRole("combobox", { name: "Fase" }).click()
   await expect(page.getByRole("option", { name: "Fase 1" })).toBeVisible()

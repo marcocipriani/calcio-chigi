@@ -2,8 +2,8 @@ name: Sync Enjore
 
 on:
   schedule:
-    # 06:00 and 18:00 UTC = 08:00 and 20:00 Rome time (CEST)
-    - cron: '0 6,18 * * *'
+    # 19:00 UTC = 20:00 Rome time (CET), 21:00 in summer (CEST)
+    - cron: '0 19 * * *'
   workflow_dispatch:
 
 jobs:

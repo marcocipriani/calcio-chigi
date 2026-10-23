@@ -44,7 +44,7 @@ select throws_like(
 );
 select throws_like(
   $$select public.declare_payment_entry(
-      '30000000-0000-0000-0000-000000000d01', 10, current_date + 1, 'BANK_TRANSFER')$$,
+      '30000000-0000-0000-0000-000000000d01', 10, current_date + 2, 'BANK_TRANSFER')$$,
   '%futuro%',
   'payment date cannot be in the future'
 );

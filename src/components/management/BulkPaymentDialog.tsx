@@ -110,7 +110,7 @@ export function BulkPaymentDialog({
                   </Label>
                   <Input
                     id={`payment-amount-${index}`}
-                    min="0"
+                    min="0.01"
                     onChange={(event) => updateRate(index, "amount", event.target.value)}
                     required
                     step="0.01"

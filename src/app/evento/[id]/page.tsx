@@ -395,7 +395,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       else if (golNoi < golLoro) { resultColor = "text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-300"; resultText = "SCONFITTA"; }
 
       scoreBlock = (
-          <div className="flex flex-col items-center mt-2 animate-in zoom-in">
+          <div className="flex flex-col items-center mt-2 animate-in zoom-in lg:mt-0">
               <div className={`px-6 py-2 rounded-2xl font-mono text-4xl font-black tracking-tighter ${resultColor}`}>{event.gol_casa} - {event.gol_ospite}</div>
               <Badge variant="outline" className="mt-1 text-[11px] font-bold border-0 text-muted-foreground">{resultText}</Badge>
           </div>
@@ -439,34 +439,44 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         className="bg-background text-foreground"
         contentClassName="pb-24"
       >
-        {/* Desktop: info e disponibilità a sinistra (sticky), formazione e rosa a destra. */}
-        <div className={`mx-auto grid max-w-lg gap-6 ${isAssociated ? 'lg:max-w-6xl lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8' : ''}`}>
-          {/* ponytail: colonna sticky senza scroll interno, regge finché note brevi. */}
-          <div className={`space-y-6 ${isAssociated ? 'lg:sticky lg:top-34' : ''}`}>
-            <div className="text-center space-y-3 mt-2 lg:mt-0 lg:rounded-xl lg:border lg:bg-card lg:p-6 lg:shadow-xs">
-                {isMatch && logoUrl && (
-                    <div className="flex justify-center mb-2">
-                        <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={logoUrl} alt={`Logo ${opponent ?? 'avversario'}`} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
+        {/* Desktop: info in fascia; sotto, in cima a ogni colonna ciò che conta ora
+            (Chigio a fine partita, formazione se pubblicata, altrimenti rosa e disponibilità).
+            I riordini sono solo lg: su mobile resta l'ordine del DOM. */}
+        <div className={`mx-auto max-w-lg space-y-6 ${isAssociated ? 'lg:max-w-6xl lg:space-y-8' : ''}`}>
+            <div className="text-center space-y-3 mt-2 lg:mt-0 lg:rounded-xl lg:border lg:bg-card lg:p-5 lg:shadow-xs">
+                <div className="space-y-3 lg:flex lg:items-center lg:gap-6 lg:space-y-0 lg:text-left">
+                    {isMatch && logoUrl && (
+                        <div className="flex justify-center mb-2 lg:mb-0">
+                            <Avatar className="h-20 w-20 border-4 border-slate-100 shadow-lg bg-white"><AvatarImage src={logoUrl} alt={`Logo ${opponent ?? 'avversario'}`} className="object-contain p-1" /><AvatarFallback><Shield className="h-10 w-10 text-muted-foreground"/></AvatarFallback></Avatar>
+                        </div>
+                    )}
+                    <div className="space-y-3 lg:flex lg:min-w-0 lg:flex-1 lg:items-center lg:gap-6 lg:space-y-0">
+                        <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{isMatch
+                            ? opponent || "Avversario da definire"
+                            : event.data_ora ? format(new Date(event.data_ora), 'EEEE d MMMM', { locale: it }) : "Data da definire"}</h2>
+                        {scoreBlock}
                     </div>
-                )}
-                <h2 className={`text-3xl font-black uppercase leading-none tracking-tight ${isCancelled ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{isMatch
-                    ? opponent || "Avversario da definire"
-                    : event.data_ora ? format(new Date(event.data_ora), 'EEEE d MMMM', { locale: it }) : "Data da definire"}</h2>
-                {scoreBlock}
-                <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground pt-2">
-                    {/* Per gli allenamenti la data è già il titolo. */}
-                    {isMatch && <span className="flex items-center gap-1 font-medium"><Calendar aria-hidden="true" className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'd MMM yyyy', {locale: it}) : '—'}</span>}
-                    <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'HH:mm') : '—'}</span></div>
+                    <div className="space-y-3 pt-2 lg:shrink-0 lg:space-y-1 lg:pt-0">
+                        <div className="flex flex-col gap-1 justify-center items-center text-sm text-muted-foreground lg:items-end">
+                            {/* Per gli allenamenti la data è già il titolo. */}
+                            {isMatch && <span className="flex items-center gap-1 font-medium"><Calendar aria-hidden="true" className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'd MMM yyyy', {locale: it}) : '—'}</span>}
+                            <div className="flex items-center gap-3"><span className="flex items-center gap-1 font-medium"><Clock className="h-4 w-4 text-primary"/> {event.data_ora ? format(new Date(event.data_ora), 'HH:mm') : '—'}</span></div>
+                        </div>
+                        <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold lg:justify-end"><MapPin className="h-4 w-4"/> {event.luogo}</div>
+                    </div>
                 </div>
-                <div className="flex justify-center items-center gap-1 text-sm text-muted-foreground font-semibold"><MapPin className="h-4 w-4"/> {event.luogo}</div>
                 {event.note && (
-                    <div className="mt-4 bg-muted/30 p-3 rounded-lg border border-border text-sm text-muted-foreground flex flex-col items-center gap-1">
+                    <div className="mt-4 bg-muted/30 p-3 rounded-lg border border-border text-sm text-muted-foreground flex flex-col items-center gap-1 lg:items-start">
                         <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-muted-foreground/70"><Info className="h-3 w-3" /> Note Mister</div>
-                        <p className="italic text-center">{event.note}</p>
+                        <p className="italic text-center lg:text-left">{event.note}</p>
                     </div>
                 )}
                 {isCancelled && <p className="text-red-700 dark:text-red-300 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
             </div>
+
+        <div className={`grid gap-6 ${isAssociated ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8' : ''}`}>
+          {/* Sticky solo finché si vota: dopo l'inizio c'è il Chigio, che può superare lo schermo. */}
+          <div className={`flex flex-col gap-6 ${isAssociated && canVote ? 'lg:sticky lg:top-34' : ''}`}>
 
             {!isAssociated && (
               <Card className="border-dashed">
@@ -487,7 +497,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
             {isAssociated && !isCancelled && (
                 isMatch ? (
-                    <div className="grid grid-cols-6 gap-2">
+                    <div className="grid grid-cols-6 gap-2 lg:order-last">
                         <StatTile className="col-span-2" count={countOver35} icon={Users} label="Over 35" tone="neutral" />
                         <StatTile className="col-span-2" count={countU35} icon={Users} label="Under 35" tone="sky" />
                         <StatTile className="col-span-2" count={countGoalies} icon={Hand} label="Portieri" tone="neutral" />
@@ -495,7 +505,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                         <StatTile className="col-span-3" count={countAbsents} icon={UserX} label="Assenti" tone="red" />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2 lg:order-last">
                         <StatTile count={countTrainingPresent} icon={UserCheck} label="Presenti" tone="green" />
                         <StatTile count={countTrainingKO} icon={AlertCircle} label="KO" tone="amber" />
                         <StatTile count={countAbsents} icon={UserX} label="Assenti" tone="red" />
@@ -554,12 +564,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
             )}
 
             {isAssociated && isMatch && !isCancelled && (
-                <ChigioDoroCard eventId={id} isManager={isManager} myProfileId={myProfileId} players={votedRoster} />
+                // La card è vuota finché il sondaggio non esiste: niente gap fantasma.
+                <div className="empty:hidden lg:order-first">
+                    <ChigioDoroCard eventId={id} isManager={isManager} myProfileId={myProfileId} players={votedRoster} />
+                </div>
             )}
           </div>
 
           {isAssociated && (
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               {/* Partita annullata: niente formazione né invito a crearla (la RPC non lo blocca). */}
               {isMatch && !isCancelled && (
                 <OfficialFormationPanel
@@ -568,17 +581,21 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                   onCallups={setPublishedCallups}
                 />
               )}
-              <EventRosterPanel
-                eventDate={eventDate}
-                eventId={id}
-                isManager={isManager}
-                isMatch={isMatch}
-                managerProfileId={myProfileId}
-                namesByProfileId={surnamesByProfileId}
-                roster={sortedRoster}
-              />
+              {/* ponytail: formazione privata = null per i giocatori, che vedono prima la rosa. */}
+              <div className={publishedCallups ? '' : 'lg:order-first'}>
+                <EventRosterPanel
+                  eventDate={eventDate}
+                  eventId={id}
+                  isManager={isManager}
+                  isMatch={isMatch}
+                  managerProfileId={myProfileId}
+                  namesByProfileId={surnamesByProfileId}
+                  roster={sortedRoster}
+                />
+              </div>
             </div>
           )}
+        </div>
         </div>
       </PageContainer>
 

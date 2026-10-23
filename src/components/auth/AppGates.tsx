@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Archive,
   Bell,
@@ -44,6 +44,7 @@ const ASSOCIATION_POSTPONED_KEY = "association-prompt-postponed"
 
 function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   const { user, associationStatus, refresh } = useAppSession()
+  const router = useRouter()
   const [profiles, setProfiles] = useState<ClaimableProfile[]>([])
   const [selected, setSelected] = useState<ClaimableProfile | null>(null)
   const [query, setQuery] = useState("")
@@ -78,7 +79,7 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
 
   async function logout() {
     await client.auth.signOut()
-    window.location.assign("/login")
+    router.replace("/login")
   }
 
   useEffect(() => {
@@ -317,6 +318,7 @@ const ARCHIVED_NOTICE_SEEN_KEY = "archived-notice-seen"
 
 function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
   const { associationStatus, membership } = useAppSession()
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [seen, setSeen] = useState(false)
 
@@ -344,7 +346,7 @@ function ArchivedMemberNotice({ client }: { client: SupabaseClient }) {
   async function logout() {
     setBusy(true)
     await client.auth.signOut()
-    window.location.assign("/login")
+    router.replace("/login")
   }
 
   return (

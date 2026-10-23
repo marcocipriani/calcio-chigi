@@ -4,13 +4,14 @@ import { describe, expect, it, vi } from "vitest"
 const navigation = vi.hoisted(() => ({
   pathname: "/",
   push: vi.fn(),
+  replace: vi.fn(),
 }))
 
 const notifications = vi.hoisted(() => ({ toast: vi.fn() }))
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
 }))
 
 vi.mock("sonner", () => ({
@@ -255,6 +256,7 @@ describe("AppGates", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Esci" }))
     await waitFor(() => expect(signOut).toHaveBeenCalled())
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/login"))
   })
 
   it("lets archived members continue on the public side for the session", async () => {

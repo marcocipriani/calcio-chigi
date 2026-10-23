@@ -33,6 +33,7 @@ import { Event, Team } from "@/lib/types";
 import { fetchCalendarEvents, fetchTeams } from "@/lib/api";
 import { useAppSession } from "@/components/auth/AppSessionProvider";
 import { useOnResume } from "@/lib/useOnResume";
+import { LiveMatchBanner } from "@/components/match/LiveMatchBanner";
 import { EVENT_TYPE_LABEL, isMatchEvent } from "@/lib/utils";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
@@ -594,6 +595,8 @@ export default function Home() {
             subtitle="Gli impegni della squadra"
             title="Calendario"
           />
+
+          <LiveMatchBanner />
 
           <div className="flex min-w-0 items-center justify-between gap-1.5 py-1.5">
               

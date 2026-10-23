@@ -1,102 +1,38 @@
 # Roadmap
 
-Aggiornata il 23 ottobre 2026 (v2.7.0).
+Aggiornata il 24 ottobre 2026 (v2.8.0).
 
-## 1. Modalità partita (prima priorità)
+## 1. Modalità partita — rilasciata in v2.8.0
 
-Oggi i dati della partita si inseriscono a mano dopo il fischio finale: risultato
-dalla pagina Torneo, goal, assist e cartellini dalla pagina evento
-(`match_player_stats`). La modalità partita li registra **mentre si gioca**, dal
-telefono del manager a bordo campo. A fine gara il risultato e le statistiche
-sono già pronti e il Chigio d'Oro si apre da solo.
+La specifica completa, con le scelte fatte, è in
+[`docs/superpowers/specs/2026-10-24-modalita-partita-design.md`](docs/superpowers/specs/2026-10-24-modalita-partita-design.md);
+il piano è in
+[`docs/superpowers/plans/2026-10-24-modalita-partita.md`](docs/superpowers/plans/2026-10-24-modalita-partita.md).
 
-### Come si usa
+Cosa fa:
 
-1. **Avvio.** Dalla pagina di una partita o di un'amichevole, il manager tocca
-   "Modalità partita". Si apre una schermata a tutto schermo con lo schermo
-   sempre acceso (Wake Lock API). Titolari e panchina arrivano dalla formazione
-   ufficiale pubblicata (`official_formation_players`).
-2. **Timer.** "Calcio d'inizio" avvia il primo tempo. La durata dei tempi viene
-   dal regolamento ASI: 2 tempi da 35 minuti e intervallo di 15 minuti; per le
-   amichevoli è modificabile. Il timer non conta i secondi sul telefono: li
-   ricava dall'orario di inizio salvato sul server, quindi regge allo schermo
-   bloccato, a un'app chiusa per sbaglio e a più dispositivi aperti insieme.
-   - **Recupero.** Allo scadere dei 35 minuti il timer continua e mostra
-     "35+2'". Il manager può indicare il recupero annunciato (+1 … +5).
-   - **Fine tempo e intervallo.** "Fine primo tempo" avvia il conto alla
-     rovescia dell'intervallo; "Inizio secondo tempo" riparte da 35'.
-   - **Time-out.** Un tasto per tempo, da 60 secondi, come da regolamento.
-     Resta disattivato dopo l'uso.
-3. **Eventi con un tocco.** Grandi pulsanti in basso: **Goal**, **Goal
-   avversario**, **Giallo**, **Rosso**, **Cambio**.
-   - *Goal*: si sceglie il marcatore dai giocatori in campo, poi l'assist
-     (facoltativo, "Nessun assist" in evidenza). Sono previsti anche "Autogol
-     avversario" e "Non attribuito", che finiscono in `match_unattributed_stats`.
-   - *Giallo*: si sceglie il giocatore. Al secondo giallo l'app propone il rosso
-     automatico.
-   - *Rosso*: il giocatore esce dal campo e non può più rientrare.
-   - Ogni evento registra il minuto (es. 23', 35+1', 52'). L'ultimo evento ha
-     sempre "Annulla": l'errore si corregge senza uscire dalla modalità.
-4. **Cambi.** Si tocca chi esce e poi chi entra; il minuto è automatico.
-   - Valgono i limiti del regolamento: massimo 3 cambi nel primo tempo,
-     illimitati nell'intervallo, 7 nel secondo tempo. I cambi sono "multipli e
-     ripetitivi", quindi chi è uscito può rientrare. Superato il limite l'app
-     avvisa ma non blocca (decide l'arbitro).
-   - Ogni cambio controlla la quota U35 in campo con la stessa regola già usata
-     dal builder formazione.
-   - Un espulso non può entrare.
-5. **Fine partita.** "Fischio finale" mostra un riepilogo modificabile:
-   risultato, marcatori, assist, cartellini e minuti giocati per giocatore.
-   "Conferma" esegue in un'unica RPC:
-   - aggiorna `events` (`gol_nostri`, `gol_avversario`, `giocata`);
-   - scrive i totali in `match_player_stats` (goal, assist, gialli, rossi);
-   - propone il check-in ufficiale a chi è sceso in campo (`event_checkins`);
-   - apre il Chigio d'Oro all'orario reale di fine gara.
+- **Segnapunti.** Un solo manager alla volta registra la partita; chi entra
+  dopo prende il controllo e il telefono precedente passa alla sola lettura.
+- **Timer.** Calcolato dall'orario d'inizio salvato sul server: 2×35', recupero
+  annunciato `+1…+5`, intervallo da 15', un time-out per tempo, correzione di
+  ±1'.
+- **Eventi in campo.** Goal (poi l'assist), giallo (il secondo propone il
+  rosso), rosso e cambio, con un tocco sull'avatar. Ci sono anche goal
+  avversario, autogol avversario, goal non attribuito e annulla.
+- **Cambi.** Limiti 3/illimitati/7 e quota U35 in campo segnalati senza
+  bloccare. Badge per diffidati e squalificati.
+- **Rete scarsa.** Ogni tocco resta in coda sul telefono finché il server non
+  lo conferma.
+- **Fischio finale.** Un riepilogo modificabile salva risultato, statistiche
+  con i minuti giocati, presenze e cronaca da copiare per WhatsApp. Il Chigio
+  d'Oro aspetta il fischio finale.
+- **Diretta per tutti.** Minuto, risultato e cronaca nella pagina evento, un
+  banner in home e la push sui goal, disattivabile dalla campanella.
 
-### Per chi non è in panchina
+Ancora da decidere:
 
-- **Live in sola lettura** nella pagina evento e nella capsula della home:
-  risultato, minuto e cronaca (goal, cartellini, cambi), aggiornati in realtime.
-- **Push sui goal** (opzionale, nuovo tipo in `notification_preferences`):
-  "Goal Chigi! Rossi 23' (assist Bianchi) · 1-0".
-- **Cronaca da condividere**: un testo pronto per WhatsApp, come per le
-  convocazioni.
-
-### Modello dati proposto
-
-- `match_sessions` (una riga per evento): stato (`NOT_STARTED`, `LIVE`,
-  `HALFTIME`, `FINISHED`), tempo corrente, `period_started_at`, durata del tempo,
-  recupero annunciato, time-out usati.
-- `match_timeline` (un evento per riga): tipo (`GOAL`, `GOAL_AGAINST`,
-  `OWN_GOAL_FOR`, `UNATTRIBUTED_GOAL`, `YELLOW`, `RED`, `SUB`, `PERIOD_START`,
-  `PERIOD_END`, `TIMEOUT`), tempo, minuto, `occurred_at`, giocatore, assist,
-  giocatore entrato e uscito, autore, `voided_at` per l'annullamento.
-- I minuti giocati si ricavano dai cambi: è una nuova statistica stagionale
-  ("minuti in campo").
-- Scrittura riservata ai manager tramite RPC `security definer`, come per
-  `set_event_checkin`; lettura per gli associati. I test pgTAP riprendono quelli
-  di `rls-roles`.
-
-### Rete scarsa al campo
-
-Ogni tocco viene salvato prima in locale (IndexedDB) con il suo orario e inviato
-appena c'è rete; il server accetta un `occurred_at` del client entro limiti
-ragionevoli. Un indicatore mostra "3 eventi da inviare". È la stessa base
-dell'offline (sezione 4).
-
-### Fasi di rilascio
-
-| Fase | Contenuto | Stima |
-|------|-----------|-------|
-| MP1 | Timer con recupero, intervallo e time-out; goal, assist, gialli e rossi; annulla; fischio finale che scrive risultato e `match_player_stats`. | 3–4 giorni |
-| MP2 | Cambi con limiti del regolamento, controllo U35, minuti giocati, check-in proposto. | 2–3 giorni |
-| MP3 | Live per tutti, push sui goal, cronaca WhatsApp, coda offline. | 3–4 giorni |
-
-### Collegati
-
-- **Squalifiche e diffide**: il regolamento squalifica dopo un rosso (gara
-  successiva) e alla terza ammonizione. Con i cartellini registrati in modalità
-  partita, il builder formazione segnala "squalificato" e "diffidato".
+- tempi supplementari e rigori per le gare a eliminazione diretta (Coppa);
+- se mostrare i cambi anche nella cronaca pubblica.
 
 ## 2. Fix applicati (23 ottobre 2026)
 
@@ -141,8 +77,6 @@ npx supabase functions deploy notification-dispatch --use-api --no-verify-jwt
 - Stagioni definite in tre posti: è il punto R1 qui sotto.
 - Componenti oltre le 1000 righe (`ManagementDashboard`, `ManagementTable`,
   `PersonDrawer`, `profilo`): si spezzano quando si toccano.
-- `scripts/sql/reopen-chigio-madama-2026-10-22.sql`: va rimosso dopo averlo
-  eseguito.
 
 ## 3. Ora (novembre 2026)
 

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import {
   Popover,
   PopoverContent,
@@ -19,6 +20,8 @@ import {
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { useOnResume } from "@/lib/useOnResume"
 import { cn } from "@/lib/utils"
+
+const GOAL_PUSH_CATEGORY = "MATCH_GOAL"
 
 type NotificationRow = {
   notification_id: string
@@ -50,6 +53,8 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationRow[]>([])
   const [pushBusy, setPushBusy] = useState(false)
   const [pushEnabled, setPushEnabled] = useState(false)
+  // Senza riga in notification_preferences la push è attiva (create_notification).
+  const [goalPush, setGoalPush] = useState(true)
 
   const load = useCallback(async () => {
     if (!user) {
@@ -97,6 +102,32 @@ export function NotificationBell() {
     void load()
     void refresh()
   })
+
+  useEffect(() => {
+    if (!user) return
+    void supabaseBrowser
+      .from("notification_preferences")
+      .select("push_enabled")
+      .eq("user_id", user.id)
+      .eq("category", GOAL_PUSH_CATEGORY)
+      .maybeSingle()
+      .then(({ data }) => setGoalPush(data?.push_enabled ?? true))
+  }, [user])
+
+  async function toggleGoalPush(enabled: boolean) {
+    if (!user) return
+    setGoalPush(enabled)
+    const { error } = await supabaseBrowser.from("notification_preferences").upsert({
+      user_id: user.id,
+      category: GOAL_PUSH_CATEGORY,
+      push_enabled: enabled,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) {
+      setGoalPush(!enabled)
+      toast.error("Preferenza non salvata")
+    }
+  }
 
   useEffect(() => {
     if (!user || !supportsWebPush()) return
@@ -229,6 +260,13 @@ export function NotificationBell() {
               {pushBusy ? "Attivazione…" : "Attiva notifiche su questo dispositivo"}
             </Button>
           </div>
+        )}
+
+        {pushEnabled && (
+          <label className="flex min-h-11 items-center justify-between gap-3 border-b px-3 text-sm">
+            Push sui goal in diretta
+            <Switch checked={goalPush} onCheckedChange={(checked) => void toggleGoalPush(checked)} />
+          </label>
         )}
 
         <div className="max-h-[min(440px,65dvh)] overflow-y-auto">

@@ -16,11 +16,11 @@ _Calendario, squadra, torneo e gestione stagionale_
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](#-progressive-web-app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/marcocipriani/calcio-chigi)
-[![Versione](https://img.shields.io/badge/versione-2.7.0-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
+[![Versione](https://img.shields.io/badge/versione-2.8.0-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
 
 **[🌐 Apri la demo →](https://calcio-chigi.vercel.app/)** · **[💻 Repository →](https://github.com/marcocipriani/calcio-chigi)**
 
-<sub>📅 Ultimo aggiornamento: <b>23 ottobre 2026</b> · versione <b>v2.7.0</b></sub>
+<sub>📅 Ultimo aggiornamento: <b>24 ottobre 2026</b> · versione <b>v2.8.0</b></sub>
 
 </div>
 
@@ -53,6 +53,9 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 
 ### 👤 Giocatori
 
+- **Diretta della partita**: minuto, risultato e cronaca di goal e cartellini
+  nella pagina evento e in home, aggiornati in tempo reale, con push opzionale
+  sui goal.
 - **Calendario** di partite e allenamenti con viste lista/mese, filtri e
   countdown al prossimo incontro.
 - **Disponibilità e check-in** sulla stessa riga: la risposta del giocatore
@@ -89,6 +92,13 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
   pubblicazione della bozza e conferma definitiva.
 - **Gestione eventi**: creazione, modifica e annullamento di partite e
   allenamenti.
+- **Modalità partita**: dalla panchina il manager registra la gara dal vivo
+  su una schermata dedicata. Timer con recupero, intervallo e time-out; goal,
+  assist, gialli e rossi con un tocco sull'avatar; cambi con i limiti del
+  regolamento e la quota U35; annulla; diffidati e squalificati in evidenza. Un
+  solo segnapunti alla volta, con passaggio di controllo, e tocchi salvati sul
+  telefono anche senza rete. Al fischio finale risultato, statistiche, minuti
+  giocati e presenze si salvano insieme.
 - **Formazione interattiva**: campo con **drag & drop** ([dnd-kit](https://dndkit.com/)), moduli 4-4-2 / 4-3-3 / 3-5-2 / 4-2-3-1, capitano/vice, colore maglia, controllo quota U35 in campo e totale.
 - **Export distinta ufficiale** in **Excel** ([ExcelJS](https://github.com/exceljs/exceljs)) precompilata dal template, ed export **PNG** della formazione ([html-to-image](https://github.com/bubkoo/html-to-image)).
 - **Convocazioni WhatsApp**: messaggio generato automaticamente (ritrovo, divisa, elenco convocati diviso Under/Over/Portieri).

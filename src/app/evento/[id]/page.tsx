@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Eye, UserCheck, UserX, Hand, Users, Share2, MoreHorizontal } from 'lucide-react';
+import { MapPin, Calendar, Clock, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Pencil, Info, Trash2, Shield, Eye, UserCheck, UserX, Hand, Users, Share2, MoreHorizontal, Timer } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +29,9 @@ import { buildMatchMessage } from '@/lib/formations';
 import { EventRosterPanel } from '@/components/events/EventRosterPanel';
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ChigioDoroCard } from '@/components/chigio/ChigioDoroCard';
+import { LiveScore, MatchChronicle } from '@/components/match/LiveMatchBlock';
+import { useLiveMatch } from '@/components/match/useLiveMatch';
+import { canOpenMatchMode } from '@/lib/match';
 
 interface RosterPlayer {
   id: string;
@@ -129,6 +132,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
   const isMatch = event ? isMatchEvent(event.tipo) : false;
   const opponent = event && isMatch ? opponentOf(event) : null;
+  const live = useLiveMatch(isMatch ? id : null);
+  const liveSession = live.session;
+  const isLive = Boolean(liveSession && liveSession.status !== 'FINISHED');
 
   // Si carica una volta sola, a sessione risolta: prima isAssociated è sempre false.
   useEffect(() => {
@@ -395,7 +401,9 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   });
 
   let scoreBlock = null;
-  if (isMatch && event.giocata) {
+  if (isLive && liveSession) {
+      scoreBlock = <div className="mt-2 lg:mt-0"><LiveScore session={liveSession} opponent={opponent ?? 'Avversario'} /></div>;
+  } else if (isMatch && event.giocata) {
       const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
       const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
       const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);
@@ -420,6 +428,16 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
         {isCancelled && <Badge variant="destructive" className="shrink-0">Annullato</Badge>}
         {isManager && (
             <div className="flex shrink-0 items-center gap-1">
+                {canOpenMatchMode(event, new Date(), liveSession) && (
+                    <Button asChild size="sm" className="pointer-coarse:min-w-11 bg-operative text-operative-foreground hover:bg-operative/90">
+                        <Link href={`/evento/${id}/partita`}>
+                            <Timer aria-hidden="true" />
+                            <span className="sr-only sm:not-sr-only">
+                                {liveSession && liveSession.operatorProfileId !== myProfileId ? 'Prendi il controllo' : 'Modalità partita'}
+                            </span>
+                        </Link>
+                    </Button>
+                )}
                 {/* Modifica sempre in vista e per prima; su mobile solo icona, il resto nel menu. */}
                 <Button size="sm" onClick={() => setEditDialogOpen(true)} className="pointer-coarse:min-w-11 bg-operative text-operative-foreground hover:bg-operative/90"><Pencil aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Modifica</span></Button>
                 <Button
@@ -483,6 +501,8 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
                 )}
                 {isCancelled && <p className="text-red-700 dark:text-red-300 font-bold text-sm bg-red-100 dark:bg-red-900/20 p-2 rounded">EVENTO ANNULLATO</p>}
             </div>
+
+            {liveSession && <MatchChronicle opponent={opponent ?? 'Avversario'} timeline={live.timeline} />}
 
         <div className={`grid gap-6 ${isAssociated ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8' : ''}`}>
           {/* Sticky solo finché si vota: dopo l'inizio c'è il Chigio, che può superare lo schermo. */}

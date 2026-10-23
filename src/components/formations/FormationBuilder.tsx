@@ -2,8 +2,6 @@
 
 import { useCallback, useState, useEffect, useId, useRef } from "react"
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
-import { toPng } from 'html-to-image'
-import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import {
     DndContext,
@@ -324,6 +322,8 @@ export function FormationBuilder({
             const response = await fetch('/distinta_template.xlsx');
             if (!response.ok) throw new Error("Template non trovato in public/");
             const arrayBuffer = await response.arrayBuffer();
+            // ExcelJS pesa ~1 MB: si scarica solo quando serve la distinta.
+            const { default: ExcelJS } = await import('exceljs');
             const workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(arrayBuffer);
             const worksheet = workbook.getWorksheet(1);
@@ -481,6 +481,7 @@ export function FormationBuilder({
         if (fieldRef.current) {
             try {
                 const timestamp = format(new Date(), 'yyyy-MM-dd-HH-mm');
+                const { toPng } = await import('html-to-image');
                 const dataUrl = await toPng(fieldRef.current, {
                     cacheBust: true,
                     imagePlaceholder: FORMATION_IMAGE_PLACEHOLDER,

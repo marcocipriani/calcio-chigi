@@ -24,7 +24,10 @@ const api = vi.hoisted(() => ({
     ]),
   ),
   fetchTeams: vi.fn().mockResolvedValue([]),
-  getUserContext: vi.fn().mockResolvedValue({ isManager: false }),
+}))
+
+const session = vi.hoisted(() => ({
+  useAppSession: vi.fn(() => ({ isManager: false })),
 }))
 
 const realtime = vi.hoisted(() => ({
@@ -52,9 +55,10 @@ const supabase = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/api", () => api)
+vi.mock("@/components/auth/AppSessionProvider", () => session)
 vi.mock("@/lib/supabaseBrowser", () => ({ supabaseBrowser: supabase }))
 
-import { StandingsContent } from "@/app/classifica/page"
+import { StandingsContent } from "@/components/tournament/StandingsContent"
 import TorneoPage from "@/app/torneo/page"
 import {
   CommunicationsAction,
@@ -178,7 +182,7 @@ describe("TournamentSelector", () => {
   })
 
   it("keeps the manager score action responsive and named", async () => {
-    api.getUserContext.mockResolvedValueOnce({ isManager: true })
+    session.useAppSession.mockReturnValue({ isManager: true })
     render(<TorneoPage />)
 
     const action = await screen.findByRole("button", {
@@ -194,6 +198,7 @@ describe("TournamentSelector", () => {
       "sm:rounded-md",
     )
     expect(action).toHaveAttribute("title", "Modifica risultati")
+    session.useAppSession.mockReturnValue({ isManager: false })
   })
 
   it("keeps the communications action neutral, labelled, and responsive", () => {

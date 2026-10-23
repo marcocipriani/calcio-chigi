@@ -24,13 +24,14 @@ export async function proxy(request: NextRequest) {
   )
 
   // Refresh della sessione (necessario per mantenere il cookie auth valido).
-  await supabase.auth.getUser()
+  // getClaims verifica il JWT in locale con le chiavi asimmetriche; senza, ripiega su getUser.
+  await supabase.auth.getClaims()
 
   return response
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.json|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|robots.txt|docs/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pdf|xlsx)$).*)',
   ],
 }

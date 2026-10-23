@@ -94,8 +94,13 @@ describe("AppSessionProvider", () => {
       expect(screen.getByTestId("manager")).toHaveTextContent("true")
     })
 
-    client.rpc.mockResolvedValueOnce({ data: null, error: { message: "offline" } })
     const [[onAuthChange]] = client.auth.onAuthStateChange.mock.calls
+    await act(async () => {
+      onAuthChange("INITIAL_SESSION", { user: { id: "user-1" } })
+    })
+    expect(client.rpc).toHaveBeenCalledTimes(1)
+
+    client.rpc.mockResolvedValueOnce({ data: null, error: { message: "offline" } })
     await act(async () => {
       onAuthChange("TOKEN_REFRESHED", { user: { id: "user-1" } })
     })

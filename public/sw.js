@@ -1,4 +1,7 @@
-const CACHE_NAME = "real-chigi-cache-v7";
+const CACHE_NAME = "real-chigi-cache-v8";
+// Immagini viste in navigazione (loghi Enjore, ecc.): cache a parte, con un tetto.
+const IMAGE_CACHE = "real-chigi-images-v1";
+const IMAGE_CACHE_MAX = 150;
 
 const STATIC_ASSETS = [
   "/manifest.json",
@@ -24,7 +27,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== IMAGE_CACHE).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -44,15 +47,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for static assets
-  if (STATIC_ASSETS.includes(url.pathname) || url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/)) {
+  // Cache-first for static assets (le voci precaricate hanno il ?v= nel path)
+  const isPrecached = STATIC_ASSETS.includes(url.pathname + url.search);
+  if (isPrecached || url.pathname.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/)) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;
         return fetch(event.request).then((response) => {
           if (response.status === 200) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            const cacheName = isPrecached ? CACHE_NAME : IMAGE_CACHE;
+            caches.open(cacheName).then(async (cache) => {
+              await cache.put(event.request, clone);
+              if (!isPrecached) await trimCache(cache, IMAGE_CACHE_MAX);
+            });
           }
           return response;
         });
@@ -74,6 +82,12 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request).then((cached) => cached ?? new Response("Offline", { status: 503 })))
   );
 });
+
+// keys() restituisce le voci in ordine di inserimento: si tolgono le più vecchie.
+async function trimCache(cache, max) {
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - max)).map((key) => cache.delete(key)));
+}
 
 self.addEventListener("push", (event) => {
   let payload = {};

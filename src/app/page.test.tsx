@@ -8,12 +8,12 @@ import type { Event } from "@/lib/types"
 const {
   fetchCalendarEvents,
   fetchTeams,
-  getUserContext,
+  useAppSession,
   removeChannel,
 } = vi.hoisted(() => ({
   fetchCalendarEvents: vi.fn(),
   fetchTeams: vi.fn(),
-  getUserContext: vi.fn(),
+  useAppSession: vi.fn(),
   removeChannel: vi.fn(),
 }))
 
@@ -28,8 +28,9 @@ vi.stubGlobal("ResizeObserver", TestResizeObserver)
 vi.mock("@/lib/api", () => ({
   fetchCalendarEvents,
   fetchTeams,
-  getUserContext,
 }))
+
+vi.mock("@/components/auth/AppSessionProvider", () => ({ useAppSession }))
 
 vi.mock("@/lib/supabaseBrowser", () => ({
   supabaseBrowser: {
@@ -43,9 +44,9 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 beforeEach(() => {
   fetchCalendarEvents.mockReset().mockResolvedValue([])
   fetchTeams.mockReset().mockResolvedValue([])
-  getUserContext.mockReset().mockResolvedValue({
+  useAppSession.mockReset().mockReturnValue({
     isManager: true,
-    defaultView: "ACTIVITY",
+    profile: { default_view: "ACTIVITY" },
   })
   removeChannel.mockClear()
 })
@@ -144,9 +145,9 @@ function seedCalendarFixtures() {
       logo_url: "/teams/psicologi.png",
     },
   ])
-  getUserContext.mockResolvedValue({
+  useAppSession.mockReturnValue({
     isManager: true,
-    defaultView: "CALENDAR",
+    profile: { default_view: "CALENDAR" },
   })
 
   return dates

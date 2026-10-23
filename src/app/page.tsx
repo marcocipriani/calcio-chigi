@@ -30,7 +30,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageTitleBar } from "@/components/layout/PageTitleBar";
 import { Event, Team } from "@/lib/types";
-import { getUserContext, fetchCalendarEvents, fetchTeams } from "@/lib/api";
+import { fetchCalendarEvents, fetchTeams } from "@/lib/api";
+import { useAppSession } from "@/components/auth/AppSessionProvider";
+import { useOnResume } from "@/lib/useOnResume";
 import { EVENT_TYPE_LABEL, isMatchEvent } from "@/lib/utils";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
@@ -53,7 +55,8 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('ACTIVITY');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
-  const [isManager, setIsManager] = useState(false);
+  const { isManager, profile } = useAppSession();
+  const defaultView = profile?.default_view;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
@@ -81,10 +84,6 @@ export default function Home() {
     setLoading(true);
     setLoadError(false);
     try {
-      const { isManager, defaultView } = await getUserContext(supabase);
-      if (isManager) setIsManager(true);
-      if (defaultView) setViewMode(defaultView as ViewMode);
-
       const [eventsData, teamsData] = await Promise.all([
         fetchCalendarEvents(supabase),
         fetchTeams(supabase),
@@ -118,6 +117,15 @@ export default function Home() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
+
+  useEffect(() => {
+    if (defaultView) setViewMode(defaultView as ViewMode);
+  }, [defaultView]);
+
+  // Ricarica silenziosa: niente skeleton al ritorno sull'app.
+  useOnResume(() => {
+    fetchCalendarEvents(supabase).then(setEvents).catch(() => {});
+  });
 
   const handleCreateNew = () => {
       setEditingEvent(null);

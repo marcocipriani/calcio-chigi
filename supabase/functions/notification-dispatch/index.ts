@@ -53,16 +53,13 @@ Deno.serve(async (request) => {
   })
 
   const { data, error } = await supabase.rpc("claim_notification_outbox", {
-    p_limit: 25,
+    p_limit: 100,
   })
   if (error) return json({ error: error.message }, 500)
 
   const items = (data ?? []) as OutboxItem[]
-  let delivered = 0
-  let failed = 0
-  let expired = 0
 
-  for (const item of items) {
+  async function deliver(item: OutboxItem): Promise<"delivered" | "failed" | "expired"> {
     try {
       await webPush.sendNotification(
         {
@@ -86,7 +83,7 @@ Deno.serve(async (request) => {
         p_success: true,
         p_error: null,
       })
-      delivered += 1
+      return "delivered"
     } catch (cause) {
       const error = cause as {
         statusCode?: number
@@ -103,17 +100,21 @@ Deno.serve(async (request) => {
           : error.message ?? error.body ?? "Push delivery failed",
       })
 
-      if (permanent) {
-        await supabase
-          .from("push_subscriptions")
-          .delete()
-          .eq("id", item.subscription_id)
-        expired += 1
-      } else {
-        failed += 1
-      }
+      if (!permanent) return "failed"
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("id", item.subscription_id)
+      return "expired"
     }
   }
+
+  // In parallelo: un broadcast a tutta la rosa parte in un solo giro di cron.
+  const outcomes = await Promise.all(items.map(deliver))
+  const count = (outcome: string) => outcomes.filter((value) => value === outcome).length
+  const delivered = count("delivered")
+  const failed = count("failed")
+  const expired = count("expired")
 
   return json({
     claimed: items.length,

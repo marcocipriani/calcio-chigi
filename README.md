@@ -16,11 +16,11 @@ _Calendario, squadra, torneo e gestione stagionale_
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](#-progressive-web-app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/marcocipriani/calcio-chigi)
-[![Versione](https://img.shields.io/badge/versione-2.0.0-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
+[![Versione](https://img.shields.io/badge/versione-2.7.0-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
 
 **[🌐 Apri la demo →](https://calcio-chigi.vercel.app/)** · **[💻 Repository →](https://github.com/marcocipriani/calcio-chigi)**
 
-<sub>📅 Ultimo aggiornamento: <b>30 luglio 2026</b> · versione <b>v2.0.0</b></sub>
+<sub>📅 Ultimo aggiornamento: <b>23 ottobre 2026</b> · versione <b>v2.7.0</b></sub>
 
 </div>
 
@@ -183,7 +183,8 @@ App su [http://localhost:3000](http://localhost:3000).
 | `npm run test:brand` | Verifica gli asset e i vincoli delle piattaforme |
 | `npm test` | Test Vitest |
 | `npm run test:import` | Test degli import Enjore |
-| `npm run db:verify` | Verifica snapshot e migration |
+| `npm run test:sync` | Test del parser calendario Enjore |
+| `npm run test:db` | Test pgTAP su Supabase locale |
 | `npm run test:e2e` | Test Playwright desktop/mobile |
 | `npm run sync:enjore` | Anteprima sync calendario Enjore (nessuna scrittura) |
 | `npm run sync:enjore:sql` | Genera l'SQL di update del calendario |
@@ -240,7 +241,6 @@ Workflow GitHub Actions in [`.github/workflows/sync-enjore.yml`](./.github/workf
 src/
 ├── app/                    # Next.js App Router
 │   ├── auth/callback/       # Callback OAuth / Magic Link
-│   ├── classifica/          # Classifica (realtime) — usata anche embedded in /torneo
 │   ├── evento/[id]/         # Dettaglio evento + presenze realtime
 │   ├── gestione/             # Dashboard operativa manager
 │   ├── giocatore/[id]/       # Profilo pubblico stagionale
@@ -255,6 +255,7 @@ src/
 │   ├── ui/                  # shadcn/ui (Radix + Tailwind)
 │   ├── management/          # Tabelle, drawer e azioni operative
 │   ├── events/              # Lista unica evento: disponibilità + check-in
+│   ├── tournament/          # Classifica realtime e selettore torneo
 │   ├── EventCard.tsx · EventDialog.tsx
 │   ├── SiteHeader.tsx · BottomNav.tsx · AppCredits.tsx
 │   └── theme-provider.tsx
@@ -267,7 +268,6 @@ src/
 └── proxy.ts                 # Refresh sessione auth (Next 16)
 
 supabase/
-├── schema.sql               # Snapshot schema completo
 └── migrations/              # RLS, trigger anti role-escalation, hardening funzioni
 scripts/                     # Sync Enjore (calendario + comunicati)
 public/                      # Icone PWA, manifest, service worker, template distinta

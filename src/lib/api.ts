@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sortPlaces } from './utils'
-import type { Event, Team, EventFase, FullProfile } from './types'
+import type { Event, Team, FullProfile } from './types'
 import type {
     PhaseFilter,
     PlayerSeasonStat,
@@ -9,12 +9,6 @@ import type {
 } from './season-statistics'
 
 // ─── Return types ─────────────────────────────────────────────────────────────
-
-export type UserContext = {
-    isManager: boolean
-    profileId: string | null
-    defaultView?: string | null
-}
 
 export type AttendanceRow = {
     profile_id: string
@@ -35,27 +29,6 @@ export type Comunicato = {
 // ─── Auth / User context ───────────────────────────────────────────────────────
 
 /**
- * Returns manager status, profile ID, and default view for the authenticated user.
- * Returns defaults (isManager: false, profileId: null) when not logged in.
- */
-export async function getUserContext(supabase: SupabaseClient): Promise<UserContext> {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { isManager: false, profileId: null, defaultView: null }
-
-    const { data } = await supabase
-        .from('profiles')
-        .select('id, is_manager, default_view')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-    return {
-        isManager: data?.is_manager ?? false,
-        profileId: data?.id ?? null,
-        defaultView: data?.default_view ?? null,
-    }
-}
-
-/**
  * Fetches the complete profile row for the authenticated user.
  * Returns null when not logged in or no profile exists.
  */
@@ -63,12 +36,14 @@ export async function fetchOwnProfile(supabase: SupabaseClient): Promise<FullPro
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return null
 
-    const { data } = await supabase
+    const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle()
 
+    // Un errore di rete non è "profilo assente": niente redirect al login.
+    if (error) throw error
     return data ?? null
 }
 
@@ -100,20 +75,9 @@ export async function fetchPlaces(supabase: SupabaseClient): Promise<string[]> {
  * Fetches a single event by ID.
  */
 export async function fetchEventById(supabase: SupabaseClient, id: string): Promise<Event | null> {
-    const { data } = await supabase.from('events').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await supabase.from('events').select('*').eq('id', id).maybeSingle()
+    if (error) throw error
     return data ?? null
-}
-
-/**
- * Fetches all matches across all phases for the torneo page (unfiltered).
- */
-export async function fetchAllMatches(supabase: SupabaseClient): Promise<Event[]> {
-    const { data } = await supabase
-        .from('events')
-        .select('*')
-        .eq('tipo', 'PARTITA')
-        .order('data_ora', { ascending: true })
-    return data ?? []
 }
 
 const SEASON_EVENT_SELECT =
@@ -137,57 +101,12 @@ export async function fetchSeasonEvents(
 }
 
 /**
- * Fetches matches for a specific phase (for standings/classifica).
- * FASE_1 includes rows where fase IS NULL (legacy data).
- */
-export async function fetchMatchesByPhase(supabase: SupabaseClient, fase: EventFase): Promise<Event[]> {
-    let query = supabase.from('events').select('*').eq('tipo', 'PARTITA')
-
-    if (fase !== 'FASE_1') {
-        query = query.eq('fase', fase)
-    } else {
-        query = query.or('fase.eq.FASE_1,fase.is.null')
-    }
-
-    const { data } = await query.order('data_ora', { ascending: false })
-    return data ?? []
-}
-
-/**
- * Fetches all matches for a specific giornata.
- */
-export async function fetchMatchesByGiornata(supabase: SupabaseClient, giornata: number): Promise<Event[]> {
-    const { data } = await supabase
-        .from('events')
-        .select('*')
-        .eq('tipo', 'PARTITA')
-        .eq('giornata', giornata)
-        .order('data_ora', { ascending: true })
-    return data ?? []
-}
-
-/**
- * Returns the distinct sorted list of giornate that have matches.
- */
-export async function fetchAvailableGiornate(supabase: SupabaseClient): Promise<string[]> {
-    const { data } = await supabase
-        .from('events')
-        .select('giornata')
-        .eq('tipo', 'PARTITA')
-        .not('giornata', 'is', null)
-        .order('giornata', { ascending: true })
-
-    if (!data) return []
-    return Array.from(new Set(data.map(d => d.giornata?.toString()))).filter(Boolean) as string[]
-}
-
-/**
  * Fetches the next upcoming Chigi match or friendly (nearest future date).
  * Returns null when no upcoming match exists.
  */
 export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Event | null> {
     const now = new Date().toISOString()
-    const { data } = await supabase
+    const { data, error } = await supabase
         .from('events')
         .select('*')
         .in('tipo', ['PARTITA', 'AMICHEVOLE'])
@@ -197,21 +116,11 @@ export async function fetchNextChigiMatch(supabase: SupabaseClient): Promise<Eve
         .order('data_ora', { ascending: true })
         .limit(1)
         .maybeSingle()
+    if (error) throw error
     return data ?? null
 }
 
 // ─── Profiles ─────────────────────────────────────────────────────────────────
-
-/**
- * Fetches the full roster (all profiles), ordered by cognome.
- */
-export async function fetchAllPlayers(supabase: SupabaseClient): Promise<FullProfile[]> {
-    const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('cognome', { ascending: true })
-    return data ?? []
-}
 
 /**
  * Fetches the public player directory for one selected season.
@@ -405,6 +314,7 @@ export async function fetchRosterForEvent(
 
 /**
  * Fetches all teams with full fields.
+ * Solo loghi: in errore restituisce [] e la pagina resta usabile.
  */
 export async function fetchTeams(supabase: SupabaseClient): Promise<Team[]> {
     const { data } = await supabase.from('teams').select('id, nome, logo_url, slug')
@@ -444,9 +354,10 @@ export async function fetchAttendanceForEvent(supabase: SupabaseClient, eventId:
  * Fetches official comunicati ordered by date descending.
  */
 export async function fetchComunicati(supabase: SupabaseClient): Promise<Comunicato[]> {
-    const { data } = await supabase
+    const { data, error } = await supabase
         .from('comunicati')
         .select('id, titolo, data, enjore_url, season_id')
         .order('data', { ascending: false })
+    if (error) throw error
     return data ?? []
 }

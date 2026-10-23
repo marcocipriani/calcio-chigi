@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { romeDateKey } from "@/lib/season"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { cn } from "@/lib/utils"
 
@@ -535,7 +536,7 @@ function OpenPaymentsPrompt({ suppressed }: { suppressed: boolean }) {
 
   useEffect(() => {
     if (suppressed || !isAssociated || openPayments.count === 0) return
-    const today = new Date().toISOString().slice(0, 10)
+    const today = romeDateKey(new Date())
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
     try {
       if (window.localStorage.getItem(key)) return
@@ -546,7 +547,7 @@ function OpenPaymentsPrompt({ suppressed }: { suppressed: boolean }) {
   }, [suppressed, isAssociated, openPayments.count, targetSeason?.id])
 
   function dismiss() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = romeDateKey(new Date())
     const key = `open-payments:${targetSeason?.id ?? "current"}:${today}`
     try {
       window.localStorage.setItem(key, "seen")

@@ -22,6 +22,7 @@ export type AppProfile = {
   avatar_url?: string | null
   data_nascita?: string | null
   is_manager?: boolean
+  default_view?: string | null
 }
 
 export type AppMembership = {
@@ -150,8 +151,9 @@ export function AppSessionProvider({
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
-      if (active) void hydrate(session?.user ?? null)
+    } = client.auth.onAuthStateChange((event, session) => {
+      // La sessione iniziale l'ha già idratata getUser(): niente seconda RPC.
+      if (active && event !== "INITIAL_SESSION") void hydrate(session?.user ?? null)
     })
 
     return () => {

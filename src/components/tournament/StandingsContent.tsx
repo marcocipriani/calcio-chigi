@@ -20,7 +20,6 @@ import { Team, Event, StandingRow } from "@/lib/types";
 import { fetchSeasonEvents, fetchTeams } from '@/lib/api'
 import type { PhaseFilter } from "@/lib/season-statistics"
 import { Skeleton } from "@/components/ui/skeleton";
-import { PageContainer } from "@/components/layout/PageContainer";
 
 interface FormMatch { result: string; date: string; score: string; opponent: string | null | undefined }
 
@@ -259,12 +258,4 @@ export function StandingsContent({
         </TooltipProvider>
     </div>
   );
-}
-
-export default function ClassificaPage({ fase }: { fase?: PhaseFilter }) {
-  return (
-    <PageContainer contentClassName="mx-auto max-w-5xl pb-24">
-      <StandingsContent fase={fase} />
-    </PageContainer>
-  )
 }

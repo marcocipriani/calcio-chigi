@@ -21,6 +21,7 @@ import { Event } from '@/lib/types';
 import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendanceForEvent, type AttendanceRow } from '@/lib/api';
 import { fetchInjuryPeriods, isInjuredOn, type InjuryPeriod } from '@/lib/injuries';
 import { romeDateKey } from '@/lib/season';
+import { useOnResume } from '@/lib/useOnResume';
 import { ageGroupAt, EVENT_TYPE_LABEL, isMatchEvent, isU35At } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel, type PublishedCallups } from '@/components/formations/OfficialFormationPanel';
@@ -195,6 +196,15 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
 
     return () => { supabase.removeChannel(channel); };
   }, [id, isAssociated, refreshInjuries]);
+
+  useOnResume(() => {
+    fetchEventById(supabase, id).then(setEvent).catch(() => {});
+    if (!isAssociated) return;
+    fetchAttendanceForEvent(supabase, id)
+      .then(rows => setRoster(prev => withAttendance(prev, rows)))
+      .catch(() => {});
+    refreshInjuries();
+  });
 
   // Allenamenti: chi è in infermeria e non ha votato risulta KO.
   const eventDay = event?.tipo === 'ALLENAMENTO' && event.data_ora

@@ -331,7 +331,10 @@ export default function ProfilePage() {
   }, [router])
 
   useEffect(() => {
-    void loadProfile()
+    loadProfile().catch(() => {
+      toast.error("Impossibile caricare il profilo.")
+      setLoading(false)
+    })
   }, [loadProfile])
 
   const hasChanges = useMemo(

@@ -17,6 +17,7 @@ import {
   supportsWebPush,
 } from "@/lib/push"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import { useOnResume } from "@/lib/useOnResume"
 import { cn } from "@/lib/utils"
 
 type NotificationRow = {
@@ -90,6 +91,12 @@ export function NotificationBell() {
       void supabaseBrowser.removeChannel(channel)
     }
   }, [load, user])
+
+  useOnResume(() => {
+    if (!user) return
+    void load()
+    void refresh()
+  })
 
   useEffect(() => {
     if (!user || !supportsWebPush()) return

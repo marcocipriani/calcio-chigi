@@ -21,7 +21,7 @@ import {
     TournamentSelector,
 } from "@/components/tournament/TournamentSelector"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
-import { StandingsContent } from '../classifica/page'
+import { StandingsContent } from '@/components/tournament/StandingsContent'
 import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
@@ -36,9 +36,9 @@ import {
     fetchPlayerStatisticsByPhase,
     fetchSeasonEvents,
     fetchTeams,
-    getUserContext,
     type Comunicato,
 } from '@/lib/api'
+import { useAppSession } from '@/components/auth/AppSessionProvider'
 
 type SeasonRow = { id: string; slug: string }
 
@@ -51,7 +51,7 @@ export default function TorneoPage() {
   const [loading, setLoading] = useState(true)
   const [allMatches, setAllMatches] = useState<Event[]>([])
   const [teamsMap, setTeamsMap] = useState<Record<string, string>>({})
-  const [isManager, setIsManager] = useState(false)
+  const { isManager } = useAppSession()
   const [seasons, setSeasons] = useState<SeasonRow[]>([])
   const [seasonsLoading, setSeasonsLoading] = useState(true)
   const [seasonError, setSeasonError] = useState<string | null>(null)
@@ -75,13 +75,11 @@ export default function TorneoPage() {
 
   useEffect(() => {
     async function init() {
-        const [{ isManager }, comunicatiData, teamsData] = await Promise.all([
-            getUserContext(supabase),
+        const [comunicatiData, teamsData] = await Promise.all([
             fetchComunicati(supabase),
             fetchTeams(supabase),
         ])
 
-        if (isManager) setIsManager(true)
         if (comunicatiData.length > 0) setComunicati(comunicatiData)
 
         const tMap: Record<string, string> = {}
@@ -91,7 +89,7 @@ export default function TorneoPage() {
         setTeamsMap(tMap)
 
     }
-    void init()
+    init().catch(() => toast.error("Comunicati non disponibili."))
   }, [])
 
   useEffect(() => {

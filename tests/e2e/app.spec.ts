@@ -1279,6 +1279,8 @@ test("chigio d'oro: voto anonimo del giocatore e chiusura a slide del manager", 
   const slider = managerPage.getByLabel("Scorri per chiudere la votazione")
   await slider.focus()
   await slider.press("End")
+  await expect(managerPage.getByText(/Si chiude da sola/)).toBeVisible()
+  await managerPage.getByRole("button", { name: "Pubblica risultati" }).click()
   await expect(managerPage.getByText("Votazione chiusa", { exact: true })).toBeVisible()
   await expect(managerPage.getByText("🏆 Manager")).toBeVisible()
   await managerPage.screenshot({ fullPage: true, path: testInfo.outputPath("chigio-risultati.png") })

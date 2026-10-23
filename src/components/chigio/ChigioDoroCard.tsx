@@ -5,6 +5,16 @@ import { format, formatDistanceToNowStrict } from "date-fns"
 import { it } from "date-fns/locale"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -95,29 +105,64 @@ function Results({ results, players }: { results: ChigioResult[]; players: Map<s
   )
 }
 
-// Slide nativo: arrivati in fondo si chiude, rilasciato prima torna a zero.
-function SlideToClose({ onConfirm }: { onConfirm: () => void }) {
+// Slide nativo: arrivati in fondo chiede conferma, rilasciato prima torna a zero.
+function SlideToClose({ closesAt, onConfirm }: { closesAt: Date; onConfirm: () => void }) {
   const [value, setValue] = useState(0)
+  const [confirming, setConfirming] = useState(false)
+  const autoClose = format(closesAt, "EEE d/M 'alle' HH:mm", { locale: it })
+
   return (
-    <label className="relative block">
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold text-operative">
-        Scorri per chiudere la votazione
-      </span>
-      <input
-        aria-label="Scorri per chiudere la votazione"
-        className="h-11 w-full cursor-pointer appearance-none rounded-full bg-operative/10 px-1 accent-operative [&::-moz-range-thumb]:size-9 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-operative [&::-webkit-slider-thumb]:size-9 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-operative"
-        max={100}
-        min={0}
-        onChange={event => setValue(Number(event.target.value))}
-        onKeyUp={() => { if (value >= 100) onConfirm() }}
-        onPointerUp={() => {
-          if (value >= 95) onConfirm()
-          else setValue(0)
+    <div className="space-y-2">
+      <p className="text-center text-[11px] text-muted-foreground">
+        Si chiude da sola <strong>{autoClose}</strong>: chiudila prima solo se hanno votato tutti quelli che servono.
+      </p>
+      <label className="relative block">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold text-operative">
+          Scorri per chiudere la votazione
+        </span>
+        <input
+          aria-label="Scorri per chiudere la votazione"
+          className="h-11 w-full cursor-pointer appearance-none rounded-full bg-operative/10 px-1 accent-operative [&::-moz-range-thumb]:size-9 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-operative [&::-webkit-slider-thumb]:size-9 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-operative"
+          max={100}
+          min={0}
+          onChange={event => setValue(Number(event.target.value))}
+          onKeyUp={() => { if (value >= 100) setConfirming(true) }}
+          onPointerUp={() => {
+            if (value >= 95) setConfirming(true)
+            else setValue(0)
+          }}
+          type="range"
+          value={value}
+        />
+      </label>
+
+      <AlertDialog
+        onOpenChange={next => {
+          if (next) return
+          setConfirming(false)
+          setValue(0)
         }}
-        type="range"
-        value={value}
-      />
-    </label>
+        open={confirming}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Chiudere la votazione adesso?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Chi non ha ancora votato non potrà più farlo. Il podio diventa definitivo e arriva la notifica a tutti.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-operative text-operative-foreground hover:bg-operative/90"
+              onClick={onConfirm}
+            >
+              Pubblica risultati
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   )
 }
 
@@ -248,7 +293,7 @@ export function ChigioDoroCard({
               </>
             )}
 
-            {isManager && <SlideToClose onConfirm={close} />}
+            {isManager && <SlideToClose closesAt={closesAt} onConfirm={close} />}
           </>
         ) : poll.closed_at ? (
           <>

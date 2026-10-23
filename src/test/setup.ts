@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest"
-import { cleanup } from "@testing-library/react"
+import { cleanup, configure } from "@testing-library/react"
 import { afterEach } from "vitest"
 
 process.env.NEXT_PUBLIC_SUPABASE_URL ??= "http://127.0.0.1:55321"
@@ -23,5 +23,8 @@ if (jsdomWindow && !globalThis.localStorage) {
     value: jsdomWindow.localStorage,
   })
 }
+
+// findBy*/waitFor: 1s di default non basta con la suite intera in parallelo.
+configure({ asyncUtilTimeout: 5_000 })
 
 afterEach(cleanup)

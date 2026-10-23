@@ -9,10 +9,8 @@ l’applicazione:
 - [Asset del brand](../assets/brand/README.md): sorgente, icone, splash,
   rigenerazione e verifiche visive.
 
-La sorgente canonica dello schema è `supabase/migrations/`. Il file
-`supabase/schema.sql` è uno snapshot generato con:
+La sorgente dello schema è `supabase/migrations/`. Per uno schema leggibile:
 
 ```bash
-npm run db:snapshot
-npm run db:verify
+npx supabase db dump --local -f /tmp/calcio-chigi-schema.sql
 ```

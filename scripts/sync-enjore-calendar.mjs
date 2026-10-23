@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 process.env.TZ = 'Europe/Rome';
 
@@ -12,14 +13,6 @@ const SEASON_START_YEAR = 2026;
 const SEASON_END_YEAR = 2027;
 // Le partite si abbinano solo dentro questa stagione: stesse squadre e giornate si ripetono ogni anno.
 const SEASON_SLUG = `${SEASON_START_YEAR}-${SEASON_END_YEAR}`;
-
-const args = new Set(process.argv.slice(2));
-const shouldApply = args.has('--apply');
-const shouldPrintSql = args.has('--sql');
-const shouldIncludeOnlyChigi = args.has('--only-chigi');
-const url = process.argv.find((arg) => arg.startsWith('--url='))?.slice('--url='.length) || DEFAULT_URL;
-
-loadDotEnv('.env.local');
 
 const TEAM_ALIASES = new Map([
   ['veterinari', 'VETERINARI'],
@@ -62,32 +55,47 @@ const PHASE_ALIASES = [
   { includes: 'girone arti&mestieri', value: 'FASE_1' },
 ];
 
-const unknownTeams = new Set();
-const html = await fetchHtml(url);
-let matches = parseMatches(html);
+export const unknownTeams = new Set();
 
-if (unknownTeams.size > 0) {
-  const names = [...unknownTeams].join(', ');
-  console.warn(`Squadre non in TEAM_ALIASES: ${names}`);
-  // Un nome non riconosciuto non abbina le partite già in calendario e le duplica.
-  if (shouldApply) throw new Error(`Sync annullata, aggiungi a TEAM_ALIASES: ${names}`);
+async function main() {
+  const args = new Set(process.argv.slice(2));
+  const shouldApply = args.has('--apply');
+  const shouldPrintSql = args.has('--sql');
+  const shouldIncludeOnlyChigi = args.has('--only-chigi');
+  const url = process.argv.find((arg) => arg.startsWith('--url='))?.slice('--url='.length) || DEFAULT_URL;
+
+  loadDotEnv('.env.local');
+
+  const html = await fetchHtml(url);
+  let matches = parseMatches(html);
+
+  if (unknownTeams.size > 0) {
+    const names = [...unknownTeams].join(', ');
+    console.warn(`Squadre non in TEAM_ALIASES: ${names}`);
+    // Un nome non riconosciuto non abbina le partite già in calendario e le duplica.
+    if (shouldApply) throw new Error(`Sync annullata, aggiungi a TEAM_ALIASES: ${names}`);
+  }
+
+  if (shouldIncludeOnlyChigi) {
+    matches = matches.filter((match) => match.squadra_casa === MY_TEAM || match.squadra_ospite === MY_TEAM);
+  }
+
+  if (shouldPrintSql) {
+    process.stdout.write(generateSql(matches));
+    return;
+  }
+
+  if (shouldApply) {
+    await applyToSupabase(matches);
+    return;
+  }
+
+  printSummary(matches);
 }
 
-if (shouldIncludeOnlyChigi) {
-  matches = matches.filter((match) => match.squadra_casa === MY_TEAM || match.squadra_ospite === MY_TEAM);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }
-
-if (shouldPrintSql) {
-  process.stdout.write(generateSql(matches));
-  process.exit(0);
-}
-
-if (shouldApply) {
-  await applyToSupabase(matches);
-  process.exit(0);
-}
-
-printSummary(matches);
 
 function loadDotEnv(path) {
   if (!existsSync(path)) return;
@@ -120,7 +128,7 @@ async function fetchHtml(targetUrl) {
   return response.text();
 }
 
-function parseMatches(sourceHtml) {
+export function parseMatches(sourceHtml) {
   const pieces = sourceHtml.split(/<div id="match-/).slice(1);
   const parsed = [];
 
@@ -416,7 +424,7 @@ async function applyToSupabase(rows) {
 
   const { data: existingRows, error } = await supabase
     .from('events')
-    .select('id,tipo,fase,giornata,squadra_casa,squadra_ospite')
+    .select(`id,${SYNCED_FIELDS.join(',')}`)
     .eq('tipo', 'PARTITA')
     .eq('season_id', season.id);
 
@@ -460,7 +468,10 @@ async function applyToSupabase(rows) {
     };
 
     if (existing) {
-      const { error: updateError } = await supabase.from('events').update(payload).eq('id', existing.id);
+      // Solo i campi cambiati: niente update a vuoto ogni notte (realtime e trigger).
+      const patch = eventPatch(existing, payload);
+      if (!patch) continue;
+      const { error: updateError } = await supabase.from('events').update(patch).eq('id', existing.id);
       if (updateError) throw updateError;
       updated += 1;
       continue;
@@ -476,6 +487,25 @@ async function applyToSupabase(rows) {
   }
 
   console.log(`Sync completata: ${updated} aggiornate, ${inserted} inserite (di cui ${skipped} a tavolino senza data).`);
+}
+
+const SYNCED_FIELDS = [
+  'tipo', 'data_ora', 'luogo', 'avversario', 'note', 'gol_nostri', 'gol_avversario', 'giocata',
+  'gol_casa', 'gol_ospite', 'giornata', 'squadra_casa', 'squadra_ospite', 'tipo_campo', 'fase',
+];
+
+/** Campi di `payload` diversi da `existing`, o null se non cambia nulla. */
+export function eventPatch(existing, payload) {
+  const patch = {};
+  for (const [field, value] of Object.entries(payload)) {
+    const current = existing[field];
+    // Postgres restituisce "+00:00", toISOString "Z": si confrontano gli istanti.
+    const same = field === 'data_ora' && current && value
+      ? new Date(current).getTime() === new Date(value).getTime()
+      : (current ?? null) === (value ?? null);
+    if (!same) patch[field] = value;
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
 }
 
 function eventKey(row) {

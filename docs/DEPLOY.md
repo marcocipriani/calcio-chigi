@@ -17,7 +17,8 @@ npx supabase start
 npx supabase db reset
 npm test
 npm run test:import
-npm run db:verify
+npm run test:sync
+npm run test:db
 npm run typecheck
 npm run lint
 npm run build

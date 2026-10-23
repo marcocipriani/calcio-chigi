@@ -46,8 +46,10 @@ const person: ManagementPerson = {
 function renderDrawer(overrides: Partial<ManagementPerson> = {}) {
   const onOpenChange = vi.fn()
   const onSaved = vi.fn().mockResolvedValue(undefined)
+  const onAccountAction = vi.fn()
   render(
     <PersonDrawer
+      onAccountAction={onAccountAction}
       onOpenChange={onOpenChange}
       onSaved={onSaved}
       person={{ ...person, ...overrides }}
@@ -59,10 +61,19 @@ function renderDrawer(overrides: Partial<ManagementPerson> = {}) {
     '[data-slot="dialog-footer"]',
   )
   if (!scrollArea || !footer) throw new Error("Scheda persona senza corpo o footer")
-  return { content, footer, onOpenChange, onSaved, scrollArea }
+  return { content, footer, onAccountAction, onOpenChange, onSaved, scrollArea }
 }
 
 describe("PersonDrawer", () => {
+  it("approva la richiesta account dalla scheda", () => {
+    const { onAccountAction, onOpenChange } = renderDrawer({
+      associationRequestId: "request-1",
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Approva" }))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onAccountAction).toHaveBeenCalledWith("request-1", "APPROVE")
+  })
+
   it("mantiene il corpo scorrevole tra header e footer fissi", () => {
     const { content, scrollArea } = renderDrawer()
 

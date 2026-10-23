@@ -11,7 +11,9 @@ function json(body: unknown, status = 200) {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "authorization, apikey, content-type",
+      // supabase-js invia x-client-info: senza, il preflight CORS fallisce.
+      "access-control-allow-headers":
+        "authorization, apikey, content-type, x-client-info",
     },
   })
 }

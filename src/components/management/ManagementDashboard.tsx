@@ -1353,6 +1353,7 @@ export function ManagementDashboard() {
         targetUserIds={selectedUserIds}
       />
       <PersonDrawer
+        onAccountAction={(requestId, action) => void accountAction(requestId, action)}
         onOpenChange={(open) => !open && setOpenPerson(null)}
         onSaved={load}
         person={openPerson}

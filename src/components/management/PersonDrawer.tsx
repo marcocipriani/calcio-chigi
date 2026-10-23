@@ -97,10 +97,12 @@ export function PersonDrawer({
   person,
   onOpenChange,
   onSaved,
+  onAccountAction,
 }: {
   person: ManagementPerson | null
   onOpenChange: (open: boolean) => void
   onSaved: () => Promise<void>
+  onAccountAction: (requestId: string, action: "APPROVE" | "REJECT") => void
 }) {
   const { profile } = useAppSession()
   const [category, setCategory] = useState<"PLAYER" | "STAFF">(
@@ -530,6 +532,34 @@ export function PersonDrawer({
             </DialogClose>
           </div>
         </DialogHeader>
+        {person.associationRequestId && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-3 text-sm">
+            <span className="min-w-0 flex-1">
+              Richiesta di collegamento account in attesa.
+            </span>
+            <Button
+              onClick={() => {
+                onOpenChange(false)
+                onAccountAction(person.associationRequestId!, "APPROVE")
+              }}
+              size="sm"
+              type="button"
+            >
+              Approva
+            </Button>
+            <Button
+              onClick={() => {
+                onOpenChange(false)
+                onAccountAction(person.associationRequestId!, "REJECT")
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Rifiuta
+            </Button>
+          </div>
+        )}
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
           <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 md:grid-cols-2">
             <section className="grid content-start gap-3">

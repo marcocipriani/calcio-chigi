@@ -103,6 +103,22 @@ Deno.serve(async (request) => {
     return json({ status: "APPROVED" })
   }
 
+  // Account già collegato (es. a mano dal manager mentre la richiesta era in
+  // attesa): si scarta la richiesta, l'utente Auth non si tocca.
+  const { data: linkedProfiles, error: linkedError } = await service
+    .from("profiles")
+    .select("id")
+    .eq("user_id", association.user_id)
+    .limit(1)
+  if (linkedError) return json({ error: linkedError.message }, 500)
+  if (linkedProfiles.length > 0) {
+    await service
+      .from("account_association_requests")
+      .delete()
+      .eq("id", association.id)
+    return json({ error: "Account already linked to a profile" }, 409)
+  }
+
   const { data: targetUser, error: targetUserError } =
     await service.auth.admin.getUserById(association.user_id)
   const email = targetUser.user?.email

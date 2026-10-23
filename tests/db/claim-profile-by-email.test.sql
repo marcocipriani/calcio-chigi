@@ -1,20 +1,22 @@
 begin;
 
-select plan(7);
+select plan(9);
 
 insert into auth.users (id, email, email_confirmed_at, aud, role, created_at, updated_at)
 values
   ('00000000-0000-0000-0000-000000000c01', 'Luca@Test.local ', now(), 'authenticated', 'authenticated', now(), now()),
   ('00000000-0000-0000-0000-000000000c02', 'nonverificato@test.local', null, 'authenticated', 'authenticated', now(), now()),
   ('00000000-0000-0000-0000-000000000c03', 'altro@test.local', now(), 'authenticated', 'authenticated', now(), now()),
-  ('00000000-0000-0000-0000-000000000c04', 'doppio@test.local', now(), 'authenticated', 'authenticated', now(), now());
+  ('00000000-0000-0000-0000-000000000c04', 'doppio@test.local', now(), 'authenticated', 'authenticated', now(), now()),
+  ('00000000-0000-0000-0000-000000000c05', 'mister@test.local', now(), 'authenticated', 'authenticated', now(), now());
 
-insert into public.profiles (id, user_id, nome, cognome, email)
+insert into public.profiles (id, user_id, nome, cognome, email, is_manager)
 values
-  ('10000000-0000-0000-0000-000000000c01', null, 'Luca', 'Email', 'luca@test.local'),
-  ('10000000-0000-0000-0000-000000000c02', null, 'Nino', 'Nonverificato', 'nonverificato@test.local'),
-  ('10000000-0000-0000-0000-000000000c03', null, 'Dora', 'Doppio', 'doppio@test.local'),
-  ('10000000-0000-0000-0000-000000000c04', null, 'Dino', 'Doppio', 'doppio@test.local');
+  ('10000000-0000-0000-0000-000000000c01', null, 'Luca', 'Email', 'luca@test.local', false),
+  ('10000000-0000-0000-0000-000000000c02', null, 'Nino', 'Nonverificato', 'nonverificato@test.local', false),
+  ('10000000-0000-0000-0000-000000000c03', null, 'Dora', 'Doppio', 'doppio@test.local', false),
+  ('10000000-0000-0000-0000-000000000c04', null, 'Dino', 'Doppio', 'doppio@test.local', false),
+  ('10000000-0000-0000-0000-000000000c05', null, 'Mario', 'Mister', 'mister@test.local', true);
 
 -- Richiesta sbagliata di un altro utente sul profilo di Luca.
 insert into public.account_association_requests (user_id, profile_id)
@@ -33,6 +35,19 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000c04
 select is_empty(
   $$select * from public.my_email_profile_match()$$,
   'ambiguous email matches nobody'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000c05', true);
+select is_empty(
+  $$select * from public.my_email_profile_match()$$,
+  'manager profiles never match by email'
+);
+
+select throws_ok(
+  $$select public.claim_profile_by_email('10000000-0000-0000-0000-000000000c05')$$,
+  '42501',
+  null,
+  'a manager profile cannot be claimed without approval'
 );
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000c03', true);

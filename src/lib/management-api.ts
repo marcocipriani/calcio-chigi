@@ -193,7 +193,8 @@ export async function fetchManagementPeople(
         membershipUpdatedAt: String(membership.updated_at),
         privateUpdatedAt: asText(details?.updated_at),
         accountStatus,
-        associationRequestId: request ? String(request.id) : null,
+        associationRequestId:
+          request?.status === "PENDING" ? String(request.id) : null,
         payments: (paymentsByMembership.get(String(membership.id)) ?? []).map(
           (payment): ManagementPayment => ({
             id: String(payment.id),

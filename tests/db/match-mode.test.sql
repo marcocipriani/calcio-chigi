@@ -27,9 +27,9 @@ insert into public.events (id, tipo, data_ora, luogo, squadra_casa, squadra_ospi
 values ('40000000-0000-0000-0000-000000000e01', 'PARTITA', now() - interval '150 minutes',
   'Campo test', 'CIRC. CHIGI', 'AVVERSARI', false);
 
-insert into public.official_formations (id, event_id, formation_module, published_by)
+insert into public.official_formations (id, event_id, formation_module, captain_profile_id, published_by)
 values ('50000000-0000-0000-0000-000000000e01', '40000000-0000-0000-0000-000000000e01', '4-4-2',
-  '10000000-0000-0000-0000-000000000e01');
+  '10000000-0000-0000-0000-000000000e03', '10000000-0000-0000-0000-000000000e01');
 insert into public.official_formation_players (formation_id, profile_id, player_snapshot, is_starter, position_key)
 values
   ('50000000-0000-0000-0000-000000000e01', '10000000-0000-0000-0000-000000000e03', '{}', true, 'ATT1'),

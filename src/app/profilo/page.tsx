@@ -32,6 +32,11 @@ import {
   useMembershipDocuments,
 } from "@/components/documents/MembershipDocuments"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
+import {
+  PaymentEntriesList,
+  PaymentProgress,
+} from "@/components/payments/PaymentEntriesList"
+import { PaymentEntryDialog } from "@/components/payments/PaymentEntryDialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -68,6 +73,18 @@ import {
   type PaymentStatus,
   type RegistrationStatus,
 } from "@/lib/profile-operations"
+import {
+  fetchCashRecipients,
+  fetchPaymentSettings,
+  formatEuro,
+  paidAmount,
+  PAYMENT_ENTRY_COLUMNS,
+  remainingAmount,
+  toPaymentEntries,
+  type CashRecipient,
+  type PaymentEntry,
+  type PaymentSettings,
+} from "@/lib/payments"
 import { supabaseBrowser as supabase } from "@/lib/supabaseBrowser"
 import type { FullProfile } from "@/lib/types"
 
@@ -102,8 +119,7 @@ type Payment = {
   amount_due: number
   due_on: string | null
   status: PaymentStatus
-  method: "CASH" | "BANK_TRANSFER" | null
-  declared_at: string | null
+  entries: PaymentEntry[]
 }
 
 type Certificate = {
@@ -139,6 +155,26 @@ const emptyForm: ProfileForm = {
   default_view: "ACTIVITY",
 }
 
+async function fetchOwnPayments(membershipId: string): Promise<Payment[]> {
+  const { data, error } = await supabase
+    .from("payments")
+    .select(`id, description, amount_due, due_on, status, ${PAYMENT_ENTRY_COLUMNS}`)
+    .eq("membership_id", membershipId)
+    .order("due_on", { ascending: true })
+  if (error) {
+    toast.error(error.message)
+    return []
+  }
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    description: String(row.description),
+    amount_due: Number(row.amount_due),
+    due_on: (row.due_on as string | null) ?? null,
+    status: row.status as PaymentStatus,
+    entries: toPaymentEntries(row.payment_entries),
+  }))
+}
+
 function formatDate(value: string | null) {
   return value ? format(new Date(`${value}T12:00:00`), "d MMM yyyy", { locale: it }) : "—"
 }
@@ -164,6 +200,10 @@ export default function ProfilePage() {
   const [season, setSeason] = useState<Season | null>(null)
   const [membership, setMembership] = useState<Membership | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  const [recipients, setRecipients] = useState<CashRecipient[]>([])
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
+  const [entryPaymentId, setEntryPaymentId] = useState<string | null>(null)
+  const [entryBusy, setEntryBusy] = useState(false)
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [ownDocuments, setOwnDocuments] = useState<MembershipDocument[]>([])
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
@@ -242,12 +282,8 @@ export default function ProfilePage() {
     ])
 
     if (latestMembership) {
-      const [{ data: paymentRows }, { data: certificateRows }, documentRows] = await Promise.all([
-        supabase
-          .from("payments")
-          .select("id, description, amount_due, due_on, status, method, declared_at")
-          .eq("membership_id", latestMembership.id)
-          .order("due_on", { ascending: true }),
+      const [loadedPayments, { data: certificateRows }, documentRows] = await Promise.all([
+        fetchOwnPayments(latestMembership.id),
         supabase
           .from("medical_certificates")
           .select("id, document_path, visit_on, expires_on, laboratory, status, rejection_reason, created_at")
@@ -255,7 +291,7 @@ export default function ProfilePage() {
           .order("created_at", { ascending: false }),
         fetchMembershipDocuments(supabase, [latestMembership.id]).catch(() => []),
       ])
-      ownPayments = (paymentRows ?? []) as Payment[]
+      ownPayments = loadedPayments
       ownCertificates = (certificateRows ?? []) as Certificate[]
       loadedDocuments = documentRows
     }
@@ -275,6 +311,15 @@ export default function ProfilePage() {
     setSeason(latestSeason as Season | null)
     setMembership(latestMembership)
     setPayments(ownPayments)
+    if (ownPayments.length) {
+      void Promise.all([
+        fetchCashRecipients(supabase).catch(() => []),
+        fetchPaymentSettings(supabase).catch(() => null),
+      ]).then(([loadedRecipients, settings]) => {
+        setRecipients(loadedRecipients)
+        setPaymentSettings(settings)
+      })
+    }
     setCertificates(ownCertificates)
     setOwnDocuments(loadedDocuments)
     setJerseyHistory(history)
@@ -304,9 +349,10 @@ export default function ProfilePage() {
   const latestCertificate = certificates[0] ?? null
   const openPayments = payments.filter((payment) => payment.status !== "PAID")
   const openAmount = openPayments.reduce(
-    (total, payment) => total + Number(payment.amount_due),
+    (total, payment) => total + Number(payment.amount_due) - paidAmount(payment.entries),
     0,
   )
+  const entryPayment = payments.find(({ id }) => id === entryPaymentId) ?? null
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault()
@@ -498,21 +544,22 @@ export default function ProfilePage() {
     window.open(data.signedUrl, "_blank", "noopener,noreferrer")
   }
 
-  async function declarePayment(paymentId: string, method: "CASH" | "BANK_TRANSFER") {
-    const { data, error } = await supabase.rpc("declare_payment", {
-      p_payment_id: paymentId,
-      p_method: method,
+  async function reloadPayments() {
+    if (membership) setPayments(await fetchOwnPayments(membership.id))
+  }
+
+  async function cancelEntry(entryId: string) {
+    setEntryBusy(true)
+    const { error } = await supabase.rpc("cancel_payment_entry", {
+      p_entry_id: entryId,
     })
+    setEntryBusy(false)
     if (error) {
       toast.error(error.message)
       return
     }
-    setPayments((current) =>
-      current.map((payment) =>
-        payment.id === paymentId ? ({ ...payment, ...data } as Payment) : payment,
-      ),
-    )
-    toast.success("Pagamento dichiarato: il manager lo verificherà")
+    toast.success("Pagamento annullato")
+    await reloadPayments()
   }
 
   async function logout() {
@@ -649,7 +696,7 @@ export default function ProfilePage() {
               <span className="block text-[10px] font-black uppercase tracking-wider">
                 Quote aperte
               </span>
-              <span className="text-2xl font-black">€ {openAmount.toFixed(2)}</span>
+              <span className="text-2xl font-black">{formatEuro(openAmount)}</span>
             </div>
           )}
         </div>
@@ -1051,8 +1098,10 @@ export default function ProfilePage() {
                   Nessuna quota richiesta.
                 </p>
               ) : (
-                payments.map((payment) => (
-                  <div key={payment.id} className="rounded-xl border p-3">
+                payments.map((payment) => {
+                  const remaining = remainingAmount(payment.amount_due, payment.entries)
+                  return (
+                  <div key={payment.id} className="space-y-2 rounded-xl border p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-bold">{payment.description}</p>
@@ -1061,38 +1110,34 @@ export default function ProfilePage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-black">€ {Number(payment.amount_due).toFixed(2)}</p>
+                        <p className="text-lg font-black">{formatEuro(payment.amount_due)}</p>
                         <Badge variant="outline" className={statusTone(payment.status)}>
                           {paymentStatusLabel(payment.status)}
                         </Badge>
                       </div>
                     </div>
-                    {payment.status === "DUE" && (
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => declarePayment(payment.id, "CASH")}
-                        >
-                          Contanti
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => declarePayment(payment.id, "BANK_TRANSFER")}
-                        >
-                          Bonifico
-                        </Button>
-                      </div>
+                    <PaymentProgress
+                      due={payment.amount_due}
+                      paid={paidAmount(payment.entries)}
+                    />
+                    <PaymentEntriesList
+                      busy={entryBusy}
+                      entries={payment.entries}
+                      onCancel={(entryId) => void cancelEntry(entryId)}
+                      recipients={recipients}
+                    />
+                    {payment.status !== "PAID" && remaining > 0 && (
+                      <Button
+                        className="w-full"
+                        onClick={() => setEntryPaymentId(payment.id)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        Registra pagamento
+                      </Button>
                     )}
-                    {payment.status === "PENDING_REVIEW" && (
-                      <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-                        Dichiarato {payment.method === "CASH" ? "in contanti" : "con bonifico"}; in attesa del manager.
-                      </p>
-                    )}
-                    <div className="mt-2 flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
                       Ricevuta
                       <PaymentReceipt
                         canDelete={canDeleteDocument}
@@ -1102,12 +1147,30 @@ export default function ProfilePage() {
                       />
                     </div>
                   </div>
-                ))
+                  )
+                })
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {entryPayment && profile && (
+        <PaymentEntryDialog
+          currentProfileId={profile.id}
+          description={entryPayment.description}
+          mode="player"
+          onOpenChange={(open) => !open && setEntryPaymentId(null)}
+          onSaved={reloadPayments}
+          open
+          ownerName={`${profile.nome} ${profile.cognome}`}
+          ownerProfileId={profile.id}
+          paymentId={entryPayment.id}
+          recipients={recipients}
+          remaining={remainingAmount(entryPayment.amount_due, entryPayment.entries)}
+          settings={paymentSettings}
+        />
+      )}
 
       <AppCredits uid={profile?.id} />
       </main>

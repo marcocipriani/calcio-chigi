@@ -8,6 +8,7 @@ import {
   BellPlus,
   CalendarClock,
   CircleDollarSign,
+  Landmark,
   Plus,
   Search,
   Shirt,
@@ -35,6 +36,7 @@ import { NotificationComposer } from "@/components/management/NotificationCompos
 import type { PassportPhotoState } from "@/components/management/PassportPhotoPreview"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
 import { TrashDialog } from "@/components/management/TrashDialog"
+import { PaymentSettingsDialog } from "@/components/payments/PaymentSettingsDialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,7 +125,6 @@ const emptyFilters: ManagementFilters = {
 
 type QuickDialog =
   | { kind: "DEADLINE" }
-  | { kind: "PAYMENT"; paymentId: string }
   | { kind: "CERTIFICATE"; certificateId: string }
 
 type AttendanceLoadState =
@@ -212,11 +213,9 @@ export function ManagementDashboard() {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
+  const [bankOpen, setBankOpen] = useState(false)
   const [quickDialog, setQuickDialog] = useState<QuickDialog | null>(null)
   const [quickValue, setQuickValue] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState<
-    "CASH" | "BANK_TRANSFER"
-  >("BANK_TRANSFER")
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const rosterLoadGeneration = useRef(0)
@@ -819,24 +818,29 @@ export function ManagementDashboard() {
     await load()
   }
 
-  function verifyPayment(paymentId: string) {
-    setPaymentMethod("BANK_TRANSFER")
-    setQuickDialog({ kind: "PAYMENT", paymentId })
-  }
-
-  async function submitPayment(paymentId: string) {
+  // Il tasto rapido conferma tutti i versamenti in attesa della rata; per
+  // confermarli o rifiutarli uno a uno c'è la scheda persona.
+  async function verifyPayment(paymentId: string) {
     setActionBusy(true)
-    const { error } = await supabaseBrowser.rpc("manager_verify_payment", {
-      p_payment_id: paymentId,
-      p_method: paymentMethod,
-    })
+    const { data: pending, error: pendingError } = await supabaseBrowser
+      .from("payment_entries")
+      .select("id")
+      .eq("payment_id", paymentId)
+      .eq("status", "PENDING")
+    let error = pendingError
+    for (const entry of pending ?? []) {
+      if (error) break
+      ;({ error } = await supabaseBrowser.rpc("manager_review_payment_entry", {
+        p_entry_id: entry.id,
+        p_status: "VERIFIED",
+      }))
+    }
     setActionBusy(false)
     if (error) {
       toast.error("Pagamento non verificato", { description: error.message })
       return
     }
     toast.success("Pagamento verificato")
-    setQuickDialog(null)
     await load()
   }
 
@@ -900,6 +904,23 @@ export function ManagementDashboard() {
               </TooltipTrigger>
               <TooltipContent className="sm:hidden">Numeri di maglia</TooltipContent>
             </Tooltip>
+            {view === "PAYMENTS" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="Coordinate bancarie"
+                    className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
+                    onClick={() => setBankOpen(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Landmark aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only">IBAN</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="sm:hidden">Coordinate bancarie</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -1356,7 +1377,16 @@ export function ManagementDashboard() {
         onAccountAction={(requestId, action) => void accountAction(requestId, action)}
         onOpenChange={(open) => !open && setOpenPerson(null)}
         onSaved={load}
-        person={openPerson}
+        person={
+          openPerson
+            ? (people.find(({ id }) => id === openPerson.id) ?? openPerson)
+            : null
+        }
+      />
+      <PaymentSettingsDialog
+        managerProfileId={profile?.id ?? null}
+        onOpenChange={setBankOpen}
+        open={bankOpen}
       />
       <TrashDialog
         onOpenChange={setTrashOpen}
@@ -1401,48 +1431,6 @@ export function ManagementDashboard() {
                   onClick={saveDeadline}
                 >
                   Salva scadenza
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {quickDialog?.kind === "PAYMENT" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Verifica pagamento</DialogTitle>
-                <DialogDescription>
-                  Registra il metodo effettivamente ricevuto.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 py-2">
-                <Label htmlFor="verified-payment-method">Metodo</Label>
-                <select
-                  className={`${selectClass} w-full`}
-                  id="verified-payment-method"
-                  onChange={(event) =>
-                    setPaymentMethod(
-                      event.target.value as "CASH" | "BANK_TRANSFER",
-                    )
-                  }
-                  value={paymentMethod}
-                >
-                  <option value="BANK_TRANSFER">Bonifico</option>
-                  <option value="CASH">Contanti</option>
-                </select>
-              </div>
-              <DialogFooter>
-                <Button
-                  disabled={actionBusy}
-                  onClick={() => setQuickDialog(null)}
-                  variant="outline"
-                >
-                  Annulla
-                </Button>
-                <Button
-                  disabled={actionBusy}
-                  onClick={() => submitPayment(quickDialog.paymentId)}
-                >
-                  Verifica pagamento
                 </Button>
               </DialogFooter>
             </>

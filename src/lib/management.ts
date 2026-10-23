@@ -9,6 +9,7 @@ import type {
 import type { Injury } from "@/lib/injuries"
 import type { AttendanceSummary } from "@/lib/management-attendance"
 import type { MembershipDocument } from "@/lib/membership-documents"
+import type { PaymentEntry } from "@/lib/payments"
 import { romeDateKey } from "@/lib/season"
 
 export type ManagementPayment = {
@@ -18,6 +19,8 @@ export type ManagementPayment = {
   description?: string
   dueOn?: string | null
   method?: "CASH" | "BANK_TRANSFER" | null
+  amountPaid?: number
+  entries?: PaymentEntry[]
 }
 
 export type ManagementPerson = {

@@ -107,7 +107,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.declare_payment(uuid, public.payment_method)',
+    'public.declare_payment_entry(uuid, numeric, date, public.payment_method, uuid)',
     'EXECUTE'
   ),
   'anonymous users cannot declare payments'
@@ -115,7 +115,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.guard_payment_owner_update()',
+    'private.derive_payment_status()',
     'EXECUTE'
   ),
   'anonymous users cannot execute internal trigger functions'
@@ -194,8 +194,8 @@ select has_function(
 );
 select has_function(
   'public',
-  'manager_verify_payment',
-  array['uuid', 'payment_method']
+  'manager_review_payment_entry',
+  array['uuid', 'payment_entry_status', 'text']
 );
 select has_function(
   'public',

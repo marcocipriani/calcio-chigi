@@ -140,7 +140,10 @@ function AccountState({ person }: { person: ManagementPerson }) {
 
 function PaymentState({ person }: { person: ManagementPerson }) {
   const open = person.payments.filter((payment) => payment.status !== "PAID")
-  const total = open.reduce((sum, payment) => sum + payment.amountDue, 0)
+  const total = open.reduce(
+    (sum, payment) => sum + payment.amountDue - (payment.amountPaid ?? 0),
+    0,
+  )
   if (!open.length) return <Dot kind="good" label="In regola" />
   const pending = open.some((payment) => payment.status === "PENDING_REVIEW")
   return (

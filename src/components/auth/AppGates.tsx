@@ -579,7 +579,7 @@ function OpenPaymentsPrompt({ suppressed }: { suppressed: boolean }) {
             <strong className="text-foreground">
               € {openPayments.amount.toFixed(2)}
             </strong>
-            . Puoi dichiarare contanti o bonifico dalla tua scheda.
+            . Puoi registrare pagamenti, anche parziali, dalla tua scheda.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

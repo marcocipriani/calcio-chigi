@@ -448,7 +448,7 @@ describe("protected player page", () => {
         }),
         expect.objectContaining({
           table: "payments",
-          columns: "id, description, amount_due, due_on, status",
+          columns: "id, description, amount_due, amount_paid, due_on, status",
         }),
         expect.objectContaining({
           table: "medical_certificates",

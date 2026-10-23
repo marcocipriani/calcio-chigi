@@ -19,6 +19,7 @@ import {
   type Injury,
 } from "@/lib/injuries"
 import { aggregateManagementAttendance } from "@/lib/management-attendance"
+import { PAYMENT_ENTRY_COLUMNS, toPaymentEntries } from "@/lib/payments"
 import type {
   ColumnPreferences,
   DisplayPreferences,
@@ -80,7 +81,10 @@ export async function fetchManagementPeople(
       .from("profile_private_details")
       .select("profile_id, phone, operational_email, updated_at")
       .in("profile_id", profileIds),
-    client.from("payments").select("*").in("membership_id", membershipIds),
+    client
+      .from("payments")
+      .select(`*, ${PAYMENT_ENTRY_COLUMNS}`)
+      .in("membership_id", membershipIds),
     client
       .from("medical_certificates")
       .select("*")
@@ -203,6 +207,8 @@ export async function fetchManagementPeople(
             description: String(payment.description),
             dueOn: asText(payment.due_on),
             method: (asText(payment.method) as ManagementPayment["method"]) ?? null,
+            amountPaid: Number(payment.amount_paid ?? 0),
+            entries: toPaymentEntries(payment.payment_entries),
           }),
         ),
         certificateStatus: effectiveCertificateStatus(

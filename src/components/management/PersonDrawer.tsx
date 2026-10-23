@@ -29,6 +29,11 @@ import {
   useMembershipDocuments,
 } from "@/components/documents/MembershipDocuments"
 import { InjuryHistory } from "@/components/injuries/InjuryHistory"
+import {
+  PaymentEntriesList,
+  PaymentProgress,
+} from "@/components/payments/PaymentEntriesList"
+import { PaymentEntryDialog } from "@/components/payments/PaymentEntryDialog"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
 import {
   AttendancePercentage,
@@ -65,6 +70,11 @@ import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
 import type { Injury } from "@/lib/injuries"
 import type { MembershipDocument } from "@/lib/membership-documents"
+import {
+  fetchCashRecipients,
+  remainingAmount,
+  type CashRecipient,
+} from "@/lib/payments"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 const NO_DOCUMENTS: MembershipDocument[] = []
@@ -120,6 +130,40 @@ export function PersonDrawer({
     expiresOn: "",
     laboratory: "",
   })
+  const [recipients, setRecipients] = useState<CashRecipient[]>([])
+  const [entryPaymentId, setEntryPaymentId] = useState<string | null>(null)
+  const [rejectEntryId, setRejectEntryId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [entryBusy, setEntryBusy] = useState(false)
+
+  const hasPayments = Boolean(person?.payments.length)
+  useEffect(() => {
+    if (!hasPayments || recipients.length) return
+    fetchCashRecipients(supabaseBrowser)
+      .then(setRecipients)
+      .catch(() => setRecipients([]))
+  }, [hasPayments, recipients.length])
+
+  const entryPayment =
+    person?.payments.find(({ id }) => id && id === entryPaymentId) ?? null
+
+  async function reviewEntry(entryId: string, approved: boolean, reason = "") {
+    setEntryBusy(true)
+    const { error } = await supabaseBrowser.rpc("manager_review_payment_entry", {
+      p_entry_id: entryId,
+      p_status: approved ? "VERIFIED" : "REJECTED",
+      p_rejection_reason: reason.trim() || null,
+    })
+    setEntryBusy(false)
+    if (error) {
+      toast.error("Versamento non aggiornato", { description: error.message })
+      return
+    }
+    toast.success(approved ? "Versamento confermato" : "Versamento rifiutato")
+    setRejectEntryId(null)
+    setRejectReason("")
+    await onSaved()
+  }
 
   useEffect(() => {
     if (person) {
@@ -944,10 +988,8 @@ export function PersonDrawer({
               {person.payments.length ? (
                 <div className="divide-y rounded-lg border">
                   {person.payments.map((payment) => (
-                    <div
-                      className="flex min-h-12 items-center gap-3 px-3 py-2"
-                      key={payment.id}
-                    >
+                    <div className="grid gap-2 px-3 py-2" key={payment.id}>
+                    <div className="flex min-h-12 items-center gap-3">
                       <CreditCard
                         aria-hidden="true"
                         className="size-4 shrink-0 text-muted-foreground"
@@ -960,9 +1002,6 @@ export function PersonDrawer({
                           {payment.dueOn
                             ? `Scadenza ${payment.dueOn}`
                             : "Nessuna scadenza"}
-                          {payment.method
-                            ? ` · ${payment.method === "CASH" ? "contanti" : "bonifico"}`
-                            : ""}
                         </span>
                       </span>
                       <span className="text-right">
@@ -983,6 +1022,33 @@ export function PersonDrawer({
                           paymentId={payment.id}
                           state={documents}
                         />
+                      )}
+                    </div>
+                    <PaymentProgress
+                      due={payment.amountDue}
+                      paid={payment.amountPaid ?? 0}
+                    />
+                    <PaymentEntriesList
+                      busy={entryBusy}
+                      entries={payment.entries ?? []}
+                      onReview={(entryId, approved) =>
+                        approved
+                          ? void reviewEntry(entryId, true)
+                          : setRejectEntryId(entryId)
+                      }
+                      recipients={recipients}
+                    />
+                    {payment.id &&
+                      payment.status !== "PAID" &&
+                      remainingAmount(payment.amountDue, payment.entries ?? []) > 0 && (
+                        <Button
+                          onClick={() => setEntryPaymentId(payment.id!)}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          Registra versamento
+                        </Button>
                       )}
                     </div>
                   ))}
@@ -1187,6 +1253,58 @@ export function PersonDrawer({
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {entryPayment && person && (
+        <PaymentEntryDialog
+          currentProfileId={profile?.id ?? null}
+          description={entryPayment.description ?? "Quota"}
+          mode="manager"
+          onOpenChange={(open) => !open && setEntryPaymentId(null)}
+          onSaved={onSaved}
+          open
+          ownerName={`${person.nome} ${person.cognome}`}
+          ownerProfileId={person.profileId}
+          paymentId={entryPayment.id!}
+          recipients={recipients}
+          remaining={remainingAmount(entryPayment.amountDue, entryPayment.entries ?? [])}
+          settings={null}
+        />
+      )}
+
+      <Dialog
+        onOpenChange={(open) => !open && setRejectEntryId(null)}
+        open={Boolean(rejectEntryId)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rifiuta versamento</DialogTitle>
+            <DialogDescription>
+              Il motivo, se lo scrivi, arriva alla persona con la notifica.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            aria-label="Motivo"
+            onChange={(event) => setRejectReason(event.target.value)}
+            placeholder="Es. bonifico non arrivato"
+            value={rejectReason}
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Annulla
+              </Button>
+            </DialogClose>
+            <Button
+              disabled={entryBusy}
+              onClick={() => rejectEntryId && void reviewEntry(rejectEntryId, false, rejectReason)}
+              type="button"
+              variant="destructive"
+            >
+              Rifiuta
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

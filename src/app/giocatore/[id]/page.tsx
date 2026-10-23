@@ -54,6 +54,7 @@ type Payment = {
   id: string
   description: string
   amount_due: number
+  amount_paid: number
   due_on: string | null
   status: PaymentStatus
 }
@@ -230,7 +231,7 @@ export default function PlayerPage({
           const [paymentsResult, certificatesResult] = await Promise.all([
             supabaseBrowser
               .from("payments")
-              .select("id, description, amount_due, due_on, status")
+              .select("id, description, amount_due, amount_paid, due_on, status")
               .eq("membership_id", membership.id)
               .order("due_on", { ascending: true }),
             supabaseBrowser
@@ -535,7 +536,10 @@ export default function PlayerPage({
                     </span>
                   </span>
                   <Badge variant="outline">
-                    € {Number(payment.amount_due).toFixed(2)} · {paymentStatusLabel(payment.status)}
+                    {Number(payment.amount_paid) > 0 && payment.status !== "PAID"
+                      ? `€ ${Number(payment.amount_paid).toFixed(2)} su ${Number(payment.amount_due).toFixed(2)}`
+                      : `€ ${Number(payment.amount_due).toFixed(2)}`}{" "}
+                    · {paymentStatusLabel(payment.status)}
                   </Badge>
                 </div>
               ))}

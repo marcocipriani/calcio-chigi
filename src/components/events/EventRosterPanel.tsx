@@ -522,9 +522,12 @@ export function EventRosterPanel({
                         onChange={(event) =>
                           updateStat(player.id, field, event.target.value)
                         }
+                        // Lo 0 resta come placeholder: digitando si sovrascrive il valore.
+                        onFocus={(event) => event.target.select()}
+                        placeholder="0"
                         step="1"
                         type="number"
-                        value={stats[player.id]?.[field] ?? 0}
+                        value={stats[player.id]?.[field] || ""}
                       />
                     </label>
                   ))}

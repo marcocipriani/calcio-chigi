@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { format, formatDistanceToNowStrict } from "date-fns"
 import { it } from "date-fns/locale"
+import { ChevronsRight } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -134,6 +135,12 @@ function SlideToClose({ closesAt, onConfirm }: { closesAt: Date; onConfirm: () =
           type="range"
           value={value}
         />
+        {/* Il thumb nativo non ha contenuto: l'icona lo segue (px-1 = 4px, thumb size-9 = 36px). */}
+        <ChevronsRight
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1 size-9 p-2 text-operative-foreground"
+          style={{ left: `calc(4px + (100% - 44px) * ${value / 100})` }}
+        />
       </label>
 
       <AlertDialog
@@ -247,7 +254,7 @@ export function ChigioDoroCard({
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {state.canVote ? "Scegli 1 🔝 e fino a 2 👏 · " : ""}
+              {state.canVote ? "1° tap 🔝, poi 👏 (max 2) · ritocca per scalare 🔝 → 👏 → niente · " : ""}
               {poll.ballots_count}/{poll.voters_total} hanno votato
             </p>
 
@@ -262,8 +269,8 @@ export function ChigioDoroCard({
                         aria-pressed={!!pick}
                         className={cn(
                           "relative rounded-lg border p-2 text-center text-xs transition-colors",
-                          pick === "🔝" && "border-primary bg-primary/10",
-                          pick === "👏" && "border-primary/50",
+                          pick === "🔝" && "border-amber-500 bg-amber-500/15 ring-2 ring-amber-500",
+                          pick === "👏" && "border-sky-500 bg-sky-500/10 ring-2 ring-sky-500",
                         )}
                         key={player.id}
                         onClick={() => setDraft(prev => cyclePick(prev, player.id))}

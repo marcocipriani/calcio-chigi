@@ -40,8 +40,8 @@ export type ChigioEventState = {
 
 export const EMPTY_BALLOT: ChigioBallot = { top: null, applause: [] }
 
-// Tap ciclico: nessuno → 🔝 → 👏 → nessuno. Un nuovo 🔝 libera il precedente,
-// il terzo 👏 viene ignorato.
+// Tap: un giocatore libero prende il primo slot libero (🔝, poi 👏); 🔝 → 👏 → nessuno.
+// Nessun tap toglie il voto a un altro: per cambiare 🔝 si libera prima quello attuale.
 export function cyclePick(ballot: ChigioBallot, profileId: string): ChigioBallot {
   if (ballot.top === profileId) {
     if (ballot.applause.length >= 2) return { top: null, applause: ballot.applause }
@@ -50,7 +50,9 @@ export function cyclePick(ballot: ChigioBallot, profileId: string): ChigioBallot
   if (ballot.applause.includes(profileId)) {
     return { top: ballot.top, applause: ballot.applause.filter(id => id !== profileId) }
   }
-  return { top: profileId, applause: ballot.applause }
+  if (!ballot.top) return { top: profileId, applause: ballot.applause }
+  if (ballot.applause.length < 2) return { top: ballot.top, applause: [...ballot.applause, profileId] }
+  return ballot
 }
 
 export function isPollOpen(poll: ChigioPoll | null, now = Date.now()) {

@@ -11,8 +11,14 @@ describe("cyclePick", () => {
     expect(cyclePick(applause, "a")).toEqual(EMPTY_BALLOT)
   })
 
-  it("a new top replaces the previous one", () => {
-    expect(cyclePick({ top: "a", applause: [] }, "b")).toEqual({ top: "b", applause: [] })
+  it("with top taken, a free player gets applause and the top stays", () => {
+    expect(cyclePick({ top: "a", applause: [] }, "b")).toEqual({ top: "a", applause: ["b"] })
+    expect(cyclePick({ top: "a", applause: ["b", "c"] }, "d")).toEqual({ top: "a", applause: ["b", "c"] })
+  })
+
+  it("freeing the top lets another player take it", () => {
+    const freed = cyclePick({ top: "a", applause: [] }, "a")
+    expect(cyclePick(freed, "b")).toEqual({ top: "b", applause: ["a"] })
   })
 
   it("never allows a third applause", () => {

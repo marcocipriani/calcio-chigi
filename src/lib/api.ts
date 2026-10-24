@@ -329,6 +329,8 @@ export async function fetchTeamLogoByName(supabase: SupabaseClient, name: string
         .from('teams')
         .select('logo_url')
         .ilike('nome', `%${name}%`)
+        // Più squadre col nome simile: maybeSingle da solo darebbe errore e nessun logo.
+        .limit(1)
         .maybeSingle()
     return data?.logo_url ?? null
 }

@@ -288,7 +288,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
       const prevEvent = event;
       setEvent(event ? { ...event, ...updatedData } : null);
       const { data, error } = await supabase.from('events').update(updatedData).eq('id', id).select();
-      if (error || !data) {
+      if (error || !data?.length) {
           setEvent(prevEvent);
           throw error ?? new Error("Errore salvataggio.");
       }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { MatchSession, TimelineEntry } from "@/lib/match"
 import { fetchMatch } from "@/lib/match-api"
@@ -16,12 +16,15 @@ type LiveMatch = {
 /** Sessione e cronaca di una partita, aggiornate in realtime. */
 export function useLiveMatch(eventId: string | null) {
   const [state, setState] = useState<LiveMatch>({ session: null, timeline: [], loaded: false })
+  // Un goal manda due eventi realtime (cronaca + punteggio): vince l'ultima lettura partita.
+  const latest = useRef(0)
 
   const reload = useCallback(async () => {
     if (!eventId) return
+    const request = ++latest.current
     try {
       const { session, timeline } = await fetchMatch(supabaseBrowser, eventId)
-      setState({ session, timeline, loaded: true })
+      if (request === latest.current) setState({ session, timeline, loaded: true })
     } catch {
       // Rete assente: resta l'ultimo stato, si riprova al prossimo cambio o al ritorno.
       setState((previous) => ({ ...previous, loaded: true }))

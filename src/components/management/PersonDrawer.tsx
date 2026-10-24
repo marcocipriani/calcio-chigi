@@ -8,9 +8,7 @@ import {
 } from "react"
 import {
   Camera,
-  CreditCard,
   Eye,
-  FileText,
   IdCard,
   Trash2,
   Upload,
@@ -25,16 +23,25 @@ import {
 } from "@/components/documents/DocumentControls"
 import {
   MembershipDocuments,
-  PaymentReceipt,
   useMembershipDocuments,
 } from "@/components/documents/MembershipDocuments"
 import { InjuryHistory } from "@/components/injuries/InjuryHistory"
-import {
-  PaymentEntriesList,
-  PaymentProgress,
-} from "@/components/payments/PaymentEntriesList"
-import { PaymentEntryDialog } from "@/components/payments/PaymentEntryDialog"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
+import {
+  CertificateCard,
+  CertificateDialog,
+  useCertificateEditor,
+} from "@/components/management/PersonCertificate"
+import {
+  ContactFields,
+  OperationalFields,
+  SeasonFields,
+} from "@/components/management/PersonDrawerFields"
+import {
+  PersonPaymentDialogs,
+  PersonPaymentsSection,
+  usePaymentReview,
+} from "@/components/management/PersonPayments"
 import {
   AttendancePercentage,
   AttendanceStreak,
@@ -61,28 +68,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { UNIFORM_SIZES } from "@/lib/domain"
 import { fetchJerseyHistory, type JerseyHistoryEntry } from "@/lib/jersey-api"
 import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
 import type { Injury } from "@/lib/injuries"
 import type { MembershipDocument } from "@/lib/membership-documents"
-import { certificateStatusLabel, paymentStatusLabel } from "@/lib/profile-operations"
-import {
-  fetchCashRecipients,
-  remainingAmount,
-  type CashRecipient,
-} from "@/lib/payments"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
 const NO_DOCUMENTS: MembershipDocument[] = []
 const NO_INJURIES: Injury[] = []
-
-const selectClass =
-  "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 const accountLabels = {
   NONE: "non registrato",
@@ -110,55 +104,17 @@ export function PersonDrawer({
   const [pendingForm, setPendingForm] = useState<FormData | null>(null)
   const [confirmTrash, setConfirmTrash] = useState(false)
   const [jerseyHistory, setJerseyHistory] = useState<JerseyHistoryEntry[]>([])
-  const [certDialogOpen, setCertDialogOpen] = useState(false)
-  const [certBusy, setCertBusy] = useState(false)
-  const [certForm, setCertForm] = useState({
-    visitOn: "",
-    expiresOn: "",
-    laboratory: "",
-  })
-  const [recipients, setRecipients] = useState<CashRecipient[]>([])
-  const [entryPaymentId, setEntryPaymentId] = useState<string | null>(null)
-  const [rejectEntryId, setRejectEntryId] = useState<string | null>(null)
-  const [rejectReason, setRejectReason] = useState("")
-  const [entryBusy, setEntryBusy] = useState(false)
-
-  const hasPayments = Boolean(person?.payments.length)
-  useEffect(() => {
-    if (!hasPayments || recipients.length) return
-    fetchCashRecipients(supabaseBrowser)
-      .then(setRecipients)
-      .catch(() => setRecipients([]))
-  }, [hasPayments, recipients.length])
-
-  const entryPayment =
-    person?.payments.find(({ id }) => id && id === entryPaymentId) ?? null
-
-  async function reviewEntry(entryId: string, approved: boolean, reason = "") {
-    setEntryBusy(true)
-    const { error } = await supabaseBrowser.rpc("manager_review_payment_entry", {
-      p_entry_id: entryId,
-      p_status: approved ? "VERIFIED" : "REJECTED",
-      p_rejection_reason: reason.trim() || null,
-    })
-    setEntryBusy(false)
-    if (error) {
-      toast.error("Versamento non aggiornato", { description: error.message })
-      return
-    }
-    toast.success(approved ? "Versamento confermato" : "Versamento rifiutato")
-    setRejectEntryId(null)
-    setRejectReason("")
+  const paymentReview = usePaymentReview(person, onSaved)
+  const certificate = useCertificateEditor(person, async () => {
+    onOpenChange(false)
     await onSaved()
-  }
+  })
 
   useEffect(() => {
     if (person) {
       setCategory(person.category)
       setPendingForm(null)
       setConfirmTrash(false)
-      setCertDialogOpen(false)
-      setCertForm({ visitOn: "", expiresOn: "", laboratory: "" })
     }
   }, [person])
 
@@ -325,29 +281,6 @@ export function PersonDrawer({
     await onSaved()
   }
 
-  async function deleteCertificate() {
-    if (!currentPerson.certificateId) return
-    setCertBusy(true)
-    const { error } = await supabaseBrowser
-      .from("medical_certificates")
-      .delete()
-      .eq("id", currentPerson.certificateId)
-    if (error) {
-      setCertBusy(false)
-      toast.error("Certificato non eliminato", { description: error.message })
-      return
-    }
-    if (currentPerson.certificateDocumentPath) {
-      await supabaseBrowser.storage
-        .from("medical-certificates")
-        .remove([currentPerson.certificateDocumentPath])
-    }
-    setCertBusy(false)
-    toast.success("Certificato eliminato")
-    onOpenChange(false)
-    await onSaved()
-  }
-
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -432,67 +365,6 @@ export function PersonDrawer({
       return
     }
     toast.success("Fototessera aggiornata")
-    onOpenChange(false)
-    await onSaved()
-  }
-
-  async function submitCertificate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const fileInput = event.currentTarget.elements.namedItem(
-      "certificate-file",
-    ) as HTMLInputElement
-    const file = fileInput.files?.[0]
-    if (!file) {
-      toast.error("Seleziona il PDF del certificato")
-      return
-    }
-    if (file.type !== "application/pdf") {
-      toast.error("Il certificato deve essere un PDF")
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Il PDF non può superare 10 MB")
-      return
-    }
-    if (!certForm.visitOn || !certForm.expiresOn || !certForm.laboratory.trim()) {
-      toast.error("Compila data visita, scadenza e laboratorio")
-      return
-    }
-
-    setCertBusy(true)
-    const certificateId = crypto.randomUUID()
-    const path = `${currentPerson.profileId}/${currentPerson.id}/${certificateId}.pdf`
-    const { error: uploadError } = await supabaseBrowser.storage
-      .from("medical-certificates")
-      .upload(path, file, { contentType: "application/pdf" })
-    if (uploadError) {
-      toast.error(uploadError.message)
-      setCertBusy(false)
-      return
-    }
-
-    const { error } = await supabaseBrowser.from("medical_certificates").insert({
-      id: certificateId,
-      membership_id: currentPerson.id,
-      document_path: path,
-      competitive_declared: true,
-      visit_on: certForm.visitOn,
-      expires_on: certForm.expiresOn,
-      laboratory: certForm.laboratory.trim(),
-      status: "VALID",
-      verified_by: profile?.id ?? null,
-      verified_at: new Date().toISOString(),
-      updated_by: profile?.id ?? null,
-    })
-    setCertBusy(false)
-
-    if (error) {
-      await supabaseBrowser.storage.from("medical-certificates").remove([path])
-      toast.error("Certificato non salvato", { description: error.message })
-      return
-    }
-    toast.success("Certificato registrato")
-    setCertDialogOpen(false)
     onOpenChange(false)
     await onSaved()
   }
@@ -593,209 +465,9 @@ export function PersonDrawer({
         )}
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit}>
           <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-4 md:grid-cols-2">
-            <section className="grid content-start gap-3">
-              <h3 className="text-sm font-semibold">
-                Persona e contatti
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-birth">Data di nascita</Label>
-                  <Input
-                    defaultValue={person.birthDate ?? ""}
-                    id="person-birth"
-                    name="birthDate"
-                    type="date"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-name">Nome</Label>
-                  <Input
-                    defaultValue={person.nome}
-                    id="person-name"
-                    name="nome"
-                    required
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-surname">Cognome</Label>
-                  <Input
-                    defaultValue={person.cognome}
-                    id="person-surname"
-                    name="cognome"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-phone">Telefono</Label>
-                  <Input
-                    defaultValue={person.phone ?? ""}
-                    id="person-phone"
-                    name="phone"
-                    type="tel"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-email">Email operativa</Label>
-                  <Input
-                    defaultValue={person.operationalEmail ?? ""}
-                    id="person-email"
-                    name="operationalEmail"
-                    type="email"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-joined">In squadra dal</Label>
-                  <Input
-                    defaultValue={person.joinedOn ?? ""}
-                    id="person-joined"
-                    name="joinedOn"
-                    type="date"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-department">Dipartimento</Label>
-                  <Input
-                    defaultValue={person.department ?? ""}
-                    id="person-department"
-                    name="department"
-                  />
-                </div>
-              </div>
-              <label className="flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm">
-                <input
-                  className="size-4 accent-operative"
-                  defaultChecked={person.isManager}
-                  name="isManager"
-                  type="checkbox"
-                />
-                Permesso manager
-              </label>
-            </section>
+            <ContactFields person={person} />
 
-            <section className="grid content-start gap-3">
-              <h3 className="text-sm font-semibold">
-                Stagione
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-category">Categoria</Label>
-                  <select
-                    className={selectClass}
-                    id="person-category"
-                    onChange={(event) =>
-                      setCategory(event.target.value as "PLAYER" | "STAFF")
-                    }
-                    value={category}
-                  >
-                    <option value="PLAYER">Giocatore</option>
-                    <option value="STAFF">Staff</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-status">Stato</Label>
-                  <select
-                    className={selectClass}
-                    defaultValue={person.status}
-                    id="person-status"
-                    name="status"
-                  >
-                    <option value="YES">In rosa</option>
-                    {category === "PLAYER" && (
-                      <option value="TRAINING_ONLY">Solo allenamenti</option>
-                    )}
-                    <option value="NO">Archiviato</option>
-                  </select>
-                </div>
-              </div>
-              {category === "PLAYER" ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="person-role">Ruolo</Label>
-                    <select
-                      className={selectClass}
-                      defaultValue={person.role ?? ""}
-                      id="person-role"
-                      name="role"
-                    >
-                      <option value="">Da definire</option>
-                      <option value="PORTIERE">Portiere</option>
-                      <option value="DIFENSORE">Difensore</option>
-                      <option value="CENTROCAMPISTA">Centrocampista</option>
-                      <option value="ATTACCANTE">Attaccante</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="person-number">Numero maglia</Label>
-                    <Input
-                      defaultValue={person.jerseyNumber ?? ""}
-                      id="person-number"
-                      max="99"
-                      min="0"
-                      name="jerseyNumber"
-                      type="number"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-staff">Funzione staff</Label>
-                  <Input
-                    defaultValue={person.staffFunction ?? ""}
-                    id="person-staff"
-                    name="staffFunction"
-                  />
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-asi">Tessera ASI</Label>
-                  <Input
-                    defaultValue={person.asiCardNumber ?? ""}
-                    id="person-asi"
-                    name="asiCardNumber"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-size">Taglia divisa</Label>
-                  <select
-                    className={selectClass}
-                    defaultValue={person.uniformSize ?? ""}
-                    id="person-size"
-                    name="uniformSize"
-                  >
-                    <option value="">—</option>
-                    {UNIFORM_SIZES.map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {[
-                  ["isExternal", "EXT", person.isExternal],
-                  ["isAggregated", "AGG", person.isAggregated],
-                ].map(([name, label, checked]) => (
-                  <label
-                    className="flex min-h-10 items-center gap-2 text-sm"
-                    key={String(name)}
-                  >
-                    <input
-                      className="size-4 accent-primary"
-                      defaultChecked={Boolean(checked)}
-                      name={String(name)}
-                      type="checkbox"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </section>
+            <SeasonFields category={category} onCategoryChange={setCategory} person={person} />
 
             {(category === "PLAYER" || jerseyHistory.length > 0) && (
               <div className="md:col-span-2">
@@ -905,197 +577,14 @@ export function PersonDrawer({
                     />
                   </label>
                 </div>
-                <div className="flex min-h-20 items-center gap-3 rounded-lg border p-3">
-                  <FileText
-                    aria-hidden="true"
-                    className="size-5 shrink-0 text-primary"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-sm">
-                      Certificato agonistico
-                    </strong>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {certificateStatusLabel(person.certificateStatus)}
-                      {person.certificateExpiresOn
-                        ? ` · scade ${person.certificateExpiresOn}`
-                        : ""}
-                    </span>
-                    {(person.certificateVisitOn ||
-                      person.certificateLaboratory) && (
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {person.certificateVisitOn ?? "Visita non indicata"}
-                        {person.certificateLaboratory
-                          ? ` · ${person.certificateLaboratory}`
-                          : ""}
-                      </span>
-                    )}
-                  </span>
-                  {person.certificateDocumentPath && (
-                    <DocumentPreview
-                      bucket="medical-certificates"
-                      image={false}
-                      path={person.certificateDocumentPath}
-                      title={`Certificato di ${person.nome} ${person.cognome}`}
-                    >
-                      <Button
-                        aria-label="Apri certificato PDF"
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Eye aria-hidden="true" />
-                      </Button>
-                    </DocumentPreview>
-                  )}
-                  {person.certificateId && (
-                    <DeleteDocumentButton
-                      disabled={certBusy}
-                      label="certificato"
-                      onConfirm={() => void deleteCertificate()}
-                    />
-                  )}
-                  <Button
-                    aria-label="Carica o correggi certificato"
-                    onClick={() => setCertDialogOpen(true)}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Upload aria-hidden="true" />
-                  </Button>
-                </div>
+                <CertificateCard editor={certificate} person={person} />
                 <MembershipDocuments canDelete={() => true} state={documents} />
               </div>
             </section>
 
-            <section className="grid content-start gap-3 md:col-span-2">
-              <h3 className="text-sm font-semibold">
-                Pagamenti
-              </h3>
-              {person.payments.length ? (
-                <div className="divide-y rounded-lg border">
-                  {person.payments.map((payment) => (
-                    <div className="grid gap-2 px-3 py-2" key={payment.id}>
-                    <div className="flex min-h-12 items-center gap-3">
-                      <CreditCard
-                        aria-hidden="true"
-                        className="size-4 shrink-0 text-muted-foreground"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-sm">
-                          {payment.description ?? "Quota"}
-                        </strong>
-                        <span className="text-xs text-muted-foreground">
-                          {payment.dueOn
-                            ? `Scadenza ${payment.dueOn}`
-                            : "Nessuna scadenza"}
-                        </span>
-                      </span>
-                      <span className="text-right">
-                        <strong className="block text-sm tabular-nums">
-                          {payment.amountDue.toLocaleString("it-IT", {
-                            style: "currency",
-                            currency: "EUR",
-                          })}
-                        </strong>
-                        <Badge variant={payment.status === "PAID" ? "default" : "outline"}>
-                          {paymentStatusLabel(payment.status)}
-                        </Badge>
-                      </span>
-                      {payment.id && (
-                        <PaymentReceipt
-                          canDelete={() => true}
-                          label={`ricevuta ${payment.description ?? "quota"}`}
-                          paymentId={payment.id}
-                          state={documents}
-                        />
-                      )}
-                    </div>
-                    <PaymentProgress
-                      due={payment.amountDue}
-                      paid={payment.amountPaid ?? 0}
-                    />
-                    <PaymentEntriesList
-                      busy={entryBusy}
-                      entries={payment.entries ?? []}
-                      onReview={(entryId, approved) =>
-                        approved
-                          ? void reviewEntry(entryId, true)
-                          : setRejectEntryId(entryId)
-                      }
-                      recipients={recipients}
-                    />
-                    {payment.id &&
-                      payment.status !== "PAID" &&
-                      remainingAmount(payment.amountDue, payment.entries ?? []) > 0 && (
-                        <Button
-                          onClick={() => setEntryPaymentId(payment.id!)}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          Registra versamento
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Nessuna quota assegnata.
-                </p>
-              )}
-            </section>
+            <PersonPaymentsSection documents={documents} person={person} review={paymentReview} />
 
-            <section className="grid content-start gap-3 md:col-span-2">
-              <h3 className="text-sm font-semibold">
-                Operativo
-              </h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-registration">Tesseramento</Label>
-                  <select
-                    className={selectClass}
-                    defaultValue={person.registrationStatus}
-                    id="person-registration"
-                    name="registrationStatus"
-                  >
-                    <option value="TODO">Da fare</option>
-                    <option value="SUBMITTED">In verifica</option>
-                    <option value="ACTIVE">Attivo</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-registration-date">
-                    Data tesseramento
-                  </Label>
-                  <Input
-                    defaultValue={person.registrationCompletedOn ?? ""}
-                    id="person-registration-date"
-                    name="registrationCompletedOn"
-                    type="date"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="person-contact">Prossimo contatto</Label>
-                  <Input
-                    defaultValue={person.nextContactOn ?? ""}
-                    id="person-contact"
-                    name="nextContactOn"
-                    type="date"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="person-notes">Note operative</Label>
-                <Textarea
-                  className="min-h-20"
-                  defaultValue={person.operationalNotes ?? ""}
-                  id="person-notes"
-                  name="operationalNotes"
-                />
-              </div>
-            </section>
+            <OperationalFields person={person} />
           </div>
           <DialogFooter className="shrink-0 flex-row items-center border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
             {!person.isManager && (
@@ -1177,123 +666,14 @@ export function PersonDrawer({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog onOpenChange={setCertDialogOpen} open={certDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Certificato agonistico</DialogTitle>
-            <DialogDescription>
-              Carica il PDF e i dati: viene registrato come già verificato.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="grid gap-3" onSubmit={submitCertificate}>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="cert-visit">Data visita</Label>
-                <Input
-                  id="cert-visit"
-                  onChange={(event) =>
-                    setCertForm({ ...certForm, visitOn: event.target.value })
-                  }
-                  type="date"
-                  value={certForm.visitOn}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="cert-expiry">Scadenza</Label>
-                <Input
-                  id="cert-expiry"
-                  onChange={(event) =>
-                    setCertForm({ ...certForm, expiresOn: event.target.value })
-                  }
-                  type="date"
-                  value={certForm.expiresOn}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cert-lab">Laboratorio</Label>
-              <Input
-                id="cert-lab"
-                onChange={(event) =>
-                  setCertForm({ ...certForm, laboratory: event.target.value })
-                }
-                value={certForm.laboratory}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cert-file">PDF certificato</Label>
-              <Input
-                accept="application/pdf"
-                id="cert-file"
-                name="certificate-file"
-                type="file"
-              />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button disabled={certBusy} type="button" variant="outline">
-                  Annulla
-                </Button>
-              </DialogClose>
-              <Button disabled={certBusy} type="submit">
-                {certBusy ? "Salvataggio…" : "Salva certificato"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CertificateDialog editor={certificate} />
 
-      {entryPayment && person && (
-        <PaymentEntryDialog
-          currentProfileId={profile?.id ?? null}
-          description={entryPayment.description ?? "Quota"}
-          mode="manager"
-          onOpenChange={(open) => !open && setEntryPaymentId(null)}
-          onSaved={onSaved}
-          open
-          ownerName={`${person.nome} ${person.cognome}`}
-          ownerProfileId={person.profileId}
-          paymentId={entryPayment.id!}
-          recipients={recipients}
-          remaining={remainingAmount(entryPayment.amountDue, entryPayment.entries ?? [])}
-          settings={null}
-        />
-      )}
-
-      <Dialog
-        onOpenChange={(open) => !open && setRejectEntryId(null)}
-        open={Boolean(rejectEntryId)}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Rifiuta versamento</DialogTitle>
-            <DialogDescription>
-              Il motivo, se lo scrivi, arriva alla persona con la notifica.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            aria-label="Motivo"
-            onChange={(event) => setRejectReason(event.target.value)}
-            placeholder="Es. bonifico non arrivato"
-            value={rejectReason}
-          />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Annulla
-              </Button>
-            </DialogClose>
-            <Button
-              disabled={entryBusy}
-              onClick={() => rejectEntryId && void reviewEntry(rejectEntryId, false, rejectReason)}
-              type="button"
-              variant="destructive"
-            >
-              Rifiuta
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PersonPaymentDialogs
+        currentProfileId={profile?.id ?? null}
+        onSaved={onSaved}
+        person={person}
+        review={paymentReview}
+      />
     </>
   )
 }

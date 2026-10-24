@@ -1,21 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import Link from "next/link"
-import {
-  Archive,
-  ArchiveRestore,
-  BellPlus,
-  CalendarClock,
-  CircleDollarSign,
-  Landmark,
-  Plus,
-  Search,
-  Shirt,
-  Trash2,
-  UsersRound,
-  X,
-} from "lucide-react"
+import { Archive, Search } from "lucide-react"
 import { toast } from "sonner"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
@@ -33,66 +19,46 @@ import {
 } from "@/components/management/managementColumns"
 import { ManagementTable } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
-import type { PassportPhotoState } from "@/components/management/PassportPhotoPreview"
+import {
+  AccessState,
+  DashboardActions,
+  GroupChips,
+  QuickActionDialog,
+  RejectAccountDialog,
+  SelectionBar,
+  ViewTabs,
+  type QuickDialog,
+} from "@/components/management/ManagementDashboardParts"
+import {
+  useManagementPreferences,
+  usePassportPhotoStates,
+  useSeasonAttendance,
+} from "@/components/management/managementDashboardHooks"
 import { PersonDrawer } from "@/components/management/PersonDrawer"
 import { TrashDialog } from "@/components/management/TrashDialog"
 import { PaymentSettingsDialog } from "@/components/payments/PaymentSettingsDialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Textarea } from "@/components/ui/textarea"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import {
   filterManagementRows,
   managementKpis,
-  PERSON_GROUPS,
   personGroup,
   viewGroups,
   type ManagementFilters,
   type ManagementPerson,
 } from "@/lib/management"
 import {
-  fetchManagementAttendance,
-  fetchManagementColumnPreferences,
-  fetchManagementDisplayPreferences,
   fetchManagementPeople,
-  saveManagementColumnPreferences,
-  saveManagementDisplayPreferences,
 } from "@/lib/management-api"
 import { isInjuredOn } from "@/lib/injuries"
-import type { AttendanceSummary } from "@/lib/management-attendance"
 import { romeDateKey } from "@/lib/season"
 import {
   activeColumnFilters,
   applyTableState,
   DEFAULT_COLUMNS,
   nextSort,
-  normalizeColumnPreferences,
-  normalizeDisplayPreferences,
   isBuiltInView,
   type CustomView,
   type DisplayPreferences,
@@ -123,41 +89,8 @@ const emptyFilters: ManagementFilters = {
   archived: false,
 }
 
-type QuickDialog =
-  | { kind: "DEADLINE" }
-  | { kind: "CERTIFICATE"; certificateId: string }
-
-type AttendanceLoadState =
-  | { status: "loading"; signature: string; requestId: number }
-  | {
-      status: "loaded"
-      signature: string
-      requestId: number
-      summaries: Map<string, AttendanceSummary>
-    }
-  | {
-      status: "error"
-      signature: string
-      requestId: number
-      message?: string
-    }
-
 type RosterLoadError = {
   seasonSlug: string
-}
-
-function attendanceRosterSignature(people: ManagementPerson[]) {
-  return people
-    .filter(({ category }) => category === "PLAYER")
-    // Anche gli infortuni cambiano le presenze: entrano nella firma.
-    .map(
-      ({ profileId, joinedOn, injuries }) =>
-        `${profileId}:${joinedOn ?? ""}:${(injuries ?? [])
-          .map(({ startedOn, endedOn }) => `${startedOn}>${endedOn ?? ""}`)
-          .join(",")}`,
-    )
-    .sort()
-    .join("|")
 }
 
 function forgetViewSettings(
@@ -190,20 +123,14 @@ export function ManagementDashboard() {
   const [rosterLoadError, setRosterLoadError] =
     useState<RosterLoadError | null>(null)
   const [loading, setLoading] = useState(true)
-  const [display, setDisplay] = useState<DisplayPreferences>(() =>
-    normalizeDisplayPreferences(null),
-  )
   const [filters, setFilters] = useState(emptyFilters)
-  const [columnPreferences, setColumnPreferences] = useState(() =>
-    normalizeColumnPreferences(null),
-  )
-  const [columnPreferencesReady, setColumnPreferencesReady] = useState(false)
-  const [attendanceBySeason, setAttendanceBySeason] = useState<
-    Record<string, AttendanceLoadState>
-  >({})
-  const [passportPhotoStates, setPassportPhotoStates] = useState<
-    Map<string, PassportPhotoState>
-  >(new Map())
+  const {
+    display,
+    updateDisplay,
+    columnPreferences,
+    columnPreferencesReady,
+    updateColumnPreferences,
+  } = useManagementPreferences(profile?.id)
   // Filtri delle viste predefinite: temporanei. Le personalizzate li salvano.
   const [transientFilters, setTransientFilters] =
     useState<ManagementColumnFilters>({})
@@ -219,12 +146,6 @@ export function ManagementDashboard() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const rosterLoadGeneration = useRef(0)
-  const attendanceRequestId = useRef(0)
-  const passportPhotoRequestId = useRef(0)
-  const preferencesLoadGeneration = useRef(0)
-  const columnPreferencesRef = useRef(columnPreferences)
-  const displayPreferencesRef = useRef(display)
-  const preferenceSaveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     if (targetSeason?.slug) {
@@ -266,43 +187,6 @@ export function ManagementDashboard() {
     void load()
   }, [load])
 
-  useEffect(() => {
-    if (!profile?.id) return
-    const generation = ++preferencesLoadGeneration.current
-    setColumnPreferencesReady(false)
-
-    void (async () => {
-      try {
-        const [storedColumns, storedDisplay] = await Promise.all([
-          fetchManagementColumnPreferences(supabaseBrowser, profile.id),
-          fetchManagementDisplayPreferences(supabaseBrowser, profile.id),
-        ])
-        const next = normalizeColumnPreferences(storedColumns)
-        const display = normalizeDisplayPreferences(storedDisplay)
-        if (generation !== preferencesLoadGeneration.current) return
-        columnPreferencesRef.current = next
-        setColumnPreferences(next)
-        displayPreferencesRef.current = display
-        setDisplay(display)
-      } catch {
-        if (generation !== preferencesLoadGeneration.current) return
-        const fallback = normalizeColumnPreferences(null)
-        columnPreferencesRef.current = fallback
-        setColumnPreferences(fallback)
-      } finally {
-        if (generation === preferencesLoadGeneration.current) {
-          setColumnPreferencesReady(true)
-        }
-      }
-    })()
-
-    return () => {
-      if (generation === preferencesLoadGeneration.current) {
-        preferencesLoadGeneration.current += 1
-      }
-    }
-  }, [profile?.id])
-
   const customView =
     display.customViews.find(({ id }) => id === display.view) ?? null
   // Una personalizzata eliminata altrove ricade sulla vista Persone.
@@ -326,74 +210,12 @@ export function ManagementDashboard() {
     () => (currentRosterLoaded ? people : []),
     [currentRosterLoaded, people],
   )
-  const rosterSignature = useMemo(
-    () => attendanceRosterSignature(currentPeople),
-    [currentPeople],
-  )
-  const cachedAttendanceState = attendanceBySeason[seasonSlug]
-  const attendanceState =
-    cachedAttendanceState?.signature === rosterSignature
-      ? cachedAttendanceState
-      : undefined
-
-  useEffect(() => {
-    // Caricate sempre (non solo nella vista "Presenze"): la scheda persona
-    // le mostra da qualunque vista si apra.
-    if (
-      loading ||
-      loadedSeasonSlug !== seasonSlug ||
-      cachedAttendanceState?.signature === rosterSignature
-    ) {
-      return
-    }
-
-    const requestId = ++attendanceRequestId.current
-    setAttendanceBySeason((current) => ({
-      ...current,
-      [seasonSlug]: {
-        status: "loading",
-        signature: rosterSignature,
-        requestId,
-      },
-    }))
-
-    void fetchManagementAttendance(supabaseBrowser, seasonSlug, currentPeople)
-      .then((summaries) => {
-        setAttendanceBySeason((current) => {
-          if (current[seasonSlug]?.requestId !== requestId) return current
-          return {
-            ...current,
-            [seasonSlug]: {
-              status: "loaded",
-              signature: rosterSignature,
-              requestId,
-              summaries,
-            },
-          }
-        })
-      })
-      .catch((error) => {
-        setAttendanceBySeason((current) => {
-          if (current[seasonSlug]?.requestId !== requestId) return current
-          return {
-            ...current,
-            [seasonSlug]: {
-              status: "error",
-              signature: rosterSignature,
-              requestId,
-              message: error instanceof Error ? error.message : undefined,
-            },
-          }
-        })
-      })
-  }, [
-    cachedAttendanceState,
-    loadedSeasonSlug,
-    loading,
-    currentPeople,
-    rosterSignature,
+  const attendance = useSeasonAttendance(
     seasonSlug,
-  ])
+    currentPeople,
+    !loading && loadedSeasonSlug === seasonSlug,
+  )
+  const attendanceState = attendance.state
 
   const peopleWithAttendance = useMemo(() => {
     if (attendanceState?.status !== "loaded") return currentPeople
@@ -403,61 +225,10 @@ export function ManagementDashboard() {
     }))
   }, [attendanceState, currentPeople])
 
-  useEffect(() => {
-    const requestId = ++passportPhotoRequestId.current
-    if (!showsPassportPhotos || loading || loadedSeasonSlug !== seasonSlug) {
-      setPassportPhotoStates(new Map())
-      return
-    }
-
-    const paths = [
-      ...new Set(
-        currentPeople.flatMap(({ passportPhotoPath }) =>
-          passportPhotoPath ? [passportPhotoPath] : [],
-        ),
-      ),
-    ]
-    setPassportPhotoStates(
-      new Map<string, PassportPhotoState>(
-        paths.map((path) => [path, { status: "loading" }]),
-      ),
-    )
-
-    void (async () => {
-      const { data, error } = paths.length
-        ? await supabaseBrowser.storage
-            .from("passport-photos")
-            .createSignedUrls(paths, 300)
-        : { data: [], error: null }
-      if (requestId !== passportPhotoRequestId.current) return
-      if (error) {
-        toast.error("Anteprime fototessera non disponibili")
-        setPassportPhotoStates(
-          new Map<string, PassportPhotoState>(
-            paths.map((path) => [path, { status: "unavailable" }]),
-          ),
-        )
-        return
-      }
-      const resultsByPath = new Map(
-        (data ?? []).flatMap((item) =>
-          item.path ? [[item.path, item] as const] : [],
-        ),
-      )
-      setPassportPhotoStates(
-        new Map(
-          paths.map((path) => {
-            const result = resultsByPath.get(path)
-            const state: PassportPhotoState =
-              result?.signedUrl && !result.error
-                ? { status: "ready", signedUrl: result.signedUrl }
-                : { status: "unavailable" }
-            return [path, state]
-          }),
-        ),
-      )
-    })()
-  }, [currentPeople, loadedSeasonSlug, loading, seasonSlug, showsPassportPhotos])
+  const passportPhotoStates = usePassportPhotoStates(
+    currentPeople,
+    showsPassportPhotos && !loading && loadedSeasonSlug === seasonSlug,
+  )
 
   const groups = viewGroups(view)
   const tablePeople = useMemo(
@@ -551,50 +322,10 @@ export function ManagementDashboard() {
       updateCustomView(customView.id, { columns: nextColumns })
       return
     }
-    const next = {
-      ...columnPreferencesRef.current,
+    updateColumnPreferences((current) => ({
+      ...current,
       [builtInView ?? "PEOPLE"]: nextColumns,
-    }
-    columnPreferencesRef.current = next
-    setColumnPreferences(next)
-    if (!profile?.id) return
-    const profileId = profile.id
-    preferenceSaveQueue.current = preferenceSaveQueue.current.then(
-      async () => {
-        try {
-          await saveManagementColumnPreferences(
-            supabaseBrowser,
-            profileId,
-            next,
-          )
-        } catch {
-          toast.error("Preferenze colonne non salvate")
-        }
-      },
-    )
-  }
-
-  function updateDisplay(
-    change: (current: DisplayPreferences) => DisplayPreferences,
-  ) {
-    const next = change(displayPreferencesRef.current)
-    displayPreferencesRef.current = next
-    setDisplay(next)
-    if (!profile?.id) return
-    const profileId = profile.id
-    preferenceSaveQueue.current = preferenceSaveQueue.current.then(
-      async () => {
-        try {
-          await saveManagementDisplayPreferences(
-            supabaseBrowser,
-            profileId,
-            next,
-          )
-        } catch {
-          // Solo comodità: la vista resta usabile anche senza salvataggio.
-        }
-      },
-    )
+    }))
   }
 
   function changeSort(next: TableSort) {
@@ -886,73 +617,11 @@ export function ManagementDashboard() {
     <div className="min-h-screen space-y-3">
       <PageTitleBar
         actions={
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Numeri di maglia"
-                  asChild
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  size="sm"
-                  variant="outline"
-                >
-                  <Link href="/gestione/maglie">
-                    <Shirt aria-hidden="true" />
-                    <span className="sr-only sm:not-sr-only">Maglie</span>
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Numeri di maglia</TooltipContent>
-            </Tooltip>
-            {view === "PAYMENTS" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label="Coordinate bancarie"
-                    className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                    onClick={() => setBankOpen(true)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <Landmark aria-hidden="true" />
-                    <span className="sr-only sm:not-sr-only">IBAN</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="sm:hidden">Coordinate bancarie</TooltipContent>
-              </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Cestino"
-                  className="size-11 rounded-full px-0 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  onClick={() => setTrashOpen(true)}
-                  size="sm"
-                  variant="outline"
-                >
-                  <Trash2 aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Cestino</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">Cestino</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Aggiungi persona"
-                  className="size-11 rounded-full bg-operative px-0 text-operative-foreground hover:bg-operative/90 sm:h-8 sm:w-auto sm:rounded-md sm:px-3"
-                  onClick={() => setAddOpen(true)}
-                  size="sm"
-                >
-                  <Plus aria-hidden="true" />
-                  <span className="sr-only sm:not-sr-only">Persona</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="sm:hidden">
-                Aggiungi persona
-              </TooltipContent>
-            </Tooltip>
-          </>
+          <DashboardActions
+            onAdd={() => setAddOpen(true)}
+            onBank={view === "PAYMENTS" ? () => setBankOpen(true) : undefined}
+            onTrash={() => setTrashOpen(true)}
+          />
         }
         context={
           <select
@@ -977,93 +646,26 @@ export function ManagementDashboard() {
       />
 
       <div className="sticky top-16 z-20 min-w-0 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
-        <div
-          aria-label="Viste dashboard"
-          className="grid min-w-0 flex-1 grid-cols-3 gap-0.5 sm:flex sm:overflow-x-auto"
-          role="tablist"
-        >
-          {views.map((item) => (
-            <button
-              aria-selected={view === item.id}
-              className={cn(
-                "inline-flex min-h-8 min-w-0 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-semibold sm:justify-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                view === item.id
-                  ? "bg-operative text-operative-foreground hover:bg-operative/90"
-                  : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
-              )}
-              key={item.id}
-              onClick={() => selectView(item.id)}
-              role="tab"
-              type="button"
-            >
-              <span className="truncate">{item.label}</span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
-                  view === item.id &&
-                    "bg-operative-foreground/15 text-operative-foreground",
-                )}
-              >
-                {viewCounts[item.id]}
-              </span>
-            </button>
-          ))}
-          {display.customViews.map((item) => (
-            <button
-              aria-selected={view === item.id}
-              className={cn(
-                "inline-flex min-h-8 min-w-0 shrink-0 items-center justify-center rounded-md border border-dashed px-2 text-xs font-semibold sm:justify-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                view === item.id
-                  ? "border-transparent bg-operative text-operative-foreground hover:bg-operative/90"
-                  : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
-              )}
-              key={item.id}
-              onClick={() => selectView(item.id)}
-              role="tab"
-              type="button"
-            >
-              <span className="truncate">{item.label}</span>
-            </button>
-          ))}
-        </div>
-        {groups.length > 1 ? (
-          <div
-            aria-label="Gruppo"
-            className="mt-1.5 flex min-w-0 gap-1 overflow-x-auto border-t pt-1.5"
-            role="group"
-          >
-            {[{ id: undefined, label: "Tutti" }, ...PERSON_GROUPS]
-              .filter(({ id }) => !id || groups.includes(id))
-              .map((item) => (
-                <button
-                  aria-pressed={filters.group === item.id}
-                  className={cn(
-                    "inline-flex min-h-7 shrink-0 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    filters.group === item.id
-                      ? "border-transparent bg-operative text-operative-foreground"
-                      : "text-muted-foreground hover:bg-operative/10 hover:text-operative",
-                  )}
-                  key={item.id ?? "ALL"}
-                  onClick={() => {
-                    setSelected(new Set())
-                    setFilters((current) => ({ ...current, group: item.id }))
-                  }}
-                  type="button"
-                >
-                  {item.label}
-                  <span className="tabular-nums opacity-70">
-                    {
-                      filterManagementRows(tablePeople, {
-                        ...filters,
-                        query: "",
-                        group: item.id,
-                      }).length
-                    }
-                  </span>
-                </button>
-              ))}
-          </div>
-        ) : null}
+        <ViewTabs
+          counts={viewCounts}
+          customViews={display.customViews}
+          onSelect={selectView}
+          view={view}
+          views={views}
+        />
+        {groups.length > 1 && (
+          <GroupChips
+            countFor={(group) =>
+              filterManagementRows(tablePeople, { ...filters, query: "", group }).length
+            }
+            groups={groups}
+            onSelect={(group) => {
+              setSelected(new Set())
+              setFilters((current) => ({ ...current, group }))
+            }}
+            selected={filters.group}
+          />
+        )}
         <div
           aria-label="Strumenti dashboard"
           className="mt-1.5 flex min-w-0 items-center gap-1 border-t pt-1.5"
@@ -1226,13 +828,7 @@ export function ManagementDashboard() {
           )}
           <Button
             className="mt-3"
-            onClick={() =>
-              setAttendanceBySeason((current) => {
-                const next = { ...current }
-                delete next[seasonSlug]
-                return next
-              })
-            }
+            onClick={attendance.retry}
             size="sm"
             variant="outline"
           >
@@ -1268,91 +864,26 @@ export function ManagementDashboard() {
       )}
 
       {selectedPeople.length > 0 && (
-        <>
-          {/* Spazio per non coprire le ultime righe con la barra fissa. */}
-          <div aria-hidden="true" className="h-16" />
-          <div
-            aria-label="Azioni sui selezionati"
-            className="fixed inset-x-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl items-center gap-1 rounded-xl border bg-background p-1.5 shadow-lg md:bottom-20"
-            role="group"
-          >
-            <Button
-              aria-label="Deseleziona tutti"
-              className="shrink-0"
-              onClick={() => setSelected(new Set())}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <X aria-hidden="true" />
-            </Button>
-            <span className="shrink-0 text-xs font-semibold tabular-nums">
-              {selectedPeople.length}
-              <span className="sr-only sm:not-sr-only"> selezionati</span>
-            </span>
-            <div className="ml-auto flex min-w-0 items-center gap-1">
-              <Button
-                aria-label="Registra quota"
-                disabled={actionBusy}
-                onClick={() => {
-                  if (!payableMembershipIds.length) {
-                    toast.error("Lo staff non paga quote")
-                    return
-                  }
-                  setPaymentOpen(true)
-                }}
-                size="sm"
-                variant="outline"
-              >
-                <CircleDollarSign aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">Quota</span>
-              </Button>
-              <Button
-                aria-label="Imposta scadenza"
-                disabled={actionBusy}
-                onClick={applyDeadline}
-                size="sm"
-                variant="outline"
-              >
-                <CalendarClock aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">Scadenza</span>
-              </Button>
-              <Button
-                aria-label={
-                  filters.archived
-                    ? "Rimetti in rosa i selezionati"
-                    : "Archivia i selezionati"
-                }
-                disabled={actionBusy}
-                onClick={() => void setArchived(!filters.archived)}
-                size="sm"
-                variant="outline"
-              >
-                {filters.archived ? (
-                  <ArchiveRestore aria-hidden="true" />
-                ) : (
-                  <Archive aria-hidden="true" />
-                )}
-                <span className="sr-only sm:not-sr-only">
-                  {filters.archived ? "In rosa" : "Archivia"}
-                </span>
-              </Button>
-              <Button
-                aria-label="Invia notifica"
-                disabled={actionBusy}
-                onClick={() =>
-                  selectedUserIds.length
-                    ? setNotificationOpen(true)
-                    : toast.error("Nessun selezionato ha un account attivo")
-                }
-                size="sm"
-                variant="outline"
-              >
-                <BellPlus aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">Notifica</span>
-              </Button>
-            </div>
-          </div>
-        </>
+        <SelectionBar
+          archived={Boolean(filters.archived)}
+          busy={actionBusy}
+          count={selectedPeople.length}
+          onArchive={() => void setArchived(!filters.archived)}
+          onClear={() => setSelected(new Set())}
+          onDeadline={applyDeadline}
+          onNotify={() =>
+            selectedUserIds.length
+              ? setNotificationOpen(true)
+              : toast.error("Nessun selezionato ha un account attivo")
+          }
+          onPayment={() => {
+            if (!payableMembershipIds.length) {
+              toast.error("Lo staff non paga quote")
+              return
+            }
+            setPaymentOpen(true)
+          }}
+        />
       )}
 
       <AddPersonDialog
@@ -1394,151 +925,23 @@ export function ManagementDashboard() {
         open={trashOpen}
       />
 
-      <Dialog
-        open={Boolean(quickDialog)}
-        onOpenChange={(open) => !open && setQuickDialog(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          {quickDialog?.kind === "DEADLINE" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Scadenza prossimo contatto</DialogTitle>
-                <DialogDescription>
-                  Applica la data alle {selectedMembershipIds.length} persone
-                  selezionate.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 py-2">
-                <Label htmlFor="next-contact-date">Data</Label>
-                <Input
-                  autoFocus
-                  id="next-contact-date"
-                  onChange={(event) => setQuickValue(event.target.value)}
-                  type="date"
-                  value={quickValue}
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  disabled={actionBusy}
-                  onClick={() => setQuickDialog(null)}
-                  variant="outline"
-                >
-                  Annulla
-                </Button>
-                <Button
-                  disabled={actionBusy || !quickValue}
-                  onClick={saveDeadline}
-                >
-                  Salva scadenza
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+      <QuickActionDialog
+        busy={actionBusy}
+        dialog={quickDialog}
+        onClose={() => setQuickDialog(null)}
+        onRejectCertificate={(certificateId) => void submitCertificateReview(certificateId, false)}
+        onSaveDeadline={() => void saveDeadline()}
+        onValueChange={setQuickValue}
+        selectedCount={selectedMembershipIds.length}
+        value={quickValue}
+      />
 
-          {quickDialog?.kind === "CERTIFICATE" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Respingi certificato</DialogTitle>
-                <DialogDescription>
-                  Il motivo sarà visibile alla persona per correggere il
-                  documento.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2 py-2">
-                <Label htmlFor="certificate-rejection-reason">Motivo</Label>
-                <Textarea
-                  autoFocus
-                  id="certificate-rejection-reason"
-                  onChange={(event) => setQuickValue(event.target.value)}
-                  placeholder="Es. documento illeggibile o non agonistico"
-                  value={quickValue}
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  disabled={actionBusy}
-                  onClick={() => setQuickDialog(null)}
-                  variant="outline"
-                >
-                  Annulla
-                </Button>
-                <Button
-                  disabled={actionBusy || !quickValue.trim()}
-                  onClick={() =>
-                    submitCertificateReview(
-                      quickDialog.certificateId,
-                      false,
-                    )
-                  }
-                  variant="destructive"
-                >
-                  Respingi certificato
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
+      <RejectAccountDialog
+        busy={actionBusy}
+        onClose={() => setRejectRequestId(null)}
+        onConfirm={() => rejectRequestId && void submitAccountAction(rejectRequestId, "REJECT")}
         open={Boolean(rejectRequestId)}
-        onOpenChange={(open) => !open && setRejectRequestId(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare account e richiesta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Il rifiuto è definitivo: elimina l’utente di autenticazione e la
-              richiesta di associazione. Il profilo rosa rimane disponibile.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionBusy}>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={actionBusy}
-              onClick={(event) => {
-                event.preventDefault()
-                if (rejectRequestId) {
-                  void submitAccountAction(rejectRequestId, "REJECT")
-                }
-              }}
-            >
-              Elimina account
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
-
-function AccessState({
-  title,
-  description,
-  action,
-}: {
-  title: string
-  description: string
-  action?: { href: string; label: string }
-}) {
-  return (
-    <div className="flex min-h-[70dvh] items-center justify-center text-center">
-      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm">
-        <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-muted">
-          <UsersRound aria-hidden="true" className="size-5" />
-        </span>
-        <h1 className="mt-4 text-xl font-bold">{title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-        {action && (
-          <Button asChild className="mt-4">
-            <Link href={action.href}>{action.label}</Link>
-          </Button>
-        )}
-      </div>
+      />
     </div>
   )
 }

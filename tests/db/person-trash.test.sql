@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -54,6 +54,18 @@ select throws_ok(
   '42501',
   null,
   'a player cannot trash people'
+);
+
+select throws_ok(
+  $$update public.profiles set deleted_at = now() - interval '31 days'
+    where id = '10000000-0000-0000-0000-000000000b02'$$,
+  'P0001',
+  'Only managers can modify protected profile fields',
+  'a player cannot put themselves in the trash'
+);
+select lives_ok(
+  $$update public.profiles set nome = 'Anna' where id = '10000000-0000-0000-0000-000000000b02'$$,
+  'a player still edits their own name'
 );
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000b01', true);

@@ -13,11 +13,11 @@ import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
 import {
   buildMatchMessage,
   bySurname,
-  isUnderPlayer,
   type MatchMessageEvent,
   type MatchMessagePlayer,
 } from "@/lib/formations"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import { isU35At } from "@/lib/utils"
 
 type PlayerSnapshot = {
   nome?: string | null
@@ -72,7 +72,7 @@ function PlayerChip({
   player: PlayerSnapshot
   positionKey?: string | null
 }) {
-  const under = isUnderPlayer(player.birth_date, eventDate)
+  const under = isU35At(player.birth_date, eventDate)
   return (
     <div className="flex min-h-12 items-center gap-2 rounded-lg border bg-background p-2">
       <Avatar className="size-8 shrink-0">

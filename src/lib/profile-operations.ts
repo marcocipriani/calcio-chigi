@@ -1,11 +1,10 @@
-export type RegistrationStatus = "TODO" | "SUBMITTED" | "ACTIVE"
-export type PaymentStatus = "DUE" | "PENDING_REVIEW" | "PAID"
-export type CertificateStatus =
-  | "MISSING"
-  | "PENDING_REVIEW"
-  | "VALID"
-  | "REJECTED"
-  | "EXPIRED"
+import type {
+  MedicalCertificateStatus as CertificateStatus,
+  PaymentStatus,
+  RegistrationStatus,
+} from "@/lib/domain"
+
+export type { CertificateStatus, PaymentStatus, RegistrationStatus }
 
 export function canEditPassportPhoto(
   registrationStatus: RegistrationStatus,

@@ -45,7 +45,7 @@ import {
   type ManagementView,
   type TableSort,
 } from "@/lib/management-columns"
-import { registrationStatusLabel } from "@/lib/profile-operations"
+import { certificateStatusLabel, registrationStatusLabel } from "@/lib/profile-operations"
 import { UNIFORM_SIZES } from "@/lib/domain"
 import { ageGroupAt, cn, getAge } from "@/lib/utils"
 
@@ -167,15 +167,7 @@ function CertificateState({ person }: { person: ManagementPerson }) {
   return (
     <Dot
       kind={kind}
-      label={
-        {
-          VALID: "Valido",
-          PENDING_REVIEW: "Da verificare",
-          MISSING: "Mancante",
-          REJECTED: "Respinto",
-          EXPIRED: "Scaduto",
-        }[person.certificateStatus]
-      }
+      label={certificateStatusLabel(person.certificateStatus)}
     />
   )
 }
@@ -845,7 +837,7 @@ const columnsById = new Map(
   managementColumns.map((column) => [column.id, column]),
 )
 
-export const managementFilterOptions = {
+const managementFilterOptions = {
   role: [
     ["", "Tutti"],
     ["PORTIERE", "Portiere"],

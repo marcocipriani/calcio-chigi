@@ -96,7 +96,7 @@ export function personGroup({
 }
 
 /** Chi compare in ogni vista; assente = tutti. Lo staff non paga quote. */
-export const VIEW_GROUPS: Partial<Record<string, PersonGroup[]>> = {
+const VIEW_GROUPS: Partial<Record<string, PersonGroup[]>> = {
   ATTENDANCE: ["PLAYER", "TRAINING_ONLY"],
   PAYMENTS: ["PLAYER", "TRAINING_ONLY"],
   REGISTRATIONS: ["PLAYER", "STAFF"],

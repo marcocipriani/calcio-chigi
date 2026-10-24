@@ -1,6 +1,6 @@
 "use client"
 
-import { formatCountdown, minuteLabel, periodClock, type MatchSession, type TimelineEntry } from "@/lib/match"
+import { describeEntry, formatCountdown, minuteLabel, periodClock, type MatchSession, type TimelineEntry } from "@/lib/match"
 
 import { TIMELINE_LABEL, TimelineIcon } from "./MatchIcons"
 import { useNow } from "./useLiveMatch"
@@ -39,17 +39,6 @@ export function LiveScore({ session, opponent }: { session: MatchSession; oppone
   )
 }
 
-export function entryDescription(entry: TimelineEntry, opponent: string) {
-  if (entry.kind === "GOAL") {
-    return `${entry.playerName ?? "Goal"}${entry.assistName ? ` (assist ${entry.assistName})` : ""}`
-  }
-  if (entry.kind === "GOAL_AGAINST") return opponent
-  if (entry.kind === "UNATTRIBUTED_GOAL") return "Goal Chigi"
-  if (entry.kind === "SUB") return `${entry.subInName ?? "?"} per ${entry.playerName ?? "?"}`
-  if (entry.kind === "YELLOW" || entry.kind === "RED") return entry.playerName ?? TIMELINE_LABEL[entry.kind]
-  return TIMELINE_LABEL[entry.kind]
-}
-
 /** Cronaca pubblica: goal e cartellini, dal più recente. I cambi restano in panchina. */
 export function MatchChronicle({ timeline, opponent }: { timeline: TimelineEntry[]; opponent: string }) {
   const rows = timeline.filter(({ kind }) => CHRONICLE_KINDS.has(kind))
@@ -80,7 +69,7 @@ export function MatchChronicle({ timeline, opponent }: { timeline: TimelineEntry
               </span>
               <span className="min-w-0 flex-1 truncate">
                 <span className="sr-only">{TIMELINE_LABEL[entry.kind]}: </span>
-                {entryDescription(entry, opponent)}
+                {describeEntry(entry, opponent) || TIMELINE_LABEL[entry.kind]}
               </span>
               {score && <span className="shrink-0 font-mono text-xs font-black">{score}</span>}
             </li>

@@ -38,7 +38,7 @@ import { fetchEventById, fetchNextChigiMatch, fetchPublicFormationRoster, fetchR
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { copyOfficialFormationMessage } from "@/lib/formationClipboard"
 import { buildMatchMessage, buildPersonalFormationMessage, isFormationBenchSlot, isOutsideDistinta, U35_FIELD_MAX, U35_SQUAD_MAX, u35Quota } from "@/lib/formations"
-import { getAge, isU35At } from "@/lib/utils"
+import { getAge, isChigi, isU35At } from "@/lib/utils"
 
 type Player = FullProfile & { training_only?: boolean }
 
@@ -336,7 +336,7 @@ export function FormationBuilder({
             worksheet.getCell('C2').value = timeStr;
             worksheet.getCell('H2').value = nextMatch?.luogo || '';
 
-            const isHome = nextMatch?.squadra_casa?.toUpperCase().includes('CHIGI') ?? true;
+            const isHome = nextMatch?.squadra_casa ? isChigi(nextMatch.squadra_casa) : true;
             if (isHome) { worksheet.getCell('B6').value = "C. PAL. CHIGI"; worksheet.getCell('H6').value = nextMatch?.avversario || ""; }
             else { worksheet.getCell('B6').value = nextMatch?.avversario || ""; worksheet.getCell('H6').value = "C. PAL. CHIGI"; }
 

@@ -55,7 +55,7 @@ export type TimelineEntry = {
   subInName: string | null
 }
 
-export const HALFTIME_SECONDS = 15 * 60
+const HALFTIME_SECONDS = 15 * 60
 export const RECOVERY_CHIPS_FROM_MINUTE = 30
 
 const OUR_GOALS: TimelineKind[] = ["GOAL", "OWN_GOAL_FOR", "UNATTRIBUTED_GOAL"]
@@ -322,26 +322,31 @@ const REPORT_ICON: Partial<Record<TimelineKind, string>> = {
   SUB: "🔁",
 }
 
+/** Chi ha fatto cosa, come si legge in cronaca e nel messaggio WhatsApp. */
+export function describeEntry(entry: TimelineEntry, opponent: string) {
+  switch (entry.kind) {
+    case "GOAL":
+      return `${entry.playerName ?? "Goal"}${entry.assistName ? ` (assist ${entry.assistName})` : ""}`
+    case "OWN_GOAL_FOR":
+      return "Autogol avversario"
+    case "UNATTRIBUTED_GOAL":
+      return "Goal Chigi"
+    case "GOAL_AGAINST":
+      return opponent
+    case "SUB":
+      return `${entry.subInName ?? "?"} per ${entry.playerName ?? "?"}`
+    default:
+      return entry.playerName ?? ""
+  }
+}
+
 /** Cronaca da incollare su WhatsApp, in ordine di gioco. */
 export function buildMatchReport(opponent: string, timeline: TimelineEntry[]) {
   const score = scoreOf(timeline)
   const lines = [...timeline].sort(byTime).flatMap((entry) => {
     const icon = REPORT_ICON[entry.kind]
     if (!icon) return []
-    const minute = minuteLabel(entry.minute, entry.stoppage)
-    const who =
-      entry.kind === "GOAL"
-        ? `${entry.playerName ?? "Goal"}${entry.assistName ? ` (assist ${entry.assistName})` : ""}`
-        : entry.kind === "OWN_GOAL_FOR"
-          ? "Autogol avversario"
-          : entry.kind === "UNATTRIBUTED_GOAL"
-            ? "Goal Chigi"
-            : entry.kind === "GOAL_AGAINST"
-              ? opponent
-              : entry.kind === "SUB"
-                ? `${entry.subInName ?? "?"} per ${entry.playerName ?? "?"}`
-                : entry.playerName ?? ""
-    return [`${minute} ${icon} ${who}`]
+    return [`${minuteLabel(entry.minute, entry.stoppage)} ${icon} ${describeEntry(entry, opponent)}`]
   })
   return [`⚽ CHIGI ${score.ours}-${score.theirs} ${opponent.toUpperCase()}`, "", ...lines].join("\n")
 }

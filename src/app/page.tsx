@@ -34,7 +34,7 @@ import { fetchCalendarEvents, fetchTeams } from "@/lib/api";
 import { useAppSession } from "@/components/auth/AppSessionProvider";
 import { useOnResume } from "@/lib/useOnResume";
 import { LiveMatchBanner } from "@/components/match/LiveMatchBanner";
-import { EVENT_TYPE_LABEL, isMatchEvent } from "@/lib/utils";
+import { EVENT_TYPE_LABEL, isChigi, isMatchEvent, normKey, opponentOf } from "@/lib/utils";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
@@ -43,9 +43,7 @@ type ViewMode = 'ACTIVITY' | 'CALENDAR';
 // Without this, a realtime INSERT of another team's match (e.g. during a full sync) would
 // leak non-Chigi matches into the calendar until the next refresh.
 const isChigiCalendarEvent = (e: Event) =>
-    e.tipo !== 'PARTITA' ||
-    !!e.squadra_casa?.toLowerCase().includes('chigi') ||
-    !!e.squadra_ospite?.toLowerCase().includes('chigi');
+    e.tipo !== 'PARTITA' || isChigi(e.squadra_casa) || isChigi(e.squadra_ospite);
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -160,26 +158,16 @@ export default function Home() {
   }
 
   const processedEvents = useMemo(() => {
-    return events.map(e => {
-        let opponent = e.avversario;
-        if (isMatchEvent(e.tipo) && e.squadra_casa && e.squadra_ospite) {
-            if (e.squadra_casa.toLowerCase().includes('chigi')) {
-                opponent = e.squadra_ospite;
-            } else if (e.squadra_ospite.toLowerCase().includes('chigi')) {
-                opponent = e.squadra_casa;
-            }
-        }
-        return { ...e, avversario: opponent };
-    });
+    return events.map(e => isMatchEvent(e.tipo) ? { ...e, avversario: opponentOf(e) } : e);
   }, [events]);
 
   const getLogo = (teamName?: string | null) => {
     if (!teamName) return null;
-    const normalizedName = teamName.toLowerCase().trim();
+    const normalizedName = normKey(teamName);
     const team = teams.find(t => 
         t.nome && (
-            normalizedName.includes(t.nome.toLowerCase().trim()) || 
-            t.nome.toLowerCase().trim().includes(normalizedName)
+            normalizedName.includes(normKey(t.nome)) ||
+            normKey(t.nome).includes(normalizedName)
         )
     );
     return team?.logo_url;

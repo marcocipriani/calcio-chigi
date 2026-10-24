@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { calculateStandings } from "@/lib/utils";
+import { calculateStandings, normKey } from "@/lib/utils";
 import { Team, Event, StandingRow } from "@/lib/types";
 import { fetchSeasonEvents, fetchTeams } from '@/lib/api'
 import type { PhaseFilter } from "@/lib/season-statistics"
@@ -68,11 +68,11 @@ export function StandingsContent({
 
         const teamsInPhase = new Set<string>();
         phaseMatches.forEach(m => {
-          if (m.squadra_casa) teamsInPhase.add(m.squadra_casa.toLowerCase().trim());
-          if (m.squadra_ospite) teamsInPhase.add(m.squadra_ospite.toLowerCase().trim());
+          if (m.squadra_casa) teamsInPhase.add(normKey(m.squadra_casa));
+          if (m.squadra_ospite) teamsInPhase.add(normKey(m.squadra_ospite));
         });
 
-        const activeTeams = currentTeams.filter(t => teamsInPhase.has(t.nome.toLowerCase().trim()));
+        const activeTeams = currentTeams.filter(t => teamsInPhase.has(normKey(t.nome)));
         const playedMatches = phaseMatches.filter(m => m.giocata);
         setMatches(playedMatches);
         setStandings(calculateStandings(activeTeams, playedMatches));
@@ -105,9 +105,9 @@ export function StandingsContent({
   }, [fase, seasonId]);
 
   const getForm = (teamName: string) => {
-      const key = teamName.toLowerCase().trim();
-      const isCasa = (m: Event) => (m.squadra_casa ?? '').toLowerCase().trim() === key;
-      const isOspite = (m: Event) => (m.squadra_ospite ?? '').toLowerCase().trim() === key;
+      const key = normKey(teamName);
+      const isCasa = (m: Event) => normKey(m.squadra_casa) === key;
+      const isOspite = (m: Event) => normKey(m.squadra_ospite) === key;
       const teamMatches = matches.filter(m => isCasa(m) || isOspite(m)).slice(0, 3);
 
       return teamMatches.map(m => {

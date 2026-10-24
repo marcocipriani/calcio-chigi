@@ -90,7 +90,7 @@ export const ALL_COLUMN_IDS = [
   "notes",
 ] as const
 
-export const BUILT_IN_VIEWS = Object.keys(DEFAULT_COLUMNS) as ManagementView[]
+const BUILT_IN_VIEWS = Object.keys(DEFAULT_COLUMNS) as ManagementView[]
 
 export function isBuiltInView(id: string): id is ManagementView {
   return (BUILT_IN_VIEWS as string[]).includes(id)

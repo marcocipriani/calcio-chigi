@@ -22,7 +22,7 @@ import {
 } from "@/lib/management-api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 
-export const TRASH_RETENTION_DAYS = 30
+const TRASH_RETENTION_DAYS = 30
 
 export function daysLeftInTrash(deletedAt: string, now = new Date()) {
   return Math.max(

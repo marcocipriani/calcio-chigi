@@ -3,7 +3,7 @@ import { it } from "date-fns/locale"
 
 import { FORMATIONS } from "@/lib/constants"
 import type { EventType } from "@/lib/types"
-import { isU35At } from "@/lib/utils"
+import { isU35At, opponentOf } from "@/lib/utils"
 
 export type MatchMessageEvent = {
   data_ora: string | null
@@ -72,23 +72,9 @@ export function u35Quota(entries: U35QuotaEntry[], matchDate: Date) {
   }
 }
 
-export function isUnderPlayer(
-  birthDate: string | null | undefined,
-  matchDate: Date,
-) {
-  return isU35At(birthDate, matchDate)
-}
-
-function opponent(event: MatchMessageEvent) {
-  if (event.avversario) return event.avversario
-  return event.squadra_casa?.toLocaleLowerCase("it").includes("chigi")
-    ? event.squadra_ospite
-    : event.squadra_casa
-}
-
 // Link Maps per campo, con il nome scritto come in events.luogo.
 // Campo non in mappa: nel messaggio resta solo il nome.
-export const FIELD_MAPS: Record<string, string> = {
+const FIELD_MAPS: Record<string, string> = {
   "SS Romulea": "https://maps.app.goo.gl/3wF6VHvKWfo8ADNi9",
 }
 
@@ -138,7 +124,7 @@ export function buildMatchMessage(
   return [
     `⚽ INFO ${tipo} per ${format(matchDate, "EEEE dd MMMM", {
       locale: it,
-    })} vs ${opponent(event) ?? "avversario da definire"}`,
+    })} vs ${opponentOf(event) ?? "avversario da definire"}`,
     `📍 ${field}${map ? ` ${map}` : ""}\n🕘 Ritrovo ${format(
       subMinutes(matchDate, 60),
       "HH:mm",

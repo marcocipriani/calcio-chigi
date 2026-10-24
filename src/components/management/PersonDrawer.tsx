@@ -70,6 +70,7 @@ import type { ManagementPerson } from "@/lib/management"
 import { trashPerson } from "@/lib/management-api"
 import type { Injury } from "@/lib/injuries"
 import type { MembershipDocument } from "@/lib/membership-documents"
+import { certificateStatusLabel, paymentStatusLabel } from "@/lib/profile-operations"
 import {
   fetchCashRecipients,
   remainingAmount,
@@ -82,20 +83,6 @@ const NO_INJURIES: Injury[] = []
 
 const selectClass =
   "h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-
-const certificateLabels = {
-  MISSING: "Mancante",
-  PENDING_REVIEW: "Da verificare",
-  VALID: "Valido",
-  REJECTED: "Respinto",
-  EXPIRED: "Scaduto",
-}
-
-const paymentLabels = {
-  DUE: "Da pagare",
-  PENDING_REVIEW: "Da verificare",
-  PAID: "Pagato",
-}
 
 const accountLabels = {
   NONE: "non registrato",
@@ -928,7 +915,7 @@ export function PersonDrawer({
                       Certificato agonistico
                     </strong>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {certificateLabels[person.certificateStatus]}
+                      {certificateStatusLabel(person.certificateStatus)}
                       {person.certificateExpiresOn
                         ? ` · scade ${person.certificateExpiresOn}`
                         : ""}
@@ -1012,7 +999,7 @@ export function PersonDrawer({
                           })}
                         </strong>
                         <Badge variant={payment.status === "PAID" ? "default" : "outline"}>
-                          {paymentLabels[payment.status]}
+                          {paymentStatusLabel(payment.status)}
                         </Badge>
                       </span>
                       {payment.id && (

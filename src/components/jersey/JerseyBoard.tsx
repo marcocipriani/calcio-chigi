@@ -16,7 +16,7 @@ export function playerShortName({
   return `${nome} ${cognome.slice(0, 1)}.`.trim()
 }
 
-export function jerseyClaimsByNumber(rows: JerseyBoardRow[]) {
+function jerseyClaimsByNumber(rows: JerseyBoardRow[]) {
   const claims = new Map<number, Claim[]>()
   for (const row of rows) {
     row.choices.forEach(({ number, level }, rank) => {

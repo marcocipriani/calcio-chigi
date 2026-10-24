@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 export const DOCUMENT_BUCKET = "membership-documents"
-export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024
+const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024
 export const DOCUMENT_MIME_TYPES = [
   "application/pdf",
   "image/jpeg",

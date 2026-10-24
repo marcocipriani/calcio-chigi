@@ -5,7 +5,6 @@ import {
   buildPersonalFormationMessage,
   isFormationBenchSlot,
   isOutsideDistinta,
-  isUnderPlayer,
   u35Quota,
 } from "@/lib/formations"
 
@@ -28,17 +27,6 @@ describe("isOutsideDistinta", () => {
     expect(isOutsideDistinta("P9")).toBe(false)
     expect(isOutsideDistinta("P10")).toBe(true)
     expect(isOutsideDistinta("P12")).toBe(true)
-  })
-})
-
-describe("isUnderPlayer", () => {
-  it("uses the match date instead of the current date", () => {
-    expect(
-      isUnderPlayer("1991-06-24", new Date("2026-06-23T21:15:00+02:00")),
-    ).toBe(true)
-    expect(
-      isUnderPlayer("1991-06-23", new Date("2026-06-23T21:15:00+02:00")),
-    ).toBe(false)
   })
 })
 

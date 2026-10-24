@@ -26,6 +26,7 @@ import { EventDialog } from '@/components/EventDialog'
 import { toast } from "sonner" 
 
 import { Event } from '@/lib/types'
+import { isChigi, normKey } from '@/lib/utils'
 import {
     phaseOptionsForSeason,
     SEASON_OPTIONS,
@@ -84,7 +85,7 @@ export default function TorneoPage() {
 
         const tMap: Record<string, string> = {}
         teamsData.forEach(t => {
-            if (t.nome) tMap[t.nome.toLowerCase().trim()] = t.logo_url ?? ''
+            if (t.nome) tMap[normKey(t.nome)] = t.logo_url ?? ''
         })
         setTeamsMap(tMap)
 
@@ -224,8 +225,7 @@ export default function TorneoPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const chigiMatches = currentPhaseMatches.filter(m =>
-      m.squadra_casa?.toLowerCase().includes('chigi') ||
-      m.squadra_ospite?.toLowerCase().includes('chigi')
+      isChigi(m.squadra_casa) || isChigi(m.squadra_ospite)
     );
     const nextChigi = chigiMatches.find(m => m.data_ora && new Date(m.data_ora) >= today);
     if (nextChigi?.giornata) return nextChigi.giornata;
@@ -470,14 +470,14 @@ export default function TorneoPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {currentMatches.map(match => {
-                                const isChigi = match.squadra_casa?.toLowerCase().includes('chigi') || match.squadra_ospite?.toLowerCase().includes('chigi')
-                                const logoCasa = teamsMap[match.squadra_casa?.toLowerCase().trim() ?? '']
-                                const logoOspite = teamsMap[match.squadra_ospite?.toLowerCase().trim() ?? '']
+                                const isChigiMatch = isChigi(match.squadra_casa) || isChigi(match.squadra_ospite)
+                                const logoCasa = teamsMap[normKey(match.squadra_casa)]
+                                const logoOspite = teamsMap[normKey(match.squadra_ospite)]
                                 
                                 return (
-                                    <Card key={match.id} className={isChigi ? 'border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20' : undefined}>
+                                    <Card key={match.id} className={isChigiMatch ? 'border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20' : undefined}>
                                         <CardContent className="p-4 flex items-center gap-4 relative">
-                                            {isChigi && (
+                                            {isChigiMatch && (
                                                 <Link
                                                     aria-label={`Apri ${match.squadra_casa} - ${match.squadra_ospite}`}
                                                     className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -504,7 +504,7 @@ export default function TorneoPage() {
                                                             <AvatarImage src={logoCasa} alt={match.squadra_casa ?? ''} className="object-contain"/>
                                                             <AvatarFallback className="text-[10px]">{match.squadra_casa?.[0]}</AvatarFallback>
                                                         </Avatar>
-                                                        <span className={`font-bold text-sm ${match.squadra_casa?.toLowerCase().includes('chigi') ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+                                                        <span className={`font-bold text-sm ${isChigi(match.squadra_casa) ? 'text-amber-700 dark:text-amber-400' : ''}`}>
                                                             {match.squadra_casa}
                                                         </span>
                                                     </div>
@@ -519,7 +519,7 @@ export default function TorneoPage() {
                                                             <AvatarImage src={logoOspite} alt={match.squadra_ospite ?? ''} className="object-contain"/>
                                                             <AvatarFallback className="text-[10px]">{match.squadra_ospite?.[0]}</AvatarFallback>
                                                         </Avatar>
-                                                        <span className={`font-bold text-sm ${match.squadra_ospite?.toLowerCase().includes('chigi') ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+                                                        <span className={`font-bold text-sm ${isChigi(match.squadra_ospite) ? 'text-amber-700 dark:text-amber-400' : ''}`}>
                                                             {match.squadra_ospite}
                                                         </span>
                                                     </div>

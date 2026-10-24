@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { ageGroupAt, isU35At, sortPlaces } from "@/lib/utils"
+import { ageGroupAt, isU35At, opponentOf, sortPlaces } from "@/lib/utils"
 
 describe("U35 eligibility", () => {
   const referenceDate = new Date("2026-07-31T12:00:00+02:00")
@@ -26,3 +26,17 @@ describe("sortPlaces", () => {
     ).toEqual(["SS Romulea", "C.S. CAVALIERI", "VIGOR PERCONTI"])
   })
 })
+
+describe("opponentOf", () => {
+  it("picks the non-Chigi side, whichever is home", () => {
+    expect(opponentOf({ squadra_casa: "C. PAL. CHIGI", squadra_ospite: "PSICOLOGOL", avversario: "x" })).toBe("PSICOLOGOL")
+    expect(opponentOf({ squadra_casa: "PSICOLOGOL", squadra_ospite: "Chigi", avversario: null })).toBe("PSICOLOGOL")
+  })
+
+  it("falls back to avversario without teams or Chigi", () => {
+    expect(opponentOf({ squadra_casa: null, squadra_ospite: null, avversario: "Amici" })).toBe("Amici")
+    expect(opponentOf({ squadra_casa: "A", squadra_ospite: "B", avversario: "A vs B" })).toBe("A vs B")
+    expect(opponentOf({ squadra_casa: null, squadra_ospite: null, avversario: "" })).toBeNull()
+  })
+})
+

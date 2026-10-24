@@ -22,7 +22,7 @@ import { fetchEventById, fetchTeamLogoByName, fetchRosterForEvent, fetchAttendan
 import { fetchInjuryPeriods, isInjuredOn, type InjuryPeriod } from '@/lib/injuries';
 import { romeDateKey } from '@/lib/season';
 import { useOnResume } from '@/lib/useOnResume';
-import { ageGroupAt, EVENT_TYPE_LABEL, isMatchEvent, isU35At } from '@/lib/utils';
+import { ageGroupAt, EVENT_TYPE_LABEL, isChigi, isMatchEvent, isU35At, opponentOf } from '@/lib/utils';
 import { useAppSession } from '@/components/auth/AppSessionProvider';
 import { OfficialFormationPanel, type PublishedCallups } from '@/components/formations/OfficialFormationPanel';
 import { buildMatchMessage } from '@/lib/formations';
@@ -84,13 +84,6 @@ function withAttendance<T extends { id: string }>(players: T[], rows: Attendance
       modified_by: vote?.modified_by ?? null,
     };
   });
-}
-
-function opponentOf(event: Event) {
-  if (event.squadra_casa && event.squadra_ospite) {
-    return event.squadra_casa.toLowerCase().includes('chigi') ? event.squadra_ospite : event.squadra_casa;
-  }
-  return event.avversario ?? null;
 }
 
 // Barra sotto l'header fisso: stessa superficie, a tutta larghezza, attaccata.
@@ -404,7 +397,7 @@ export default function EventPage({ params }: { params: Promise<{ id: string }> 
   if (isLive && liveSession) {
       scoreBlock = <div className="mt-2 lg:mt-0"><LiveScore session={liveSession} opponent={opponent ?? 'Avversario'} /></div>;
   } else if (isMatch && event.giocata) {
-      const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
+      const isChigiCasa = isChigi(event.squadra_casa);
       const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
       const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);
       let resultColor = "text-slate-700 bg-slate-100 dark:bg-slate-800 dark:text-slate-200";

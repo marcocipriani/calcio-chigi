@@ -48,7 +48,7 @@ import {
 import { dropQueued, enqueue, flushQueue, readQueue } from "@/lib/match-queue"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import type { Event } from "@/lib/types"
-import { isU35At } from "@/lib/utils"
+import { isU35At, opponentOf } from "@/lib/utils"
 
 import { LiveScore, MatchChronicle } from "./LiveMatchBlock"
 import { MatchBench } from "./MatchBench"
@@ -75,11 +75,6 @@ const newId = () =>
   "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
     (Number(char) ^ (Math.random() * 16) >> (Number(char) / 4)).toString(16),
   )
-
-function opponentOf(event: Event) {
-  if (event.avversario) return event.avversario
-  return event.squadra_casa?.toLowerCase().includes("chigi") ? event.squadra_ospite ?? "Avversario" : event.squadra_casa ?? "Avversario"
-}
 
 function queuedEntry(action: RecordAction, players: Map<string, MatchPlayer>): TimelineEntry {
   const name = (id: string | null) => (id ? players.get(id)?.cognome ?? null : null)
@@ -206,7 +201,7 @@ export function MatchMode({ eventId }: { eventId: string }) {
 
   const state = useMemo(() => (session ? fieldState(session.lineup, timeline) : null), [session, timeline])
   const score = scoreOf(timeline)
-  const opponent = event ? opponentOf(event) : "Avversario"
+  const opponent = (event && opponentOf(event)) ?? "Avversario"
   const eventDate = event?.data_ora ?? null
   const matchDate = useMemo(() => (eventDate ? new Date(eventDate) : new Date()), [eventDate])
 

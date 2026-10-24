@@ -28,13 +28,21 @@ export const isU35At = (
   referenceDate: Date,
 ) => ageGroupAt(birthDate, referenceDate) === "U35"
 
-export const isU35 = (dob?: string | null) => isU35At(dob, new Date())
-
 // Team names arrive UPPERCASE from the sync script but teams.nome may be stored in any case:
 // normalize both sides so the standings/form never silently drop matches on a casing mismatch.
 export const normKey = (s?: string | null) => (s ?? '').toLowerCase().trim();
 
 export const isMatchEvent = (tipo?: EventType | null) => tipo === 'PARTITA' || tipo === 'AMICHEVOLE';
+
+export const isChigi = (team?: string | null) => normKey(team).includes('chigi');
+
+type OpponentFields = Pick<Event, 'avversario' | 'squadra_casa' | 'squadra_ospite'>;
+
+// La squadra che non è Chigi; senza squadre (amichevoli, eventi a mano) vale `avversario`.
+export const opponentOf = (event: OpponentFields) =>
+    (isChigi(event.squadra_casa) ? event.squadra_ospite : isChigi(event.squadra_ospite) ? event.squadra_casa : null) ||
+    event.avversario ||
+    null;
 
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
     PARTITA: 'Partita',

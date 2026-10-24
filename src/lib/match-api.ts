@@ -30,7 +30,7 @@ function toLineup(value: unknown): MatchLineup {
   }
 }
 
-export function lineupToRow(lineup: MatchLineup): LineupRow {
+function lineupToRow(lineup: MatchLineup): LineupRow {
   return {
     module: lineup.module,
     starters: lineup.starters.map(({ profileId, positionKey }) => ({
@@ -41,7 +41,7 @@ export function lineupToRow(lineup: MatchLineup): LineupRow {
   }
 }
 
-export function toSession(row: UnknownRow): MatchSession {
+function toSession(row: UnknownRow): MatchSession {
   const name = [text(row.operator_nome), text(row.operator_cognome)].filter(Boolean).join(" ")
   return {
     eventId: String(row.event_id),
@@ -60,7 +60,7 @@ export function toSession(row: UnknownRow): MatchSession {
   }
 }
 
-export function toEntry(row: UnknownRow): TimelineEntry {
+function toEntry(row: UnknownRow): TimelineEntry {
   return {
     id: String(row.id),
     kind: row.kind as TimelineKind,

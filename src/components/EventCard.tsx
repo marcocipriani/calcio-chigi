@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Event } from "@/lib/types";
-import { cn, isMatchEvent } from "@/lib/utils";
+import { cn, isChigi, isMatchEvent } from "@/lib/utils";
 
 interface EventProps {
   event: Event;
@@ -28,7 +28,7 @@ export function EventCard({ event, opponentLogo, className }: EventProps) {
   let resultBadgeClass = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
   let resultLabel = "PAREGGIO";
   
-  const isChigiCasa = event.squadra_casa?.toLowerCase().includes('chigi');
+  const isChigiCasa = isChigi(event.squadra_casa);
   
   const golNoi = isChigiCasa ? (event.gol_casa ?? 0) : (event.gol_ospite ?? 0);
   const golLoro = isChigiCasa ? (event.gol_ospite ?? 0) : (event.gol_casa ?? 0);

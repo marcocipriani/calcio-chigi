@@ -1,5 +1,5 @@
-export const JERSEY_MIN = 1
-export const JERSEY_MAX = 99
+const JERSEY_MIN = 1
+const JERSEY_MAX = 99
 export const MAX_JERSEY_CHOICES = 5
 export const MAX_AVOIDED_NUMBERS = 10
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { NextMatchSummary } from "@/components/formations/NextMatchCapsule"
 import { fetchNextChigiMatch, fetchTeamLogoByName } from "@/lib/api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import { opponentOf } from "@/lib/utils"
 
 type PublishedFormation = {
   published_at: string
@@ -48,12 +49,7 @@ export function useNextMatchFormation(): {
         return
       }
 
-      const opponent =
-        event.avversario ??
-        (event.squadra_casa?.toLocaleLowerCase("it").includes("chigi")
-          ? event.squadra_ospite
-          : event.squadra_casa) ??
-        "Avversario da definire"
+      const opponent = opponentOf(event) ?? "Avversario da definire"
       const opponentLogoUrl = await fetchTeamLogoByName(
         supabaseBrowser,
         opponent,

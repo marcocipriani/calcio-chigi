@@ -13,7 +13,7 @@ import { Event, EventFase, EventType } from "@/lib/types"
 import { toast } from "sonner"
 import { supabaseBrowser as supabase } from "@/lib/supabaseBrowser"
 import { fetchPlaces } from "@/lib/api"
-import { HOME_PLACE, isMatchEvent, normKey } from "@/lib/utils"
+import { HOME_PLACE, isChigi, isMatchEvent, normKey } from "@/lib/utils"
 
 const OTHER_PLACE = "__other__"
 
@@ -180,7 +180,7 @@ export function EventDialog({ open, onOpenChange, eventToEdit, onSave }: EventDi
             if (giocata) {
                 payload.gol_casa = safeInt(golNostri);
                 payload.gol_ospite = safeInt(golAvversario);
-                const isChigiCasa = (squadraCasa || eventToEdit?.squadra_casa || '').toUpperCase().includes('CHIGI');
+                const isChigiCasa = isChigi(squadraCasa || eventToEdit?.squadra_casa);
                 payload.gol_nostri = isChigiCasa ? payload.gol_casa : payload.gol_ospite;
                 payload.gol_avversario = isChigiCasa ? payload.gol_ospite : payload.gol_casa;
             } else {

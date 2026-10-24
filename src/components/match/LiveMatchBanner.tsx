@@ -6,7 +6,9 @@ import Link from "next/link"
 import type { MatchSession } from "@/lib/match"
 import { fetchLiveSessions } from "@/lib/match-api"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
+import type { Event } from "@/lib/types"
 import { useOnResume } from "@/lib/useOnResume"
+import { opponentOf } from "@/lib/utils"
 
 import { liveStatusText } from "./LiveMatchBlock"
 import { useNow } from "./useLiveMatch"
@@ -30,13 +32,9 @@ export function LiveMatchBanner() {
         .select("id, avversario, squadra_casa, squadra_ospite")
         .in("id", sessions.map(({ eventId }) => eventId))
       const opponentById = new Map(
-        (data ?? []).map((event) => [
-          event.id as string,
-          (event.avversario as string | null) ??
-            (String(event.squadra_casa ?? "").toLowerCase().includes("chigi")
-              ? (event.squadra_ospite as string | null)
-              : (event.squadra_casa as string | null)) ??
-            "Avversario",
+        ((data ?? []) as (Pick<Event, "id"> & Parameters<typeof opponentOf>[0])[]).map((event) => [
+          event.id,
+          opponentOf(event) ?? "Avversario",
         ]),
       )
       setMatches(

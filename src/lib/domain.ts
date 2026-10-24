@@ -9,14 +9,12 @@ export const UNIFORM_SIZES = ["S", "M", "L", "XL", "XXL"] as const
 export type MembershipCategory = "PLAYER" | "STAFF"
 export type RegistrationStatus = "TODO" | "SUBMITTED" | "ACTIVE"
 export type PaymentStatus = "DUE" | "PENDING_REVIEW" | "PAID"
-export type PaymentMethod = "CASH" | "BANK_TRANSFER"
 export type MedicalCertificateStatus =
   | "MISSING"
   | "PENDING_REVIEW"
   | "VALID"
   | "REJECTED"
   | "EXPIRED"
-export type EventCheckinStatus = "PRESENT" | "ABSENT"
 export type AccountStatus = "NONE" | "REQUESTED" | "ACTIVE"
 
 export interface Season {
@@ -47,17 +45,4 @@ export interface SeasonMembership {
   registration_completed_on?: string | null
   last_confirmation_requested_at?: string | null
   updated_at?: string
-}
-
-export interface PublicRosterMember {
-  id: string
-  nome: string
-  cognome: string
-  avatar_url: string | null
-  data_nascita: string | null
-  role: string | null
-  staff_function: string | null
-  jersey_number: number | null
-  category: MembershipCategory
-  status: Extract<MembershipStatus, "YES">
 }

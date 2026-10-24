@@ -1,5 +1,7 @@
 // Regolamento ASI: un rosso squalifica per la gara successiva; ogni terza
 // ammonizione (in gare diverse) anche. Con due gialli si è diffidati.
+// Conta una gara solo se il giocatore ha ricevuto esclusivamente
+// un'ammonizione: il doppio giallo (2 gialli + rosso) è un'espulsione.
 // ponytail: conta solo le statistiche registrate in app (match_player_stats).
 
 export type DisciplineRow = {
@@ -10,6 +12,8 @@ export type DisciplineRow = {
 }
 
 export type DisciplineStatus = "DIFFIDATO" | "SQUALIFICATO"
+
+const countedYellow = ({ yellow, red }: DisciplineRow) => (red > 0 ? 0 : Math.min(yellow, 1))
 
 /** Stato disciplinare per la prossima partita, dalle partite di campionato già giocate. */
 export function disciplineByPlayer(rows: DisciplineRow[]) {
@@ -22,9 +26,9 @@ export function disciplineByPlayer(rows: DisciplineRow[]) {
 
   for (const [profileId, matches] of byPlayer) {
     const sorted = [...matches].sort((left, right) => left.eventDate.localeCompare(right.eventDate))
-    const yellows = sorted.reduce((sum, row) => sum + row.yellow, 0)
+    const yellows = sorted.reduce((sum, row) => sum + countedYellow(row), 0)
     const last = sorted.at(-1)!
-    const yellowsBefore = yellows - (last.eventDate === lastMatch ? last.yellow : 0)
+    const yellowsBefore = yellows - (last.eventDate === lastMatch ? countedYellow(last) : 0)
     const reachedThird = last.eventDate === lastMatch && Math.floor(yellows / 3) > Math.floor(yellowsBefore / 3)
     if (last.eventDate === lastMatch && (last.red > 0 || reachedThird)) {
       result.set(profileId, "SQUALIFICATO")

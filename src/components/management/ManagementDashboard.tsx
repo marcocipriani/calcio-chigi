@@ -30,8 +30,8 @@ import {
 import {
   getAvailableManagementColumns,
   getManagementColumnAccessors,
-  ManagementTable,
-} from "@/components/management/ManagementTable"
+} from "@/components/management/managementColumns"
+import { ManagementTable } from "@/components/management/ManagementTable"
 import { NotificationComposer } from "@/components/management/NotificationComposer"
 import type { PassportPhotoState } from "@/components/management/PassportPhotoPreview"
 import { PersonDrawer } from "@/components/management/PersonDrawer"

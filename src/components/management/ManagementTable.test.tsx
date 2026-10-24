@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   getAvailableManagementColumns,
   getManagementColumnAccessors,
-  ManagementTable,
-} from "@/components/management/ManagementTable"
+} from "@/components/management/managementColumns"
+import { ManagementTable } from "@/components/management/ManagementTable"
 import type { ManagementPerson } from "@/lib/management"
 import {
   ALL_COLUMN_IDS,

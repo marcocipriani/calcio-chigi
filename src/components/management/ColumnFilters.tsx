@@ -11,7 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import type { ManagementColumnMeta } from "@/components/management/ManagementTable"
+import type { ManagementColumnMeta } from "@/components/management/managementColumns"
 import type {
   ManagementColumnFilters,
   TableSort,

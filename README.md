@@ -16,11 +16,11 @@ _Calendario, squadra, torneo e gestione stagionale_
 [![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](#-progressive-web-app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](./LICENSE)
 [![GitHub](https://img.shields.io/badge/GitHub-repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/marcocipriani/calcio-chigi)
-[![Versione](https://img.shields.io/badge/versione-2.8.0-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
+[![Versione](https://img.shields.io/badge/versione-2.8.1-orange?style=for-the-badge)](https://github.com/marcocipriani/calcio-chigi)
 
 **[🌐 Apri la demo →](https://calcio-chigi.vercel.app/)** · **[💻 Repository →](https://github.com/marcocipriani/calcio-chigi)**
 
-<sub>📅 Ultimo aggiornamento: <b>24 ottobre 2026</b> · versione <b>v2.8.0</b></sub>
+<sub>📅 Ultimo aggiornamento: <b>25 ottobre 2026</b> · versione <b>v2.8.1</b></sub>
 
 </div>
 

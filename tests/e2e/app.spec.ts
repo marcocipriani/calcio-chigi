@@ -1294,8 +1294,13 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile")
-  await context.grantPermissions(["clipboard-read"], {
-    origin: "http://127.0.0.1:3100",
+  // WebKit su Linux (CI) nega la lettura degli appunti: si cattura la scrittura.
+  await page.addInitScript(() => {
+    const copied: string[] = []
+    Object.assign(window, { __copied: copied })
+    navigator.clipboard.writeText = async (text: string) => {
+      copied.push(text)
+    }
   })
   let avatarRequestCount = 0
   await page.route("https://avatar.invalid/**", async (route) => {
@@ -1395,7 +1400,9 @@ test("il playground anonimo usa soltanto la rosa pubblica", async ({
   await page.getByRole("button", { name: "Esporta formazione" }).click()
   await page.getByRole("menuitem", { name: "Copia messaggio" }).click()
   await expect
-    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .poll(() =>
+      page.evaluate(() => (window as unknown as { __copied: string[] }).__copied.at(-1) ?? ""),
+    )
     .toContain("LA MIA FORMAZIONE")
   const downloadPng = page.getByRole("menuitem", { name: "Scarica PNG" })
   if (!(await downloadPng.isVisible())) {

@@ -45,6 +45,8 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:3100",
+    // Date e orari come li vede la squadra: il runner della CI è in UTC.
+    timezoneId: "Europe/Rome",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

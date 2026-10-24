@@ -34,16 +34,10 @@ import { fetchCalendarEvents, fetchTeams } from "@/lib/api";
 import { useAppSession } from "@/components/auth/AppSessionProvider";
 import { useOnResume } from "@/lib/useOnResume";
 import { LiveMatchBanner } from "@/components/match/LiveMatchBanner";
-import { EVENT_TYPE_LABEL, isChigi, isMatchEvent, normKey, opponentOf } from "@/lib/utils";
+import { applyCalendarChange, EVENT_TYPE_LABEL, isMatchEvent, normKey, opponentOf, type CalendarChange } from "@/lib/utils";
 
 type FilterType = 'ALL' | 'PARTITA' | 'ALLENAMENTO';
 type ViewMode = 'ACTIVITY' | 'CALENDAR';
-
-// Mirror the server-side filter in fetchCalendarEvents: all trainings + only Chigi matches.
-// Without this, a realtime INSERT of another team's match (e.g. during a full sync) would
-// leak non-Chigi matches into the calendar until the next refresh.
-const isChigiCalendarEvent = (e: Event) =>
-    e.tipo !== 'PARTITA' || isChigi(e.squadra_casa) || isChigi(e.squadra_ospite);
 
 export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -58,26 +52,6 @@ export default function Home() {
   const defaultView = profile?.default_view;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-
-  const handleRealtimeUpdate = (payload: { eventType: string; new: Event; old: Event }) => {
-      const { eventType, new: newRecord, old: oldRecord } = payload;
-
-      setEvents((currentEvents) => {
-          if (eventType === 'INSERT') {
-              if (!isChigiCalendarEvent(newRecord)) return currentEvents;
-              if (currentEvents.some(e => e.id === newRecord.id)) return currentEvents;
-              return [...currentEvents, newRecord].sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
-          }
-          if (eventType === 'UPDATE') {
-              return currentEvents.map(e => e.id === newRecord.id ? { ...e, ...newRecord } : e)
-                  .sort((a, b) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime());
-          }
-          if (eventType === 'DELETE') {
-              return currentEvents.filter(e => e.id !== oldRecord.id);
-          }
-          return currentEvents;
-      });
-  };
 
   async function fetchData() {
     setLoading(true);
@@ -106,7 +80,7 @@ export default function Home() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
         (payload) => {
-          handleRealtimeUpdate(payload as unknown as { eventType: string; new: Event; old: Event });
+          setEvents(current => applyCalendarChange(current, payload as unknown as CalendarChange));
         }
       )
       .subscribe();

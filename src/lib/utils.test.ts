@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { ageGroupAt, isU35At, opponentOf, sortPlaces } from "@/lib/utils"
+import type { Event } from "@/lib/types"
+import { ageGroupAt, applyCalendarChange, isU35At, opponentOf, sortPlaces } from "@/lib/utils"
 
 describe("U35 eligibility", () => {
   const referenceDate = new Date("2026-07-31T12:00:00+02:00")
@@ -40,3 +41,32 @@ describe("opponentOf", () => {
   })
 })
 
+describe("applyCalendarChange", () => {
+  const event = (id: string, data_ora: string, extra: Partial<Event> = {}): Event =>
+    ({ id, tipo: "PARTITA", data_ora, squadra_casa: "CHIGI", squadra_ospite: "ALTRI", ...extra }) as Event
+  const ids = (events: Event[]) => events.map(({ id }) => id)
+  const a = event("a", "2026-11-01T20:00:00Z")
+  const b = event("b", "2026-11-08T20:00:00Z")
+
+  it("adds a match that becomes Chigi with an UPDATE, in date order", () => {
+    const renamed = event("c", "2026-11-05T20:00:00Z")
+    expect(ids(applyCalendarChange([a, b], { eventType: "UPDATE", new: renamed, old: { id: "c" } }))).toEqual(["a", "c", "b"])
+  })
+
+  it("drops a match that stops being Chigi", () => {
+    const other = { ...a, squadra_casa: "X", squadra_ospite: "Y" }
+    expect(ids(applyCalendarChange([a, b], { eventType: "UPDATE", new: other, old: { id: "a" } }))).toEqual(["b"])
+  })
+
+  it("ignores other teams' inserts and handles deletes", () => {
+    const events = [a, b]
+    const foreign = event("x", "2026-11-02T20:00:00Z", { squadra_casa: "X", squadra_ospite: "Y" })
+    expect(applyCalendarChange(events, { eventType: "INSERT", new: foreign, old: {} })).toBe(events)
+    expect(ids(applyCalendarChange(events, { eventType: "DELETE", new: {} as Event, old: { id: "a" } }))).toEqual(["b"])
+  })
+
+  it("moves an event when its date changes", () => {
+    const moved = { ...a, data_ora: "2026-11-10T20:00:00Z" }
+    expect(ids(applyCalendarChange([a, b], { eventType: "UPDATE", new: moved, old: { id: "a" } }))).toEqual(["b", "a"])
+  })
+})

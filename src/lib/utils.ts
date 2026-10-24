@@ -36,6 +36,25 @@ export const isMatchEvent = (tipo?: EventType | null) => tipo === 'PARTITA' || t
 
 export const isChigi = (team?: string | null) => normKey(team).includes('chigi');
 
+// Stesso filtro di fetchCalendarEvents: tutti gli allenamenti e amichevoli, solo le partite Chigi.
+// Senza, un INSERT realtime di un'altra partita del torneo (es. durante il sync) finirebbe in calendario.
+const isChigiCalendarEvent = (e: Event) =>
+    e.tipo !== 'PARTITA' || isChigi(e.squadra_casa) || isChigi(e.squadra_ospite);
+
+const byDate = (a: Event, b: Event) => new Date(a.data_ora ?? 0).getTime() - new Date(b.data_ora ?? 0).getTime();
+
+export type CalendarChange = { eventType: string; new: Event; old: Partial<Event> };
+
+/** Calendario dopo un cambio realtime su events: un UPDATE può far entrare o uscire un evento dal filtro. */
+export function applyCalendarChange(events: Event[], { eventType, new: next, old }: CalendarChange) {
+    if (eventType === 'DELETE') return events.filter(e => e.id !== old.id);
+    if (eventType !== 'INSERT' && eventType !== 'UPDATE') return events;
+    const others = events.filter(e => e.id !== next.id);
+    if (!isChigiCalendarEvent(next)) return others.length === events.length ? events : others;
+    const current = events.find(e => e.id === next.id);
+    return [...others, { ...current, ...next }].sort(byDate);
+}
+
 type OpponentFields = Pick<Event, 'avversario' | 'squadra_casa' | 'squadra_ospite'>;
 
 // La squadra che non è Chigi; senza squadre (amichevoli, eventi a mano) vale `avversario`.

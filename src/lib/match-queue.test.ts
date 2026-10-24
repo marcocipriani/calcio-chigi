@@ -87,4 +87,20 @@ describe("match queue", () => {
     expect(await unqueue("event-1", "a")).toBe(false)
     expect(pendingCount("event-1")).toBe(0)
   })
+
+  it("sends a tap added while the previous one is in flight in the same round", async () => {
+    enqueue(action("a"))
+    let release: (value: { data: null; error: null }) => void = () => {}
+    const rpc = vi.fn().mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    rpc.mockResolvedValue({ data: null, error: null })
+    const client = { rpc } as never as Parameters<typeof flushQueue>[0]
+
+    const flushed = flushQueue(client, "event-1")
+    // Doppio giallo: il rosso arriva mentre il giallo è in viaggio.
+    enqueue(action("b"))
+    release({ data: null, error: null })
+
+    expect((await flushed).sent.map(({ id }) => id)).toEqual(["a", "b"])
+    expect(pendingCount("event-1")).toBe(0)
+  })
 })

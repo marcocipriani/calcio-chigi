@@ -51,9 +51,13 @@ export function flushQueue(client: SupabaseClient, eventId: string) {
     const sent: RecordAction[] = []
     const rejected: RecordAction[] = []
     try {
-      for (const action of readQueue(eventId)) {
-        // Annullato dal telefono mentre si inviavano i precedenti: non parte più.
-        if (!readQueue(eventId).some(({ id }) => id === action.id)) continue
+      // Coda riletta a ogni giro: un tocco arrivato durante l'invio parte
+      // subito, uno annullato non parte più. `tried` evita di girare a vuoto
+      // se lo storage non riesce a toglierlo.
+      const tried = new Set<string>()
+      let action: RecordAction | undefined
+      while ((action = readQueue(eventId).find(({ id }) => !tried.has(id)))) {
+        tried.add(action.id)
         const error = await recordEntry(client, action)
         if (error && !error.code) break
         if (error) rejected.push(action)

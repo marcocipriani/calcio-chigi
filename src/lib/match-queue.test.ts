@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { RecordAction } from "@/lib/match-api"
-import { enqueue, flushQueue, pendingCount, readQueue } from "@/lib/match-queue"
+import { enqueue, flushQueue, pendingCount, readQueue, unqueue } from "@/lib/match-queue"
 
 const action = (id: string): RecordAction => ({
   id,
@@ -59,5 +59,32 @@ describe("match queue", () => {
     )
     expect(result.sent.map(({ id }) => id)).toEqual(["a"])
     expect(readQueue("event-1").map(({ id }) => id)).toEqual(["b"])
+  })
+
+  it("undoing a tap in flight waits for the send and says it reached the server", async () => {
+    enqueue(action("a"))
+    enqueue(action("b"))
+    let release: (value: { data: null; error: null }) => void = () => {}
+    const rpc = vi.fn().mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+    rpc.mockResolvedValue({ data: null, error: null })
+    const client = { rpc } as never as Parameters<typeof flushQueue>[0]
+
+    const flushed = flushQueue(client, "event-1")
+    // "a" è in viaggio, "b" aspetta: annullarli entrambi.
+    const undoA = unqueue("event-1", "a")
+    const undoB = unqueue("event-1", "b")
+    release({ data: null, error: null })
+
+    expect(await undoA).toBe(true)
+    expect(await undoB).toBe(false)
+    expect((await flushed).sent.map(({ id }) => id)).toEqual(["a"])
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(pendingCount("event-1")).toBe(0)
+  })
+
+  it("undoing with nothing in flight just drops the tap", async () => {
+    enqueue(action("a"))
+    expect(await unqueue("event-1", "a")).toBe(false)
+    expect(pendingCount("event-1")).toBe(0)
   })
 })

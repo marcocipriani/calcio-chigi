@@ -33,7 +33,7 @@ export function enqueue(action: RecordAction) {
   writeQueue(action.eventId, [...readQueue(action.eventId), action])
 }
 
-export function dropQueued(eventId: string, actionId: string) {
+function dropQueued(eventId: string, actionId: string) {
   writeQueue(eventId, readQueue(eventId).filter(({ id }) => id !== actionId))
 }
 
@@ -52,6 +52,8 @@ export function flushQueue(client: SupabaseClient, eventId: string) {
     const rejected: RecordAction[] = []
     try {
       for (const action of readQueue(eventId)) {
+        // Annullato dal telefono mentre si inviavano i precedenti: non parte più.
+        if (!readQueue(eventId).some(({ id }) => id === action.id)) continue
         const error = await recordEntry(client, action)
         if (error && !error.code) break
         if (error) rejected.push(action)
@@ -64,4 +66,14 @@ export function flushQueue(client: SupabaseClient, eventId: string) {
     return { sent, rejected }
   })()
   return flushing
+}
+
+/**
+ * Toglie un tocco dalla coda. Se in quel momento era già in viaggio, aspetta
+ * l'invio: true vuol dire che il server l'ha ricevuto e va annullato lì.
+ */
+export async function unqueue(eventId: string, actionId: string) {
+  dropQueued(eventId, actionId)
+  const result = await flushing
+  return Boolean(result?.sent.some(({ id }) => id === actionId))
 }

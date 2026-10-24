@@ -45,7 +45,7 @@ import {
   voidEntry,
   type RecordAction,
 } from "@/lib/match-api"
-import { dropQueued, enqueue, flushQueue, readQueue } from "@/lib/match-queue"
+import { enqueue, flushQueue, readQueue, unqueue } from "@/lib/match-queue"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import type { Event } from "@/lib/types"
 import { isU35At, opponentOf } from "@/lib/utils"
@@ -335,19 +335,21 @@ export function MatchMode({ eventId }: { eventId: string }) {
 
   async function undoLast() {
     if (!lastEntry) return
-    if (readQueue(eventId).some(({ id }) => id === lastEntry.id)) {
-      dropQueued(eventId, lastEntry.id)
+    const entryId = lastEntry.id
+    // Nascosto subito: se era in viaggio, non deve ricomparire col reload dopo l'invio.
+    setVoidedLocally((current) => new Set(current).add(entryId))
+    if (readQueue(eventId).some(({ id }) => id === entryId)) {
+      const reachedServer = await unqueue(eventId, entryId)
       setQueueVersion((version) => version + 1)
-      return
+      if (!reachedServer) return
     }
-    setVoidedLocally((current) => new Set(current).add(lastEntry.id))
     try {
-      await voidEntry(supabaseBrowser, eventId, lastEntry.id)
+      await voidEntry(supabaseBrowser, eventId, entryId)
       await live.reload()
     } catch (error) {
       setVoidedLocally((current) => {
         const next = new Set(current)
-        next.delete(lastEntry.id)
+        next.delete(entryId)
         return next
       })
       toast.error(matchErrorMessage(error))

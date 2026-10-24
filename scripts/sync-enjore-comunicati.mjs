@@ -24,10 +24,11 @@ const HTML_ENTITIES = {
 
 const args = new Set(process.argv.slice(2));
 const shouldApply = args.has('--apply');
+const url = process.argv.find((arg) => arg.startsWith('--url='))?.slice('--url='.length) || ANNOUNCEMENTS_URL;
 
 loadDotEnv('.env.local');
 
-const html = await fetchHtml(ANNOUNCEMENTS_URL);
+const html = await fetchHtml(url);
 const comunicati = parseComunicati(html);
 
 if (shouldApply) {

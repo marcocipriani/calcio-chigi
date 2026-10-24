@@ -16,7 +16,7 @@
     "assets:brand": "node scripts/generate-brand-assets.mjs",
     "test:brand": "node --test scripts/brand-assets.test.mjs",
     "test:import": "node --test scripts/import-roster.test.mjs scripts/import-enjore-history.test.mjs",
-    "test:sync": "node --test scripts/sync-enjore-calendar.test.mjs",
+    "test:sync": "node --test scripts/sync-enjore-calendar.test.mjs scripts/sync-enjore-cron.test.mjs",
     "import:roster": "node scripts/import-roster.mjs",
     "import:enjore-history": "node scripts/import-enjore-history.mjs",
     "sync:enjore": "node scripts/sync-enjore-calendar.mjs",

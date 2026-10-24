@@ -93,10 +93,6 @@ async function main() {
   printSummary(matches);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await main();
-}
-
 function loadDotEnv(path) {
   if (!existsSync(path)) return;
 
@@ -542,4 +538,9 @@ function printSummary(rows) {
   console.log('Comandi utili:');
   console.log('  node scripts/sync-enjore-calendar.mjs --sql > scripts/update-tournament-events.sql');
   console.log('  SUPABASE_SERVICE_ROLE_KEY=... node scripts/sync-enjore-calendar.mjs --apply');
+}
+
+// In fondo: main() usa costanti dichiarate più giù (es. SYNCED_FIELDS), chiamarlo prima dà TDZ.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }

@@ -109,6 +109,29 @@ describe("AppSessionProvider", () => {
     expect(screen.getByTestId("manager")).toHaveTextContent("true")
     expect(screen.getByTestId("status")).toHaveTextContent("ACTIVE")
   })
+
+  it("ignores a slow context that lands after the user signed out", async () => {
+    const client = fakeClient({ user: { id: "user-1" } })
+    let resolveContext: (value: unknown) => void = () => {}
+    client.rpc.mockReturnValueOnce(new Promise((resolve) => (resolveContext = resolve)))
+    render(wrapper(client, <Probe />))
+    await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(1))
+
+    const [[onAuthChange]] = client.auth.onAuthStateChange.mock.calls
+    await act(async () => {
+      onAuthChange("SIGNED_OUT", null)
+    })
+    await act(async () => {
+      resolveContext({
+        data: { profile: { id: "profile-1", nome: "M", cognome: "M", is_manager: true }, associationStatus: "ACTIVE" },
+        error: null,
+      })
+    })
+
+    expect(screen.getByTestId("loading")).toHaveTextContent("false")
+    expect(screen.getByTestId("manager")).toHaveTextContent("false")
+    expect(screen.getByTestId("status")).toHaveTextContent("NONE")
+  })
 })
 
 describe("ProtectedFeature", () => {

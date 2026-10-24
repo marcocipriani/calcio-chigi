@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
@@ -89,15 +90,19 @@ export function AppSessionProvider({
   client?: SupabaseClient
 }) {
   const [state, setState] = useState(anonymousSession)
+  // Login, refresh del token e refresh() possono sovrapporsi: vale l'ultima idratazione.
+  const latest = useRef(0)
 
   const hydrate = useCallback(
     async (user: User | null) => {
+      const request = ++latest.current
       if (!user) {
         setState({ ...anonymousSession, loading: false })
         return
       }
 
       const { data, error } = await client.rpc("get_app_context")
+      if (request !== latest.current) return
       const context = (data ?? {}) as AppContextPayload
 
       if (error) {

@@ -1084,7 +1084,7 @@ test("il giocatore vede quote e scheda privata", async ({ context, page }) => {
   await expect(page.getByRole("dialog")).toContainText("quota aperta")
   await page.getByRole("link", { name: "Vedi quote" }).click()
   await expect(page).toHaveURL(/\/profilo$/)
-  await expect(page.getByText("€ 80.00").first()).toBeVisible()
+  await expect(page.getByText("80,00 €", { exact: true }).first()).toBeVisible()
   await expect(
     page.getByText("Certificato agonistico", { exact: true }),
   ).toBeVisible()
@@ -1118,7 +1118,7 @@ test("dashboard manager densa con azioni rapide", async ({
   const personDialog = page.getByRole("dialog")
   await expect(personDialog.getByRole("heading", { name: "Documenti" })).toBeVisible()
   await expect(personDialog.getByRole("heading", { name: "Pagamenti" })).toBeVisible()
-  await expect(personDialog.getByText(/80,00/)).toBeVisible()
+  await expect(personDialog.getByText("80,00 €", { exact: true })).toBeVisible()
   await expectNoSeriousA11yViolations(page)
   await page.getByRole("button", { name: "Chiudi" }).click()
   await page.getByRole("button", { name: "Aggiungi persona" }).click()

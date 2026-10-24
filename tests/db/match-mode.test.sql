@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(27);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -150,6 +150,13 @@ select lives_ok(
       {"profile_id":"10000000-0000-0000-0000-000000000e04","goals":0,"assists":0,"yellow_cards":1,"red_cards":0,"minutes_played":35}
     ]}')$$,
   'the operator saves the final whistle'
+);
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000e01', true);
+select throws_ok(
+  $$select public.match_record('60000000-0000-0000-0000-000000000e05', '40000000-0000-0000-0000-000000000e01',
+    'YELLOW', 2, 60, 0, now() - interval '2 minutes', '10000000-0000-0000-0000-000000000e03', null, null)$$,
+  'P0001', 'MATCH_FINISHED', 'after the final whistle late queued events are refused, stats are already saved'
 );
 
 reset role;

@@ -67,7 +67,8 @@ function toEntry(row: UnknownRow): TimelineEntry {
     period: Number(row.period) === 2 ? 2 : 1,
     minute: Number(row.minute),
     stoppage: Number(row.stoppage ?? 0),
-    occurredAt: String(row.occurred_at),
+    // Stesso formato dei tocchi in coda (toISOString): la cronaca si ordina come testo.
+    occurredAt: new Date(String(row.occurred_at)).toISOString(),
     profileId: text(row.profile_id),
     assistProfileId: text(row.assist_profile_id),
     subInProfileId: text(row.sub_in_profile_id),

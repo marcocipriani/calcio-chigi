@@ -17,6 +17,37 @@ export function CardIcon({ red = false, className }: { red?: boolean; className?
   )
 }
 
+/** Fischietto dell'arbitro, disegnato come le icone lucide (che non lo hanno). */
+export function WhistleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn("size-4 shrink-0", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <circle cx="8" cy="15" r="5" />
+      <path d="M8 10h13v4h-8" />
+      <path d="M3 7l2 2" />
+    </svg>
+  )
+}
+
+/** Doppio fischio a fine primo tempo, triplice al fischio finale. */
+export function Whistles({ count }: { count: 2 | 3 }) {
+  return (
+    <span aria-hidden="true" className="inline-flex gap-px">
+      {Array.from({ length: count }, (_, index) => (
+        <WhistleIcon key={index} />
+      ))}
+    </span>
+  )
+}
+
 export function TimelineIcon({ kind }: { kind: TimelineKind }) {
   if (kind === "YELLOW") return <CardIcon />
   if (kind === "RED") return <CardIcon red />

@@ -12,6 +12,8 @@ import {
 } from "@/lib/match"
 import { cn } from "@/lib/utils"
 
+import { Whistles } from "./MatchIcons"
+
 const TIMEOUT_SECONDS = 60
 const RECOVERY_OPTIONS = [1, 2, 3, 4, 5]
 
@@ -101,11 +103,11 @@ export function MatchClock({
         </Button>
         {clock.period === 1 ? (
           <Button className="h-12 flex-1 font-bold" disabled={busy} onClick={onEndFirstHalf} variant="outline">
-            Fine 1° tempo
+            <Whistles count={2} /> Fine 1° tempo
           </Button>
         ) : (
           <Button className="h-12 flex-1 font-black" disabled={busy} onClick={onFinalWhistle}>
-            Fischio finale
+            <Whistles count={3} /> Fischio finale
           </Button>
         )}
       </div>

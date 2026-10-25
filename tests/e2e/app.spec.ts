@@ -171,6 +171,9 @@ async function expectConsistentLucideIcons(page: Page) {
   const exceptions = await page.locator("svg.lucide:visible").evaluateAll(
     (icons) =>
       icons
+        // Un fallback dell'avatar sparisce quando arriva l'immagine: staccato
+        // dal DOM non ha stile calcolato e non conta.
+        .filter((icon) => icon.isConnected && getComputedStyle(icon).strokeWidth !== "")
         .map((icon) => ({
           fill: icon.getAttribute("fill"),
           name: icon.getAttribute("class"),

@@ -18,6 +18,7 @@ import {
   useMembershipDocuments,
 } from "@/components/documents/MembershipDocuments"
 import { JerseyHistory } from "@/components/jersey/JerseyHistory"
+import { NotificationSettings } from "@/components/notifications/NotificationSettings"
 import { PaymentEntryDialog } from "@/components/payments/PaymentEntryDialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -632,6 +633,8 @@ export default function ProfilePage() {
             payments={payments}
             recipients={recipients}
           />
+
+          <NotificationSettings />
         </div>
       </div>
 

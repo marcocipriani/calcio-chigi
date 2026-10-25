@@ -2,26 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Bell, BellRing, CheckCheck, Smartphone } from "lucide-react"
-import { toast } from "sonner"
+import { Bell, BellRing, CheckCheck, Settings2, Smartphone } from "lucide-react"
 
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  enablePushNotifications,
-  supportsWebPush,
-} from "@/lib/push"
+import { usePushDevice } from "@/components/notifications/NotificationSettings"
 import { supabaseBrowser } from "@/lib/supabaseBrowser"
 import { useOnResume } from "@/lib/useOnResume"
 import { cn } from "@/lib/utils"
-
-const GOAL_PUSH_CATEGORY = "MATCH_GOAL"
 
 type NotificationRow = {
   notification_id: string
@@ -51,10 +44,7 @@ function relativeTime(value: string) {
 export function NotificationBell() {
   const { user, unreadNotifications, refresh } = useAppSession()
   const [items, setItems] = useState<NotificationRow[]>([])
-  const [pushBusy, setPushBusy] = useState(false)
-  const [pushEnabled, setPushEnabled] = useState(false)
-  // Senza riga in notification_preferences la push è attiva (create_notification).
-  const [goalPush, setGoalPush] = useState(true)
+  const device = usePushDevice()
 
   const load = useCallback(async () => {
     if (!user) {
@@ -103,40 +93,6 @@ export function NotificationBell() {
     void refresh()
   })
 
-  useEffect(() => {
-    if (!user) return
-    void supabaseBrowser
-      .from("notification_preferences")
-      .select("push_enabled")
-      .eq("user_id", user.id)
-      .eq("category", GOAL_PUSH_CATEGORY)
-      .maybeSingle()
-      .then(({ data }) => setGoalPush(data?.push_enabled ?? true))
-  }, [user])
-
-  async function toggleGoalPush(enabled: boolean) {
-    if (!user) return
-    setGoalPush(enabled)
-    const { error } = await supabaseBrowser.from("notification_preferences").upsert({
-      user_id: user.id,
-      category: GOAL_PUSH_CATEGORY,
-      push_enabled: enabled,
-      updated_at: new Date().toISOString(),
-    })
-    if (error) {
-      setGoalPush(!enabled)
-      toast.error("Preferenza non salvata")
-    }
-  }
-
-  useEffect(() => {
-    if (!user || !supportsWebPush()) return
-    void navigator.serviceWorker
-      .getRegistration()
-      .then((registration) => registration?.pushManager.getSubscription())
-      .then((subscription) => setPushEnabled(Boolean(subscription)))
-  }, [user])
-
   const unread = useMemo(
     () =>
       items.length > 0
@@ -177,26 +133,6 @@ export function NotificationBell() {
       .eq("user_id", user.id)
       .is("read_at", null)
     await refresh()
-  }
-
-  async function enablePush() {
-    if (!user) return
-    setPushBusy(true)
-    try {
-      await enablePushNotifications(supabaseBrowser, user.id)
-      setPushEnabled(true)
-      toast.success("Notifiche push attivate")
-    } catch (error) {
-      const message =
-        error instanceof Error && error.message === "IOS_INSTALL_REQUIRED"
-          ? "Su iPhone aggiungi prima l’app alla schermata Home."
-          : error instanceof Error && error.message === "PUSH_PERMISSION_DENIED"
-            ? "Permesso notifiche negato nelle impostazioni del browser."
-            : "Notifiche push non disponibili su questo dispositivo."
-      toast.error(message)
-    } finally {
-      setPushBusy(false)
-    }
   }
 
   return (
@@ -247,27 +183,28 @@ export function NotificationBell() {
           </Button>
         </div>
 
-        {!pushEnabled && supportsWebPush() && (
+        {device.supported && !device.enabled && (
           <div className="border-b bg-muted/35 p-3">
             <Button
               className="w-full justify-start"
-              disabled={pushBusy}
-              onClick={enablePush}
+              disabled={device.busy}
+              onClick={() => void device.enable()}
               size="sm"
               variant="outline"
             >
               <Smartphone aria-hidden="true" />
-              {pushBusy ? "Attivazione…" : "Attiva notifiche su questo dispositivo"}
+              {device.busy ? "Attivazione…" : "Attiva notifiche su questo dispositivo"}
             </Button>
           </div>
         )}
 
-        {pushEnabled && (
-          <label className="flex min-h-11 items-center justify-between gap-3 border-b px-3 text-sm">
-            Push sui goal in diretta
-            <Switch checked={goalPush} onCheckedChange={(checked) => void toggleGoalPush(checked)} />
-          </label>
-        )}
+        <Link
+          className="flex min-h-11 items-center justify-between gap-3 border-b px-3 text-sm hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          href="/profilo#notifiche"
+        >
+          Scegli quali notifiche ricevere
+          <Settings2 aria-hidden="true" className="size-4 text-muted-foreground" />
+        </Link>
 
         <div className="max-h-[min(440px,65dvh)] overflow-y-auto">
           {items.map((item) => {

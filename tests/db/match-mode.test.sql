@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(41);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -42,6 +42,10 @@ insert into public.attendance (event_id, profile_id, status)
 values
   ('40000000-0000-0000-0000-000000000e01', '10000000-0000-0000-0000-000000000e03', 'PRESENTE'),
   ('40000000-0000-0000-0000-000000000e01', '10000000-0000-0000-0000-000000000e04', 'PRESENTE');
+
+-- Bruno non vuole sapere dei goal subiti.
+insert into public.notification_preferences (user_id, category, push_enabled)
+values ('00000000-0000-0000-0000-000000000e03', 'MATCH_GOAL_AGAINST', false);
 
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
@@ -171,6 +175,39 @@ reset role;
 select is(
   (select count(*)::int from public.notifications where idempotency_key = 'match-goal:60000000-0000-0000-0000-000000000e01'),
   1, 'the goal sends one push to the squad'
+);
+select is(
+  (select array_agg(p.nome order by p.nome) from public.notification_recipients r
+   join public.notifications n on n.id = r.notification_id
+   join public.profiles p on p.user_id = r.user_id
+   where n.idempotency_key = 'match-start:40000000-0000-0000-0000-000000000e01'),
+  array['Bruno', 'Carlo', 'Luca'], 'kick-off reaches every user but the manager who started it'
+);
+select is(
+  (select n.type || ':' || array_to_string(array_agg(p.nome order by p.nome), ',') from public.notification_recipients r
+   join public.notifications n on n.id = r.notification_id
+   join public.profiles p on p.user_id = r.user_id
+   where n.idempotency_key = 'match-goal:60000000-0000-0000-0000-000000000e02'
+   group by n.type),
+  'MATCH_GOAL_AGAINST:Carlo,Luca', 'an opponent goal has its own type and skips who muted it'
+);
+select is(
+  (select n.title || ' · ' || array_to_string(array_agg(p.nome order by p.nome), ',') from public.notification_recipients r
+   join public.notifications n on n.id = r.notification_id
+   join public.profiles p on p.user_id = r.user_id
+   where n.idempotency_key = 'match-end:40000000-0000-0000-0000-000000000e01'
+   group by n.title),
+  'Finale: Chigi 1-1 AVVERSARI · Bruno,Carlo,Marta', 'the final whistle reaches everyone but the manager who blew it'
+);
+select isnt(
+  public.create_notification('MATCH_GOAL_AGAINST', 'Critica', 'Arriva comunque', null,
+    array['00000000-0000-0000-0000-000000000e03'::uuid], true, 'critical-test', null),
+  null, 'critical notifications ignore muted types'
+);
+select is(
+  (select count(*)::int from public.notification_recipients r join public.notifications n on n.id = r.notification_id
+   where n.idempotency_key = 'critical-test'),
+  1, 'the muted user still gets the critical one'
 );
 select is(
   (select gol_nostri::text || '-' || gol_avversario::text || ' casa ' || gol_casa::text || ' ' || giocata::text

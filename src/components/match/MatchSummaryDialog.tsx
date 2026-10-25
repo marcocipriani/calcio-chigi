@@ -30,8 +30,9 @@ const COLUMNS: { field: NumberField; label: string; short: string }[] = [
 
 const toCount = (value: string) => Math.max(0, Number.parseInt(value, 10) || 0)
 
-/** Riepilogo modificabile prima del salvataggio definitivo. */
+/** Riepilogo modificabile: al fischio finale o, a partita chiusa, per correggerlo. */
 export function MatchSummaryDialog({
+  mode = "finish",
   summary,
   players,
   report,
@@ -39,6 +40,7 @@ export function MatchSummaryDialog({
   onClose,
   onSave,
 }: {
+  mode?: "finish" | "correct"
   summary: MatchSummary | null
   players: Map<string, MatchPlayer>
   report: string
@@ -52,6 +54,7 @@ export function MatchSummaryDialog({
         {summary && (
           <SummaryForm
             initial={summary}
+            mode={mode}
             onClose={onClose}
             onSave={onSave}
             players={players}
@@ -66,6 +69,7 @@ export function MatchSummaryDialog({
 
 function SummaryForm({
   initial,
+  mode,
   players,
   report,
   saving,
@@ -73,6 +77,7 @@ function SummaryForm({
   onSave,
 }: {
   initial: MatchSummary
+  mode: "finish" | "correct"
   players: Map<string, MatchPlayer>
   report: string
   saving: boolean
@@ -106,9 +111,11 @@ function SummaryForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Fischio finale</DialogTitle>
+        <DialogTitle>{mode === "finish" ? "Fischio finale" : "Correggi il riepilogo"}</DialogTitle>
         <DialogDescription>
-          Controlla e correggi prima di salvare: risultato e statistiche vanno nella partita, chi ha giocato viene segnato presente.
+          {mode === "finish"
+            ? "Controlla e correggi prima di salvare: risultato e statistiche vanno nella partita, chi ha giocato viene segnato presente."
+            : "Risultato, minuti e statistiche salvati sostituiscono quelli attuali. La cronaca resta com’è."}
         </DialogDescription>
       </DialogHeader>
 
@@ -181,10 +188,14 @@ function SummaryForm({
         <tbody>
           {rows.map((row) => {
             const name = players.get(row.profileId)?.cognome ?? "?"
+            const outOfRoster = players.get(row.profileId)?.inRoster === false
             return (
               <tr className="border-t" key={row.profileId}>
-                <th className="max-w-24 truncate py-1 text-left font-bold" scope="row">
-                  {name}
+                <th className="max-w-24 py-1 text-left font-bold" scope="row">
+                  <span className="block truncate">{name}</span>
+                  {outOfRoster && (
+                    <span className="block text-[10px] font-medium text-muted-foreground">Fuori rosa: non salvato</span>
+                  )}
                 </th>
                 {COLUMNS.map(({ field, label }) => (
                   <td className="p-0.5" key={field}>

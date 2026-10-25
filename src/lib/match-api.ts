@@ -143,24 +143,59 @@ export const updateClock = (
 export const voidEntry = (client: SupabaseClient, eventId: string, entryId: string) =>
   rpcSession(client, "match_void", { p_event_id: eventId, p_timeline_id: entryId })
 
+const summaryRow = (summary: MatchSummary) => ({
+  gol_nostri: summary.golNostri,
+  gol_avversario: summary.golAvversario,
+  opponent_own_goals: summary.opponentOwnGoals,
+  unattributed_goals: summary.unattributedGoals,
+  players: summary.players.map((player) => ({
+    profile_id: player.profileId,
+    goals: player.goals,
+    assists: player.assists,
+    yellow_cards: player.yellowCards,
+    red_cards: player.redCards,
+    minutes_played: player.minutesPlayed,
+  })),
+})
+
 export const finishMatch = (client: SupabaseClient, eventId: string, summary: MatchSummary) =>
-  rpcSession(client, "match_finish", {
-    p_event_id: eventId,
-    p_summary: {
-      gol_nostri: summary.golNostri,
-      gol_avversario: summary.golAvversario,
-      opponent_own_goals: summary.opponentOwnGoals,
-      unattributed_goals: summary.unattributedGoals,
-      players: summary.players.map((player) => ({
-        profile_id: player.profileId,
-        goals: player.goals,
-        assists: player.assists,
-        yellow_cards: player.yellowCards,
-        red_cards: player.redCards,
-        minutes_played: player.minutesPlayed,
-      })),
-    },
-  })
+  rpcSession(client, "match_finish", { p_event_id: eventId, p_summary: summaryRow(summary) })
+
+/** Correzione a partita chiusa: riscrive risultato e statistiche. */
+export const updateSummary = (client: SupabaseClient, eventId: string, summary: MatchSummary) =>
+  rpcSession(client, "match_update_summary", { p_event_id: eventId, p_summary: summaryRow(summary) })
+
+/** Il riepilogo salvato: quello del fischio finale o dell'ultima correzione. */
+export async function fetchSavedSummary(client: SupabaseClient, eventId: string): Promise<MatchSummary> {
+  const [event, stats, unattributed] = await Promise.all([
+    client.from("events").select("gol_nostri, gol_avversario").eq("id", eventId).single(),
+    client
+      .from("match_player_stats")
+      .select("profile_id, goals, assists, yellow_cards, red_cards, minutes_played")
+      .eq("event_id", eventId),
+    client
+      .from("match_unattributed_stats")
+      .select("opponent_own_goals, unattributed_goals")
+      .eq("event_id", eventId)
+      .maybeSingle(),
+  ])
+  const error = event.error ?? stats.error ?? unattributed.error
+  if (error) throw error
+  return {
+    golNostri: Number(event.data?.gol_nostri ?? 0),
+    golAvversario: Number(event.data?.gol_avversario ?? 0),
+    opponentOwnGoals: Number(unattributed.data?.opponent_own_goals ?? 0),
+    unattributedGoals: Number(unattributed.data?.unattributed_goals ?? 0),
+    players: ((stats.data ?? []) as UnknownRow[]).map((row) => ({
+      profileId: String(row.profile_id),
+      goals: Number(row.goals ?? 0),
+      assists: Number(row.assists ?? 0),
+      yellowCards: Number(row.yellow_cards ?? 0),
+      redCards: Number(row.red_cards ?? 0),
+      minutesPlayed: Number(row.minutes_played ?? 0),
+    })),
+  }
+}
 
 export type RecordAction = {
   id: string
@@ -197,5 +232,6 @@ export function matchErrorMessage(error: unknown) {
   if (message.includes("MATCH_CONTROL_LOST")) return "Un altro manager ha preso il controllo della partita."
   if (message.includes("MATCH_ALREADY_STARTED")) return "La partita è già stata avviata da un altro manager."
   if (message.includes("MATCH_FINISHED")) return "La partita è già chiusa."
+  if (message.includes("MATCH_NOT_FINISHED")) return "La partita non è ancora chiusa."
   return message
 }

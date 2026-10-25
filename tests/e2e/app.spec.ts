@@ -405,13 +405,17 @@ test.beforeEach(async ({ page }, testInfo) => {
     OFFICIAL_FORMATION_TEST_TITLE,
     "builder formazione privato",
   ].some((title) => testInfo.title.includes(title))
-  await page.clock.setFixedTime(
-    new Date(
-      needsUpcomingMatch
-        ? "2026-07-29T12:00:00+02:00"
-        : "2026-07-31T12:00:00+02:00",
-    ),
-  )
+  // La modalità partita confronta l'ora del telefono con quella del server
+  // (inizio e fine dei tempi): lì serve l'orologio vero.
+  if (!testInfo.title.startsWith("modalità partita")) {
+    await page.clock.setFixedTime(
+      new Date(
+        needsUpcomingMatch
+          ? "2026-07-29T12:00:00+02:00"
+          : "2026-07-31T12:00:00+02:00",
+      ),
+    )
+  }
   await page.emulateMedia({ reducedMotion: "reduce" })
   if (
     testInfo.project.name === "desktop" &&
@@ -1290,7 +1294,6 @@ test("chigio d'oro: voto anonimo del giocatore e chiusura a slide del manager", 
 })
 
 test("il playground anonimo usa soltanto la rosa pubblica", async ({
-  context,
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile")
@@ -1579,4 +1582,90 @@ test("builder formazione privato e leggero", async ({
   )
   await expect(page.getByText("Piero", { exact: true }).first()).toBeVisible()
   await expectNoSeriousA11yViolations(page)
+})
+
+test("modalità partita: fischietti, fischio finale e riepilogo correggibile", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile")
+  // Evento proprio, fuori dai dati di global-setup: la partita chiusa
+  // scriverebbe risultato e statistiche negli eventi degli altri test.
+  const eventId = "92000000-0000-0000-0000-000000000009"
+  const admin = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const cleanup = async () => {
+    const { error } = await admin.from("events").delete().eq("id", eventId)
+    if (error) throw error
+  }
+  await cleanup()
+  const kickoff = new Date(Date.now() - 36 * 60_000).toISOString()
+  for (const { error } of [
+    await admin.from("events").insert({
+      id: eventId,
+      tipo: "PARTITA",
+      data_ora: kickoff,
+      luogo: "Campo test",
+      squadra_casa: "CIRC. CHIGI",
+      squadra_ospite: "FISCHIETTI",
+      avversario: "FISCHIETTI",
+      cancellato: false,
+    }),
+    await admin.from("match_sessions").insert({
+      event_id: eventId,
+      status: "FIRST_HALF",
+      period_minutes: 35,
+      period_started_at: kickoff,
+      lineup: {
+        module: "4-4-2",
+        starters: [{ profile_id: E2E_PLAYER_ID, position_key: "ATT1" }],
+        bench: [],
+      },
+      operator_profile_id: E2E_MANAGER_ID,
+    }),
+    await admin.from("match_timeline").insert({
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      kind: "PERIOD_START",
+      period: 1,
+      minute: 0,
+      occurred_at: kickoff,
+    }),
+  ]) {
+    if (error) throw error
+  }
+
+  try {
+    await authenticate(context, "manager@chigi.test", "Manager123!")
+    await page.goto(`/evento/${eventId}/partita`)
+
+    // Doppio fischio a fine primo tempo, triplice al fischio finale.
+    const endFirstHalf = page.getByRole("button", { name: "Fine 1° tempo" })
+    await expect(endFirstHalf.locator("svg")).toHaveCount(2)
+    await endFirstHalf.click()
+    await page.getByRole("alertdialog").getByRole("button", { name: "Fine 1° tempo" }).click()
+    await page.getByRole("button", { name: "Inizio 2° tempo" }).click()
+    const finalWhistle = page.getByRole("button", { name: "Fischio finale" })
+    await expect(finalWhistle.locator("svg")).toHaveCount(3)
+    await finalWhistle.click()
+    await page.getByRole("dialog", { name: "Fischio finale" }).getByRole("button", { name: "Salva" }).click()
+
+    const summary = page.getByRole("region", { name: "Riepilogo" })
+    const playerRow = summary.getByRole("row", { name: /Player/ })
+    // Tutto il primo tempo (36′ con il recupero) e pochi secondi del secondo.
+    await expect(playerRow.getByRole("cell").first()).toHaveText("36")
+    await expect(page.getByTestId("live-score")).toContainText("Finale")
+
+    await summary.getByRole("button", { name: "Correggi" }).click()
+    const correction = page.getByRole("dialog", { name: "Correggi il riepilogo" })
+    await correction.getByLabel("Minuti Player").fill("70")
+    await correction.getByRole("button", { name: "Salva" }).click()
+    await expect(playerRow.getByRole("cell").first()).toHaveText("70")
+    await testInfo.attach("riepilogo", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" })
+  } finally {
+    await cleanup()
+  }
 })

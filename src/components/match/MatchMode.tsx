@@ -55,6 +55,7 @@ import { MatchBench } from "./MatchBench"
 import { MatchClock } from "./MatchClock"
 import { TIMELINE_LABEL } from "./MatchIcons"
 import { MatchPitch } from "./MatchPitch"
+import { MatchSavedSummary } from "./MatchSavedSummary"
 import type { AvatarBadges } from "./MatchPlayerAvatar"
 import { MatchSetup } from "./MatchSetup"
 import { MatchSummaryDialog } from "./MatchSummaryDialog"
@@ -148,7 +149,7 @@ export function MatchMode({ eventId }: { eventId: string }) {
               avatarUrl: row.player_snapshot.avatar_url ?? null,
               role: row.player_snapshot.role ?? null,
               birthDate: row.player_snapshot.birth_date ?? null,
-              trainingOnly: false,
+              inRoster: false,
             })
           }
         }
@@ -200,7 +201,9 @@ export function MatchMode({ eventId }: { eventId: string }) {
   }, [eventId, queueVersion])
 
   const state = useMemo(() => (session ? fieldState(session.lineup, timeline) : null), [session, timeline])
-  const score = scoreOf(timeline)
+  // A partita chiusa vale il risultato salvato, che il manager può aver corretto.
+  const score =
+    session?.status === "FINISHED" ? { ours: session.scoreOurs, theirs: session.scoreTheirs } : scoreOf(timeline)
   const opponent = (event && opponentOf(event)) ?? "Avversario"
   const eventDate = event?.data_ora ?? null
   const matchDate = useMemo(() => (eventDate ? new Date(eventDate) : new Date()), [eventDate])
@@ -501,8 +504,10 @@ export function MatchMode({ eventId }: { eventId: string }) {
         {header}
         <section className="rounded-xl border bg-card p-4">
           <LiveScore opponent={opponent} session={session} />
-          {session.status === "FINISHED" && <p className="mt-2 text-center text-sm font-bold">Partita chiusa e salvata.</p>}
         </section>
+        {session.status === "FINISHED" && (
+          <MatchSavedSummary eventId={eventId} players={players} report={buildMatchReport(opponent, timeline)} />
+        )}
         {session.status !== "FINISHED" && (
           <Button
             className="h-14 w-full bg-operative text-base font-black text-operative-foreground hover:bg-operative/90"

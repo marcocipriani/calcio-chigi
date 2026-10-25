@@ -8,6 +8,7 @@ import { useNow } from "./useLiveMatch"
 const CHRONICLE_KINDS = new Set(["GOAL", "OWN_GOAL_FOR", "UNATTRIBUTED_GOAL", "GOAL_AGAINST", "YELLOW", "RED"])
 
 export function liveStatusText(session: MatchSession, now: Date) {
+  if (session.status === "FINISHED") return "Finale"
   const clock = periodClock(session, now)
   if (session.status === "HALFTIME") {
     return `Intervallo · riprende tra ${formatCountdown(clock.halftimeRemaining ?? 0)}`
@@ -18,13 +19,18 @@ export function liveStatusText(session: MatchSession, now: Date) {
 
 /** Risultato in diretta: punteggio, minuto e chi segue la partita. */
 export function LiveScore({ session, opponent }: { session: MatchSession; opponent: string }) {
-  const now = useNow(1000, session.status !== "FINISHED")
+  const finished = session.status === "FINISHED"
+  const now = useNow(1000, !finished)
   return (
     <div className="flex flex-col items-center gap-1.5" data-testid="live-score">
-      <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-secondary">
-        <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-secondary motion-reduce:animate-none" />
-        Live · {liveStatusText(session, now)}
-      </p>
+      {finished ? (
+        <p className="text-xs font-black uppercase tracking-wide text-muted-foreground">Finale</p>
+      ) : (
+        <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-secondary">
+          <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-secondary motion-reduce:animate-none" />
+          Live · {liveStatusText(session, now)}
+        </p>
+      )}
       <p aria-live="polite" className="flex items-center gap-3 text-center">
         <span className="text-sm font-black uppercase">Chigi</span>
         <span className="rounded-2xl bg-muted px-4 py-1.5 font-mono text-4xl font-black tracking-tighter">
@@ -32,7 +38,7 @@ export function LiveScore({ session, opponent }: { session: MatchSession; oppone
         </span>
         <span className="max-w-32 truncate text-sm font-black uppercase">{opponent}</span>
       </p>
-      {session.operatorName && (
+      {session.operatorName && !finished && (
         <p className="text-xs text-muted-foreground">Segue la partita: {session.operatorName}</p>
       )}
     </div>

@@ -7,7 +7,8 @@ export type MatchPlayer = {
   avatarUrl: string | null
   role: string | null
   birthDate: string | null
-  trainingOnly: boolean
+  /** false per chi è in formazione ma non più in rosa: le sue statistiche non si salvano. */
+  inRoster: boolean
 }
 
 const ROLE_SHORT: Record<string, string> = {
@@ -42,6 +43,6 @@ export function toMatchPlayer(profile: EventRosterProfile): MatchPlayer {
     avatarUrl: profile.avatar_url ?? null,
     role: profile.ruolo ?? null,
     birthDate: profile.data_nascita ?? null,
-    trainingOnly: profile.training_only,
+    inRoster: true,
   }
 }

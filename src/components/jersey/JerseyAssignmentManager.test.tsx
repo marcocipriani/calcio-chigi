@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   fetchJerseyDraft: vi.fn(),
   fetchJerseyPreferenceVersions: vi.fn(),
   fetchSeasonAvoidedNumbers: vi.fn(),
+  fetchReservedJerseyNumbers: vi.fn(),
   publishJerseyDraft: vi.fn(),
   saveJerseyPreferences: vi.fn(),
   saveUniformSize: vi.fn(),
@@ -81,6 +82,7 @@ describe("JerseyAssignmentManager", () => {
     ])
     api.fetchJerseyDraft.mockResolvedValue(null)
     api.fetchSeasonAvoidedNumbers.mockResolvedValue(new Map())
+    api.fetchReservedJerseyNumbers.mockResolvedValue([])
     api.fetchJerseyPreferenceVersions.mockResolvedValue([])
     api.publishJerseyDraft.mockResolvedValue(undefined)
   })

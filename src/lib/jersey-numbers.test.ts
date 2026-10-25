@@ -8,6 +8,7 @@ import {
   preferencesChangedAfterDraft,
   proposeJerseyAssignment,
   validateJerseyPreferences,
+  withReservedNumbers,
   type JerseyChoice,
   type JerseyPlayer,
 } from "@/lib/jersey-numbers"
@@ -223,5 +224,21 @@ describe("initialJerseyChoices", () => {
     expect(initialJerseyChoices([], 10)).toEqual([P(10)])
     expect(initialJerseyChoices([P(7)], 10)).toEqual([P(7)])
     expect(initialJerseyChoices([], null)).toEqual([])
+  })
+})
+
+describe("withReservedNumbers", () => {
+  it("never proposes a number held by a training-only player", () => {
+    const players = [
+      player("anna", [P(10), A(14)]),
+      player("carlo", [], { noPreference: true }),
+    ]
+    const { assignment } = proposeJerseyAssignment(withReservedNumbers(players, [10, 1]))
+    expect(assignment).toEqual({ anna: 14, carlo: 2 })
+  })
+
+  it("flags a reserved number assigned by hand", () => {
+    const issues = jerseyAssignmentIssues([player("anna", [P(10)])], { anna: 10 }, [10])
+    expect(issues).toContainEqual({ kind: "RESERVED", number: 10, membershipId: "anna" })
   })
 })

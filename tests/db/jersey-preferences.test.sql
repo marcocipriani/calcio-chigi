@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(39);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -346,6 +346,71 @@ select throws_ok(
   'P0001',
   'La scelta dei numeri di questa stagione è conclusa',
   'the lock is checked before validating the input'
+);
+
+-- Bruno passa a solo allenamenti: il 10 resta suo e bloccato.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a01', true);
+select lives_ok(
+  $$select public.manager_update_person(
+      '10000000-0000-0000-0000-000000000a03',
+      membership.id,
+      profile.updated_at,
+      membership.updated_at,
+      details.updated_at,
+      '{"nome":"Bruno","cognome":"Bomber","data_nascita":"","joined_on":"","is_manager":false}',
+      '{"category":"PLAYER","status":"TRAINING_ONLY","role":"","staff_function":"","jersey_number":"","department":"","asi_card_number":"","uniform_size":"","is_external":false,"is_aggregated":false,"operational_notes":"","next_contact_on":"","registration_status":"TODO","registration_completed_on":""}',
+      '{"phone":"","operational_email":""}'
+    )
+    from public.season_memberships membership
+    join public.profiles profile on profile.id = membership.profile_id
+    left join public.profile_private_details details on details.profile_id = membership.profile_id
+    where membership.id = '30000000-0000-0000-0000-000000000a03'$$,
+  'a manager moves a numbered player to training only'
+);
+select is(
+  (select jersey_number from public.season_memberships where id = '30000000-0000-0000-0000-000000000a03'),
+  10, 'the number stays with the training-only player for the season'
+);
+select is(
+  (select jersey_number from public.public_season_player_directory directory
+     join public.seasons season on season.id = directory.season_id
+    where directory.profile_id = '10000000-0000-0000-0000-000000000a03' and season.slug = '2026-2027'),
+  null::integer, 'the app shows no number for a training-only player'
+);
+select throws_ok(
+  $$select public.publish_jersey_draft(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"membership_id": "30000000-0000-0000-0000-000000000a02", "jersey_number": 10},
+        {"membership_id": "30000000-0000-0000-0000-000000000a04", "jersey_number": null}]'
+    )$$,
+  'P0001',
+  'Il numero 10 è riservato: lo tiene chi fa solo allenamenti o è archiviato',
+  'a draft cannot hand out a number held by a training-only player'
+);
+select lives_ok(
+  $$select public.publish_jersey_draft(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"membership_id": "30000000-0000-0000-0000-000000000a02", "jersey_number": 7},
+        {"membership_id": "30000000-0000-0000-0000-000000000a03", "jersey_number": 99},
+        {"membership_id": "30000000-0000-0000-0000-000000000a04", "jersey_number": 5}]'
+    )$$,
+  'a stale draft row for a training-only player is ignored'
+);
+select is(
+  (select jsonb_array_length(assignments) from public.jersey_assignment_drafts draft
+     join public.seasons season on season.id = draft.season_id where season.slug = '2026-2027'),
+  2, 'the draft leaves the training-only player out'
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000a03', true);
+select throws_ok(
+  $$select public.save_jersey_preferences(
+      (select id from public.seasons where slug = '2026-2027'),
+      '[{"number": 9, "level": "PREFERRED"}]',
+      '{}'
+    )$$,
+  '42501',
+  null,
+  'a training-only player does not choose numbers'
 );
 
 select * from finish();

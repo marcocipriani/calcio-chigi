@@ -1,11 +1,16 @@
+"use client"
+
+import { useState } from "react"
+
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { UNIFORM_SIZES } from "@/lib/domain"
 import type { ManagementPerson } from "@/lib/management"
 
-// Campi del form della scheda persona: non controllati (defaultValue), li
-// legge il submit di PersonDrawer con FormData. I `name` sono il contratto.
+// Campi del form della scheda persona: quasi tutti non controllati
+// (defaultValue), li legge il submit di PersonDrawer con FormData. I `name`
+// sono il contratto.
 
 type Category = "PLAYER" | "STAFF"
 
@@ -109,6 +114,10 @@ export function SeasonFields({
   category: Category
   onCategoryChange: (category: Category) => void
 }) {
+  // Controllato solo per bloccare il numero di chi fa solo allenamenti.
+  const [status, setStatus] = useState(person.status)
+  const trainingOnly = category === "PLAYER" && status === "TRAINING_ONLY"
+
   return (
     <section className="grid content-start gap-3">
       <h3 className="text-sm font-semibold">
@@ -133,9 +142,10 @@ export function SeasonFields({
           <Label htmlFor="person-status">Stato</Label>
           <select
             className={selectClass}
-            defaultValue={person.status}
             id="person-status"
             name="status"
+            onChange={(event) => setStatus(event.target.value as ManagementPerson["status"])}
+            value={status}
           >
             <option value="YES">In rosa</option>
             {category === "PLAYER" && (
@@ -164,14 +174,26 @@ export function SeasonFields({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="person-number">Numero maglia</Label>
-            <Input
-              defaultValue={person.jerseyNumber ?? ""}
-              id="person-number"
-              max="99"
-              min="0"
-              name="jerseyNumber"
-              type="number"
-            />
+            {trainingOnly ? (
+              <>
+                {/* Senza name: il server tiene il numero che c'era, riservato per la stagione. */}
+                <Input aria-describedby="person-number-reserved" disabled id="person-number" readOnly value="—" />
+                <p className="text-[11px] text-muted-foreground" id="person-number-reserved">
+                  {person.jerseyNumber != null
+                    ? `Solo allenamenti: il ${person.jerseyNumber} resta riservato per la stagione.`
+                    : "Solo allenamenti: niente numero."}
+                </p>
+              </>
+            ) : (
+              <Input
+                defaultValue={person.jerseyNumber ?? ""}
+                id="person-number"
+                max="99"
+                min="0"
+                name="jerseyNumber"
+                type="number"
+              />
+            )}
           </div>
         </div>
       ) : (

@@ -68,6 +68,10 @@ export type ManagementPerson = {
   attendance?: AttendanceSummary
 }
 
+/** Chi fa solo allenamenti non mostra un numero: il suo resta riservato per la stagione. */
+export const shownJerseyNumber = ({ status, jerseyNumber }: Pick<ManagementPerson, "status" | "jerseyNumber">) =>
+  status === "TRAINING_ONLY" ? null : (jerseyNumber ?? null)
+
 export function effectiveCertificateStatus(
   status: MedicalCertificateStatus,
   expiresOn: string | null | undefined,

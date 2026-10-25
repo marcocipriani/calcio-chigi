@@ -65,6 +65,18 @@ function renderDrawer(overrides: Partial<ManagementPerson> = {}) {
 }
 
 describe("PersonDrawer", () => {
+  it("blocca il numero di chi fa solo allenamenti e lo sblocca tornando in rosa", () => {
+    renderDrawer({ status: "TRAINING_ONLY", jerseyNumber: 10 })
+    const number = screen.getByLabelText("Numero maglia")
+    expect(number).toBeDisabled()
+    expect(number).toHaveValue("—")
+    expect(screen.getByText(/il 10 resta riservato per la stagione/)).toBeVisible()
+
+    fireEvent.change(screen.getByLabelText("Stato"), { target: { value: "YES" } })
+    expect(screen.getByLabelText("Numero maglia")).toBeEnabled()
+    expect(screen.getByLabelText("Numero maglia")).toHaveValue(10)
+  })
+
   it("approva la richiesta account dalla scheda", () => {
     const { onAccountAction, onOpenChange } = renderDrawer({
       associationRequestId: "request-1",

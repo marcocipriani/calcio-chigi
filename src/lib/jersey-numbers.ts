@@ -290,15 +290,30 @@ export function applyJerseyResolution(
   return next
 }
 
+/**
+ * Numeri tenuti da chi è fuori dal tabellone (solo allenamenti, archiviati)
+ * per tutta la stagione: per la proposta valgono come da evitare per tutti.
+ */
+export function withReservedNumbers(players: JerseyPlayer[], reserved: number[]): JerseyPlayer[] {
+  if (!reserved.length) return players
+  return players.map((player) => ({
+    ...player,
+    choices: player.choices.filter(({ number }) => !reserved.includes(number)),
+    avoidNumbers: [...new Set([...player.avoidNumbers, ...reserved])],
+  }))
+}
+
 export type JerseyAssignmentIssue =
   | { kind: "DUPLICATE"; number: number; membershipIds: string[] }
   | { kind: "AVOIDED"; number: number; membershipId: string }
+  | { kind: "RESERVED"; number: number; membershipId: string }
   | { kind: "UNASSIGNED"; membershipId: string }
 
 /** Problemi di un'assegnazione modificata a mano, prima di pubblicarla. */
 export function jerseyAssignmentIssues(
   players: JerseyPlayer[],
   assignment: JerseyAssignment,
+  reserved: number[] = [],
 ): JerseyAssignmentIssue[] {
   const issues: JerseyAssignmentIssue[] = []
   const holders = new Map<number, string[]>()
@@ -309,6 +324,9 @@ export function jerseyAssignmentIssues(
       continue
     }
     holders.set(number, [...(holders.get(number) ?? []), player.membershipId])
+    if (reserved.includes(number)) {
+      issues.push({ kind: "RESERVED", number, membershipId: player.membershipId })
+    }
     if (player.avoidNumbers.includes(number)) {
       issues.push({
         kind: "AVOIDED",

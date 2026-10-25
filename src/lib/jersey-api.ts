@@ -142,6 +142,40 @@ export async function fetchOwnJerseyPreferences(
   }
 }
 
+export type ReservedJerseyNumber = {
+  number: number
+  name: string
+  status: "TRAINING_ONLY" | "NO"
+}
+
+/**
+ * Numeri della stagione tenuti da chi non è nel tabellone (solo allenamenti,
+ * archiviati): restano loro, nessun altro li può ricevere. Solo manager.
+ */
+export async function fetchReservedJerseyNumbers(
+  client: SupabaseClient,
+  seasonId: string,
+): Promise<ReservedJerseyNumber[]> {
+  const { data, error } = await client
+    .from("season_memberships")
+    .select("jersey_number, status, profile:profiles(nome, cognome)")
+    .eq("season_id", seasonId)
+    .eq("category", "PLAYER")
+    .neq("status", "YES")
+    .not("jersey_number", "is", null)
+  if (error) throw error
+  return ((data ?? []) as UnknownRow[])
+    .map((row) => {
+      const profile = (row.profile ?? {}) as UnknownRow
+      return {
+        number: Number(row.jersey_number),
+        name: [asText(profile.nome)?.[0], asText(profile.cognome)].filter(Boolean).join(". "),
+        status: row.status as ReservedJerseyNumber["status"],
+      }
+    })
+    .sort((left, right) => left.number - right.number)
+}
+
 /** Numeri da evitare di tutta la stagione: leggibili solo dal manager. */
 export async function fetchSeasonAvoidedNumbers(
   client: SupabaseClient,

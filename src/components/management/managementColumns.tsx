@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { openInjury } from "@/lib/injuries"
-import type { ManagementPerson } from "@/lib/management"
+import { shownJerseyNumber, type ManagementPerson } from "@/lib/management"
 import {
   DOCUMENT_BUCKET,
   type DocumentKind,
@@ -91,13 +91,13 @@ export function PersonIdentity({
               <span
                 aria-label={
                   accessibleJersey
-                    ? `Numero maglia ${person.jerseyNumber ?? "non assegnato"}`
+                    ? `Numero maglia ${shownJerseyNumber(person) ?? "non assegnato"}`
                     : undefined
                 }
                 className="inline-flex items-center gap-0.5"
               >
                 <Shirt aria-hidden="true" className="size-3" />
-                {person.jerseyNumber ?? "—"}
+                {shownJerseyNumber(person) ?? "—"}
               </span>
             </>
           )}
@@ -373,10 +373,10 @@ const managementColumns: ManagementColumn[] = [
       id: "jerseyNumber",
       label: "Maglia",
       filter: "text",
-      filterValue: (person) => person.jerseyNumber,
-      sortValue: (person) => person.jerseyNumber,
+      filterValue: (person) => shownJerseyNumber(person),
+      sortValue: (person) => shownJerseyNumber(person),
       render: (person) => (
-        <span className="text-xs tabular-nums">{person.jerseyNumber ?? "—"}</span>
+        <span className="text-xs tabular-nums">{shownJerseyNumber(person) ?? "—"}</span>
       ),
     },
     {

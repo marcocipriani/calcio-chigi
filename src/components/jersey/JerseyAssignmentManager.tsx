@@ -50,6 +50,7 @@ import {
   fetchJerseyBoard,
   fetchJerseyDraft,
   fetchJerseyPreferenceVersions,
+  fetchReservedJerseyNumbers,
   fetchSeasonAvoidedNumbers,
   publishJerseyDraft,
   saveJerseyPreferences,
@@ -58,6 +59,7 @@ import {
   type JerseyBoardRow,
   type JerseyDraft,
   type JerseyPreferenceVersion,
+  type ReservedJerseyNumber,
 } from "@/lib/jersey-api"
 import { UNIFORM_SIZES } from "@/lib/domain"
 import {
@@ -68,6 +70,7 @@ import {
   jerseyAssignmentIssues,
   preferencesChangedAfterDraft,
   proposeJerseyAssignment,
+  withReservedNumbers,
   type JerseyAssignment,
   type JerseyChoice,
   type JerseyPlayer,
@@ -80,6 +83,7 @@ type ManagerData = {
   draft: JerseyDraft | null
   avoided: Map<string, number[]>
   versions: JerseyPreferenceVersion[]
+  reserved: ReservedJerseyNumber[]
 }
 
 type PendingAction = "PUBLISH" | "CONFIRM" | null
@@ -158,16 +162,17 @@ export function JerseyAssignmentManager() {
   const load = useCallback(async () => {
     if (!seasonId) return
     try {
-      const [board, draft] = await Promise.all([
+      const [board, draft, reserved] = await Promise.all([
         fetchJerseyBoard(supabaseBrowser, seasonId),
         fetchJerseyDraft(supabaseBrowser, seasonId),
+        fetchReservedJerseyNumbers(supabaseBrowser, seasonId),
       ])
       const membershipIds = board.map(({ membershipId }) => membershipId)
       const [avoided, versions] = await Promise.all([
         fetchSeasonAvoidedNumbers(supabaseBrowser, membershipIds),
         fetchJerseyPreferenceVersions(supabaseBrowser, membershipIds),
       ])
-      setData({ board, draft, avoided, versions })
+      setData({ board, draft, avoided, versions, reserved })
       setError(null)
     } catch {
       setError("Impossibile caricare le preferenze di maglia.")
@@ -186,7 +191,11 @@ export function JerseyAssignmentManager() {
       })),
     [data],
   )
-  const proposal = useMemo(() => proposeJerseyAssignment(players), [players])
+  const reservedNumbers = useMemo(() => (data?.reserved ?? []).map(({ number }) => number), [data])
+  const proposal = useMemo(
+    () => proposeJerseyAssignment(withReservedNumbers(players, reservedNumbers)),
+    [players, reservedNumbers],
+  )
 
   useEffect(() => {
     if (sessionLoading || !isManager) return
@@ -254,9 +263,10 @@ export function JerseyAssignmentManager() {
     const row = rowsById.get(membershipId)
     return row ? playerShortName(row) : "?"
   }
-  const issues = jerseyAssignmentIssues(players, assignment)
+  const issues = jerseyAssignmentIssues(players, assignment, reservedNumbers)
+  // Un numero riservato assegnato a mano blocca la pubblicazione come un doppione.
   const duplicateNumbers = new Set(
-    issues.flatMap((issue) => (issue.kind === "DUPLICATE" ? [issue.number] : [])),
+    issues.flatMap((issue) => (issue.kind === "DUPLICATE" || issue.kind === "RESERVED" ? [issue.number] : [])),
   )
   const unassigned = issues.filter(({ kind }) => kind === "UNASSIGNED").length
   const missing = data.board.filter(({ updatedAt }) => !updatedAt)
@@ -425,6 +435,15 @@ export function JerseyAssignmentManager() {
           </div>
         ))}
       </dl>
+
+      {data.reserved.length > 0 && (
+        <p className="rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground">
+          <strong className="text-foreground">Numeri riservati per la stagione:</strong>{" "}
+          {data.reserved
+            .map(({ number, name, status }) => `${number} ${name} (${status === "TRAINING_ONLY" ? "solo allenamenti" : "archiviato"})`)
+            .join(", ")}
+        </p>
+      )}
 
       {!closed && (
         <Card>

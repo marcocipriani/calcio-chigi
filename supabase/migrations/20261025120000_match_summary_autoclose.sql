@@ -143,7 +143,8 @@ end;
 $$;
 
 -- Correzione del riepilogo a partita chiusa: qualunque manager, come la
--- pagina evento. La cronaca resta com'è, il punteggio della sessione segue.
+-- pagina evento. La cronaca resta com'è; il punteggio della sessione segue
+-- il risultato dell'evento (trigger in 20261025150000).
 create or replace function public.match_update_summary(p_event_id uuid, p_summary jsonb)
 returns public.match_sessions
 language plpgsql
@@ -159,12 +160,7 @@ begin
     raise exception 'MATCH_NOT_FINISHED';
   end if;
   perform private.match_apply_summary(p_event_id, p_summary, me);
-  -- Il risultato corretto vale anche per il "Finale" della diretta.
-  update public.match_sessions
-  set score_ours = (p_summary ->> 'gol_nostri')::integer,
-      score_theirs = (p_summary ->> 'gol_avversario')::integer
-  where event_id = p_event_id
-  returning * into session;
+  select * into session from public.match_sessions where event_id = p_event_id;
   return session;
 end;
 $$;

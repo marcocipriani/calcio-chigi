@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(36);
 
 insert into auth.users (id, email, aud, role, created_at, updated_at)
 values
@@ -218,6 +218,14 @@ select is(
      where event_id = e.id and profile_id = '10000000-0000-0000-0000-000000000e04')::text
    from public.events e where e.id = '40000000-0000-0000-0000-000000000e01'),
   '2 30', 'the correction rewrites result and minutes'
+);
+
+-- Risultato omologato dal sync (o dalla pagina torneo): il "Finale" lo segue.
+update public.events set gol_casa = 0, gol_ospite = 3 where id = '40000000-0000-0000-0000-000000000e01';
+select is(
+  (select score_ours::text || '-' || score_theirs::text from public.match_sessions
+   where event_id = '40000000-0000-0000-0000-000000000e01'),
+  '0-3', 'a finished match shows the event result from wherever it comes'
 );
 
 -- Partita dimenticata aperta: dopo 4 ore la chiude il tick del Chigio d'Oro.

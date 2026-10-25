@@ -7,6 +7,7 @@ import type {
   TimelineEntry,
   TimelineKind,
 } from "@/lib/match"
+import { isChigi } from "@/lib/utils"
 
 type UnknownRow = Record<string, unknown>
 
@@ -168,7 +169,9 @@ export const updateSummary = (client: SupabaseClient, eventId: string, summary: 
 /** Il riepilogo salvato: quello del fischio finale o dell'ultima correzione. */
 export async function fetchSavedSummary(client: SupabaseClient, eventId: string): Promise<MatchSummary> {
   const [event, stats, unattributed] = await Promise.all([
-    client.from("events").select("gol_nostri, gol_avversario").eq("id", eventId).single(),
+    // Come la pagina evento: il risultato è gol_casa/gol_ospite, che anche la
+    // pagina torneo e il sync aggiornano (gol_nostri no).
+    client.from("events").select("squadra_casa, gol_casa, gol_ospite").eq("id", eventId).single(),
     client
       .from("match_player_stats")
       .select("profile_id, goals, assists, yellow_cards, red_cards, minutes_played")
@@ -181,9 +184,12 @@ export async function fetchSavedSummary(client: SupabaseClient, eventId: string)
   ])
   const error = event.error ?? stats.error ?? unattributed.error
   if (error) throw error
+  const home = isChigi(event.data?.squadra_casa)
+  const golCasa = Number(event.data?.gol_casa ?? 0)
+  const golOspite = Number(event.data?.gol_ospite ?? 0)
   return {
-    golNostri: Number(event.data?.gol_nostri ?? 0),
-    golAvversario: Number(event.data?.gol_avversario ?? 0),
+    golNostri: home ? golCasa : golOspite,
+    golAvversario: home ? golOspite : golCasa,
     opponentOwnGoals: Number(unattributed.data?.opponent_own_goals ?? 0),
     unattributedGoals: Number(unattributed.data?.unattributed_goals ?? 0),
     players: ((stats.data ?? []) as UnknownRow[]).map((row) => ({

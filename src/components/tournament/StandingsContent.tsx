@@ -108,7 +108,8 @@ export function StandingsContent({
       const key = normKey(teamName);
       const isCasa = (m: Event) => normKey(m.squadra_casa) === key;
       const isOspite = (m: Event) => normKey(m.squadra_ospite) === key;
-      const teamMatches = matches.filter(m => isCasa(m) || isOspite(m)).slice(0, 3);
+      // Le ultime tre giocate: le partite arrivano dalla più vecchia.
+      const teamMatches = matches.filter(m => isCasa(m) || isOspite(m)).slice(-3);
 
       return teamMatches.map(m => {
           let result = 'N';

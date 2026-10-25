@@ -82,35 +82,61 @@ export const sortPlaces = (places: (string | null | undefined)[]) => {
     return [HOME_PLACE, ...[...unique.values()].sort((a, b) => a.localeCompare(b, 'it'))];
 };
 
-function buildMiniStats(teamNames: string[], matches: Event[]) {
-    const mini: Record<string, { punti: number; diff: number; golFatti: number }> = {};
-    teamNames.forEach(n => (mini[normKey(n)] = { punti: 0, diff: 0, golFatti: 0 }));
+// Punti negli scontri diretti tra le sole squadre indicate (classifica avulsa).
+function headToHeadPoints(teamNames: string[], matches: Event[]) {
+    const points: Record<string, number> = {};
+    teamNames.forEach(n => (points[normKey(n)] = 0));
 
     matches.forEach(m => {
         if (!m.giocata || !m.squadra_casa || !m.squadra_ospite) return;
         const casa = normKey(m.squadra_casa);
         const ospite = normKey(m.squadra_ospite);
-        if (!mini[casa] || !mini[ospite]) return;
+        if (!(casa in points) || !(ospite in points)) return;
 
         const golCasa = Number(m.gol_casa) || 0;
         const golOspite = Number(m.gol_ospite) || 0;
-
-        mini[casa].golFatti += golCasa;
-        mini[ospite].golFatti += golOspite;
-        mini[casa].diff += golCasa - golOspite;
-        mini[ospite].diff += golOspite - golCasa;
-
-        if (golCasa > golOspite) {
-            mini[casa].punti += 3;
-        } else if (golCasa < golOspite) {
-            mini[ospite].punti += 3;
-        } else {
-            mini[casa].punti += 1;
-            mini[ospite].punti += 1;
+        if (golCasa > golOspite) points[casa] += 3;
+        else if (golCasa < golOspite) points[ospite] += 3;
+        else {
+            points[casa] += 1;
+            points[ospite] += 1;
         }
     });
 
-    return mini;
+    return points;
+}
+
+// Righe consecutive con lo stesso valore, nell'ordine dato.
+function groupConsecutive(rows: StandingRow[], value: (row: StandingRow) => number) {
+    const groups: StandingRow[][] = [];
+    for (const row of rows) {
+        const last = groups.at(-1);
+        if (last && value(last[0]) === value(row)) last.push(row);
+        else groups.push([row]);
+    }
+    return groups;
+}
+
+const overallCriteria = (a: StandingRow, b: StandingRow) =>
+    (b.gol_fatti - b.gol_subiti) - (a.gol_fatti - a.gol_subiti) ||
+    a.gol_subiti - b.gol_subiti ||
+    b.gol_fatti - a.gol_fatti ||
+    (a.teamData.nome ?? '').localeCompare(b.teamData.nome ?? '');
+
+/**
+ * Regolamento ASI 2026/27, a parità di punti: classifica avulsa tra le
+ * squadre pari; chi resta pari si ricontrolla con gli scontri diretti solo tra
+ * loro; poi differenza reti generale, meno reti subite, più reti segnate.
+ * ponytail: cartellini verdi e classifica disciplinare non li abbiamo:
+ * l'ordine alfabetico prende il posto del sorteggio.
+ */
+function breakTies(group: StandingRow[], matches: Event[]): StandingRow[] {
+    if (group.length < 2) return group;
+    const points = headToHeadPoints(group.map(r => r.teamData.nome ?? ''), matches);
+    const pointsOf = (row: StandingRow) => points[normKey(row.teamData.nome)] ?? 0;
+    const subgroups = groupConsecutive([...group].sort((a, b) => pointsOf(b) - pointsOf(a)), pointsOf);
+    if (subgroups.length === 1) return [...group].sort(overallCriteria);
+    return subgroups.flatMap(subgroup => breakTies(subgroup, matches));
 }
 
 export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow[] => {
@@ -163,55 +189,6 @@ export const calculateStandings = (teams: Team[], matches: Event[]): StandingRow
         }
     });
 
-    // Sort: first by punti, then apply ASI tiebreakers within tied groups
-    const rows = Object.values(stats).sort((a, b) => b.punti - a.punti);
-    if (rows.length === 0) return [];
-
-    // Group consecutive rows with same punti
-    const groups: StandingRow[][] = [];
-    let current: StandingRow[] = [rows[0]];
-    for (let i = 1; i < rows.length; i++) {
-        if (rows[i].punti === current[0].punti) {
-            current.push(rows[i]);
-        } else {
-            groups.push(current);
-            current = [rows[i]];
-        }
-    }
-    groups.push(current);
-
-    const result: StandingRow[] = [];
-    for (const group of groups) {
-        if (group.length === 1) {
-            result.push(group[0]);
-            continue;
-        }
-
-        // ASI tiebreaker: mini-league among tied teams
-        // 1. H2H punti, 2. H2H diff reti, 3. H2H gol fatti
-        // 4. Diff reti generale, 5. Gol fatti generale, 6. Alfabetico
-        const names = group.map(r => r.teamData.nome).filter((n): n is string => !!n);
-        const mini = buildMiniStats(names, matches);
-
-        const sorted = [...group].sort((a, b) => {
-            const mA = mini[normKey(a.teamData.nome)] ?? { punti: 0, diff: 0, golFatti: 0 };
-            const mB = mini[normKey(b.teamData.nome)] ?? { punti: 0, diff: 0, golFatti: 0 };
-
-            if (mB.punti !== mA.punti) return mB.punti - mA.punti;
-            if (mB.diff !== mA.diff) return mB.diff - mA.diff;
-            if (mB.golFatti !== mA.golFatti) return mB.golFatti - mA.golFatti;
-
-            const diffA = a.gol_fatti - a.gol_subiti;
-            const diffB = b.gol_fatti - b.gol_subiti;
-            if (diffB !== diffA) return diffB - diffA;
-
-            if (b.gol_fatti !== a.gol_fatti) return b.gol_fatti - a.gol_fatti;
-
-            return (a.teamData.nome ?? '').localeCompare(b.teamData.nome ?? '');
-        });
-
-        result.push(...sorted);
-    }
-
-    return result;
+    const byPoints = Object.values(stats).sort((a, b) => b.punti - a.punti);
+    return groupConsecutive(byPoints, row => row.punti).flatMap(group => breakTies(group, matches));
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { Event } from "@/lib/types"
-import { ageGroupAt, applyCalendarChange, isU35At, opponentOf, sortPlaces } from "@/lib/utils"
+import { ageGroupAt, applyCalendarChange, calculateStandings, isU35At, opponentOf, sortPlaces } from "@/lib/utils"
 
 describe("U35 eligibility", () => {
   const referenceDate = new Date("2026-07-31T12:00:00+02:00")
@@ -68,5 +68,30 @@ describe("applyCalendarChange", () => {
   it("moves an event when its date changes", () => {
     const moved = { ...a, data_ora: "2026-11-10T20:00:00Z" }
     expect(ids(applyCalendarChange([a, b], { eventType: "UPDATE", new: moved, old: { id: "a" } }))).toEqual(["b", "a"])
+  })
+})
+
+describe("calculateStandings", () => {
+  const teams = ["A", "B", "C", "D", "X", "Y", "Z"].map((nome) => ({ id: nome, nome }))
+  const match = (casa: string, golCasa: number, golOspite: number, ospite: string) =>
+    ({ id: `${casa}-${ospite}`, tipo: "PARTITA", giocata: true, squadra_casa: casa, squadra_ospite: ospite, gol_casa: golCasa, gol_ospite: golOspite }) as Event
+  const order = (matches: Event[], names: string[]) =>
+    calculateStandings(teams.filter(({ nome }) => names.includes(nome)), matches).map(({ teamData }) => teamData.nome)
+
+  it("breaks a circular tie on overall goal difference, not head-to-head goals", () => {
+    // Scontri diretti tutti a 3 punti; la differenza reti generale premia A.
+    const matches = [match("A", 1, 0, "B"), match("B", 3, 0, "C"), match("C", 1, 0, "A"), match("A", 5, 0, "D"), match("B", 1, 0, "D"), match("C", 1, 0, "D")]
+    expect(order(matches, ["A", "B", "C", "D"])).toEqual(["A", "B", "C", "D"])
+  })
+
+  it("puts fewer goals conceded before more goals scored", () => {
+    const matches = [match("X", 1, 1, "Y"), match("X", 3, 1, "Z"), match("Y", 4, 2, "Z")]
+    expect(order(matches, ["X", "Y", "Z"])).toEqual(["X", "Y", "Z"])
+  })
+
+  it("starts from the head-to-head among the tied teams", () => {
+    // B ha la differenza reti migliore, ma A ha vinto lo scontro diretto.
+    const matches = [match("A", 1, 0, "B"), match("B", 6, 0, "C")]
+    expect(order(matches, ["A", "B", "C"])).toEqual(["A", "B", "C"])
   })
 })

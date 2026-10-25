@@ -50,6 +50,8 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
   const [query, setQuery] = useState("")
   const [step, setStep] = useState<"PICK" | "CONFIRM" | "EMAIL_MATCH">("PICK")
   const [emailMatch, setEmailMatch] = useState<ClaimableProfile | null>(null)
+  // Finché non si sa se l'email combacia, niente elenco: chi combacia non deve sceglierlo.
+  const [checkingEmail, setCheckingEmail] = useState(true)
   const [busy, setBusy] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -88,10 +90,14 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
     let active = true
     // Email dell'account già sul profilo: basta confermare, niente approvazione.
     void client.rpc("my_email_profile_match").then(({ data }) => {
+      if (!active) return
       const match = (data as ClaimableProfile[] | null)?.[0]
-      if (!active || !match) return
+      setCheckingEmail(false)
+      if (!match) return
       setEmailMatch(match)
       setStep("EMAIL_MATCH")
+    }, () => {
+      if (active) setCheckingEmail(false)
     })
     void client
       .from("claimable_profile_directory")
@@ -179,7 +185,11 @@ function AccountAssociationPrompt({ client }: { client: SupabaseClient }) {
           </DialogDescription>
         </DialogHeader>
 
-        {step === "EMAIL_MATCH" && emailMatch ? (
+        {checkingEmail ? (
+          <p className="py-6 text-center text-sm text-muted-foreground" role="status">
+            Controllo la tua email…
+          </p>
+        ) : step === "EMAIL_MATCH" && emailMatch ? (
           <>
             <div className="rounded-lg border bg-muted/40 p-3 text-sm">
               La tua email corrisponde a{" "}

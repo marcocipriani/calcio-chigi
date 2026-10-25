@@ -152,9 +152,11 @@ describe("AppGates", () => {
       </AppSessionProvider>,
     )
 
-    expect(await screen.findByRole("dialog")).toHaveTextContent(
-      /corrisponde a Luca Verdi/i,
+    await waitFor(() =>
+      expect(screen.getByRole("dialog")).toHaveTextContent(/corrisponde a Luca Verdi/i),
     )
+    // Mai l'elenco nel frattempo: chi ha l'email riconosciuta non sceglie a mano.
+    expect(screen.queryByRole("searchbox", { name: "Cerca nome o cognome" })).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: /Sì, sono io/i }))
 
     await waitFor(() => {

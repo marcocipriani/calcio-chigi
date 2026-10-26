@@ -42,6 +42,9 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   retries: 0,
+  // next dev compila ogni route alla prima visita: con la suite intera (o sul
+  // runner CI) redirect e primi render superano i 5 s di default.
+  expect: { timeout: 10_000 },
   reporter: [["list"]],
   use: {
     baseURL: "http://127.0.0.1:3100",

@@ -18,7 +18,7 @@ export function CardIcon({ red = false, className }: { red?: boolean; className?
 }
 
 /** Fischietto dell'arbitro, disegnato come le icone lucide (che non lo hanno). */
-export function WhistleIcon({ className }: { className?: string }) {
+function WhistleIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"

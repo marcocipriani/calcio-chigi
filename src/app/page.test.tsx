@@ -7,11 +7,13 @@ import type { Event } from "@/lib/types"
 
 const {
   fetchCalendarEvents,
+  fetchCalendarPresence,
   fetchTeams,
   useAppSession,
   removeChannel,
 } = vi.hoisted(() => ({
   fetchCalendarEvents: vi.fn(),
+  fetchCalendarPresence: vi.fn(),
   fetchTeams: vi.fn(),
   useAppSession: vi.fn(),
   removeChannel: vi.fn(),
@@ -27,6 +29,7 @@ vi.stubGlobal("ResizeObserver", TestResizeObserver)
 
 vi.mock("@/lib/api", () => ({
   fetchCalendarEvents,
+  fetchCalendarPresence,
   fetchTeams,
 }))
 
@@ -43,6 +46,7 @@ vi.mock("@/lib/supabaseBrowser", () => ({
 
 beforeEach(() => {
   fetchCalendarEvents.mockReset().mockResolvedValue([])
+  fetchCalendarPresence.mockReset().mockResolvedValue(new Map())
   fetchTeams.mockReset().mockResolvedValue([])
   useAppSession.mockReset().mockReturnValue({
     isManager: true,
@@ -64,6 +68,43 @@ describe("calendar loading errors", () => {
     fireEvent.click(screen.getByRole("button", { name: "Riprova" }))
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
     expect(fetchCalendarEvents).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("upcoming event cards", () => {
+  function seedTomorrowTraining() {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    fetchCalendarEvents.mockResolvedValue([
+      calendarEvent({
+        id: "training-next",
+        tipo: "ALLENAMENTO",
+        data_ora: tomorrow.toISOString(),
+      }),
+    ])
+  }
+
+  it("shows who is coming to associated accounts", async () => {
+    seedTomorrowTraining()
+    fetchCalendarPresence.mockResolvedValue(
+      new Map([["training-next", [{ nome: "Mario", avatar_url: null }]]]),
+    )
+    useAppSession.mockReturnValue({
+      isAssociated: true,
+      profile: { default_view: "ACTIVITY" },
+    })
+    render(<Home />)
+
+    expect(await screen.findByText("1 Presenti")).toBeVisible()
+  })
+
+  it("does not ask for attendance without an associated account", async () => {
+    seedTomorrowTraining()
+    render(<Home />)
+
+    expect(await screen.findAllByText("Allenamento")).not.toHaveLength(0)
+    expect(fetchCalendarPresence).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Presenti/)).toBeNull()
   })
 })
 

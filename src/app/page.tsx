@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageTitleBar } from "@/components/layout/PageTitleBar";
 import { Event, Team } from "@/lib/types";
-import { fetchCalendarEvents, fetchTeams } from "@/lib/api";
+import { fetchCalendarEvents, fetchCalendarPresence, fetchTeams, type PresentPlayer } from "@/lib/api";
 import { useAppSession } from "@/components/auth/AppSessionProvider";
 import { useOnResume } from "@/lib/useOnResume";
 import { LiveMatchBanner } from "@/components/match/LiveMatchBanner";
@@ -48,7 +48,8 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('ACTIVITY');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
-  const { isManager, profile } = useAppSession();
+  const { isManager, isAssociated, profile } = useAppSession();
+  const [presence, setPresence] = useState<Map<string, PresentPlayer[]>>(new Map());
   const defaultView = profile?.default_view;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -95,9 +96,18 @@ export default function Home() {
     if (defaultView) setViewMode(defaultView as ViewMode);
   }, [defaultView]);
 
+  // Solo avatar: se falliscono il calendario resta usabile.
+  const fetchPresence = () => {
+    if (isAssociated) fetchCalendarPresence(supabase).then(setPresence).catch(() => {});
+    else setPresence(new Map());
+  };
+
+  useEffect(fetchPresence, [isAssociated]);
+
   // Ricarica silenziosa: niente skeleton al ritorno sull'app.
   useOnResume(() => {
     fetchCalendarEvents(supabase).then(setEvents).catch(() => {});
+    fetchPresence();
   });
 
   const handleCreateNew = () => {
@@ -698,6 +708,7 @@ export default function Home() {
                                             >
                                                 <EventCard 
                                                     event={event} 
+                                                    presenti={presence.get(event.id)}
                                                     opponentLogo={getLogo(event.avversario)} 
                                                     className="border-2 border-secondary shadow-lg shadow-secondary/10"
                                                 />
@@ -710,6 +721,7 @@ export default function Home() {
                                     <Link key={event.id} href={`/evento/${event.id}`} className="block transform transition-transform duration-200 hover:scale-[1.02] motion-reduce:transform-none">
                                         <EventCard 
                                             event={event} 
+                                            presenti={presence.get(event.id)}
                                             opponentLogo={getLogo(event.avversario)} 
                                             className='mb-3'
                                         />

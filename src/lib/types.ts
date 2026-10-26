@@ -15,18 +15,6 @@ export interface Profile {
     data_nascita?: string | null;
 }
 
-export interface Attendance {
-    id: number;
-    event_id: string;
-    user_id: string;
-    profile_id?: string;
-    modified_by?: string | null;
-    created_at?: string;
-    updated_at?: string | null;
-    status: 'PRESENTE' | 'ASSENTE' | 'INFORTUNATO_PRESENTE' | 'NON_IMPOSTATO';
-    profiles?: Profile;
-}
-
 export type EventFase =
     | 'FASE_1'
     | 'FASE_2_CALCIATORI'
@@ -57,7 +45,6 @@ export interface Event {
     fase?: EventFase | null;
     squadra_casa?: string | null;
     squadra_ospite?: string | null;
-    attendance?: Attendance[];
 }
 
 export interface FullProfile {

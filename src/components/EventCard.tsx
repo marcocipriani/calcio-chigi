@@ -6,24 +6,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Event } from "@/lib/types";
+import type { PresentPlayer } from "@/lib/api";
 import { cn, isChigi, isMatchEvent } from "@/lib/utils";
 
 interface EventProps {
   event: Event;
+  presenti?: PresentPlayer[];
   opponentLogo?: string | null;
   className?: string;
 }
 
-type EventAttendancePreview = NonNullable<Event["attendance"]>[number];
-
-export function EventCard({ event, opponentLogo, className }: EventProps) {
+export function EventCard({ event, presenti = [], opponentLogo, className }: EventProps) {
   const date = event.data_ora ? new Date(event.data_ora) : null;
   const isMatch = isMatchEvent(event.tipo);
   const isPlayed = event.giocata === true;
   const isCancelled = event.cancellato === true;
 
-  const activePlayers = event.attendance?.filter((attendance) => attendance.status === 'PRESENTE') || [];
-  const activeCount = activePlayers.length;
+  const activeCount = presenti.length;
 
   let resultBadgeClass = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
   let resultLabel = "PAREGGIO";
@@ -153,14 +152,14 @@ export function EventCard({ event, opponentLogo, className }: EventProps) {
                 )}
             </div>
 
-            {!isPlayed && !isCancelled && (
+            {!isPlayed && !isCancelled && activeCount > 0 && (
                 <div className="mt-4 pt-3 border-t dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center -space-x-2 overflow-hidden pl-1">
-                        {activePlayers.slice(0, 5).map((att: EventAttendancePreview, i: number) => (
+                        {presenti.slice(0, 5).map((player, i) => (
                             <Avatar key={i} className="inline-block h-7 w-7 rounded-full ring-2 ring-background dark:ring-slate-800">
-                                <AvatarImage src={att.profiles?.avatar_url || ""} alt={att.profiles?.nome ?? ''} />
+                                <AvatarImage src={player.avatar_url || ""} alt={player.nome} />
                                 <AvatarFallback className="bg-muted text-[10px] text-muted-foreground font-bold">
-                                    {att.profiles?.nome?.[0]}
+                                    {player.nome[0]}
                                 </AvatarFallback>
                             </Avatar>
                         ))}
@@ -171,12 +170,10 @@ export function EventCard({ event, opponentLogo, className }: EventProps) {
                         )}
                     </div>
                     
-                    {activeCount > 0 && (
-                        <Badge variant="outline" className={`gap-1.5 ml-2 pr-2.5 py-1 ${badgeColorClass}`}>
-                            <span aria-hidden="true" className={`inline-flex size-2 rounded-full ${dotColorClass}`} />
-                            <span className="font-bold">{activeCount} Presenti</span>
-                        </Badge>
-                    )}
+                    <Badge variant="outline" className={`gap-1.5 ml-2 pr-2.5 py-1 ${badgeColorClass}`}>
+                        <span aria-hidden="true" className={`inline-flex size-2 rounded-full ${dotColorClass}`} />
+                        <span className="font-bold">{activeCount} Presenti</span>
+                    </Badge>
                 </div>
             )}
         </div>

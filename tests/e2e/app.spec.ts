@@ -1084,6 +1084,55 @@ test("builder formazione monta tra titlebar e rosa, riceve focus e si chiude", a
   await expect(builder).toHaveCount(0)
 })
 
+test("giocatore associato vede gli avatar dei presenti nella card mobile", async ({
+  context,
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Le card della lista esistono solo su mobile")
+  const serviceClient = createClient(
+    process.env.E2E_SUPABASE_URL!,
+    process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+  const { data: event, error } = await serviceClient
+    .from("events")
+    .insert({
+      tipo: "ALLENAMENTO",
+      data_ora: "2026-08-01T19:30:00+02:00",
+      luogo: "Campo presenze E2E",
+      cancellato: false,
+      giocata: false,
+    })
+    .select("id")
+    .single()
+  if (error) throw error
+
+  try {
+    const { error: attendanceError } = await serviceClient.from("attendance").insert(
+      [E2E_MANAGER_ID, E2E_PLAYER_ID].map((profile_id) => ({
+        event_id: event.id,
+        profile_id,
+        status: "PRESENTE",
+      })),
+    )
+    if (attendanceError) throw attendanceError
+
+    await authenticate(context, "player@chigi.test", "Player123!")
+    await page.goto("/")
+    await dismissPaymentReminder(page)
+
+    const card = page.locator(`a[href="/evento/${event.id}"]:has([data-slot="card"])`)
+    await expect(card).toContainText("2 Presenti")
+    await expect(card.locator('[data-slot="avatar"]')).toHaveCount(2)
+    // Fuori dalla bottom nav, che coprirebbe la riga dei presenti.
+    await card.evaluate((element) => element.scrollIntoView({ block: "center" }))
+    await card.screenshot({ path: testInfo.outputPath("card-presenti.png") })
+  } finally {
+    await serviceClient.from("attendance").delete().eq("event_id", event.id)
+    await serviceClient.from("events").delete().eq("id", event.id)
+  }
+})
+
 test("il giocatore vede quote e scheda privata", async ({ context, page }) => {
   await authenticate(context, "player@chigi.test", "Player123!")
   await page.goto("/")

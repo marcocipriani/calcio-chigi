@@ -65,6 +65,37 @@ export async function fetchCalendarEvents(supabase: SupabaseClient): Promise<Eve
     return data ?? []
 }
 
+export type PresentPlayer = { nome: string; avatar_url: string | null }
+
+/**
+ * Presenti per evento, da ieri in poi come "Prossimi", con nome e avatar dalla
+ * rosa. Presenze e profili non sono pubblici: solo per account associati.
+ */
+export async function fetchCalendarPresence(supabase: SupabaseClient): Promise<Map<string, PresentPlayer[]>> {
+    const since = new Date()
+    since.setDate(since.getDate() - 1)
+    since.setHours(0, 0, 0, 0)
+    // ponytail: righe sotto il max_rows di PostgREST (1000) finché si filtra sugli eventi futuri.
+    const [attendance, roster] = await Promise.all([
+        supabase
+            .from('attendance')
+            .select('event_id, profile_id, events!inner(data_ora)')
+            .eq('status', 'PRESENTE')
+            .gte('events.data_ora', since.toISOString()),
+        supabase.from('authenticated_active_roster').select('id, nome, avatar_url'),
+    ])
+    if (attendance.error) throw attendance.error
+    if (roster.error) throw roster.error
+
+    const players = new Map((roster.data ?? []).map(({ id, nome, avatar_url }) => [id, { nome, avatar_url }]))
+    const byEvent = new Map<string, PresentPlayer[]>()
+    for (const { event_id, profile_id } of attendance.data ?? []) {
+        const player = players.get(profile_id)
+        if (player) byEvent.set(event_id, [...(byEvent.get(event_id) ?? []), player])
+    }
+    return byEvent
+}
+
 export async function fetchPlaces(supabase: SupabaseClient): Promise<string[]> {
     const { data, error } = await supabase.from('events').select('luogo').not('luogo', 'is', null)
     if (error) throw error

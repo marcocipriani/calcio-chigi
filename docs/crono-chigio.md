@@ -2,9 +2,13 @@
 
 Il test è disponibile ai membri attivi della squadra in Statistiche, sotto Chigio d’Oro, e nella pagina `/crono-chigio`.
 
-Su mobile Statistiche mostra un riepilogo e il pulsante «Vedi completo». Da desktop i dettagli sono aperti. La pagina dedicata mostra la tabella completa, l’ordinamento crescente o decrescente per tutte le colonne numeriche e per nome/partenza, il filtro Razzo/Treno e i download PNG. Classifiche e profili sono calcolati sull’intero gruppo prima di filtrare o ordinare.
+Su mobile e desktop Statistiche mostra soltanto partecipanti, medie del gruppo, data e meteo, con «Vedi test completo» per aprire la pagina dedicata. Non mostra vincitori, immagini né risultati individuali nel riepilogo.
 
-I profili confrontano il rapporto tra velocità media iniziale e lanciata con il riferimento del gruppo. Non sono misure dirette di accelerazione o velocità massima. Le medaglie si basano sul miglior totale personale fra i due giri, con un solo risultato per atleta.
+La pagina dedicata mostra Profilo G2 come prima colonna, avatar e nome completo dell’atleta, gruppi separati per Giro 1, Giro 2 con tratti e confronto. Il miglior tempo personale fra i due giri è in grassetto; entrambi lo sono in caso di parità. L’ordinamento è crescente o decrescente per tutte le colonne numeriche e per nome/partenza; il filtro distingue Razzo e Treno. Classifiche e profili sono calcolati sull’intero gruppo prima di filtrare o ordinare.
+
+«Esporta CSV» scarica le righe visibili nell’ordine corrente, con nomi completi, tempi, posizioni, velocità medie, differenze e nota sul riscaldamento. Il file UTF-8 include BOM, separatori punto e virgola e decimali italiani. Le celle testuali vengono quotate e protette dalle formule dei fogli di calcolo; i valori numerici negativi restano numeri. I download PNG sono rimossi dall’app.
+
+I profili confrontano il rapporto tra velocità media iniziale e lanciata con il riferimento del gruppo. Non sono misure dirette di accelerazione o velocità massima. Il riepilogo non indica un vincitore; nella tabella si evidenzia soltanto il miglior totale personale fra i due giri.
 
 ## Dati riservati
 

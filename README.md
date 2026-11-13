@@ -69,9 +69,10 @@ I dati del campionato vengono importati automaticamente da [Enjore](https://asic
 - **Statistiche per annualità** con goal, assist, MVP, cartellini e presenze
   agli allenamenti (solo check-in ufficiali, al netto degli allenamenti
   saltati per infortunio).
-- **CronoChigio** riservato alla squadra: anteprima compatta su mobile, pagina
-  del test con tabella ordinabile per tempi e velocità, profili Razzo/Treno e
-  immagini PNG scaricabili. I risultati reali restano in Supabase con RLS;
+- **CronoChigio** riservato alla squadra: riepilogo su mobile e desktop,
+  pagina del test con nomi completi e avatar, tabella ordinabile per tempi e
+  velocità, profili Razzo/Treno ed export CSV. I risultati reali restano in
+  Supabase con RLS;
   [istruzioni operative](docs/crono-chigio.md).
 - **Formazione personale** esportabile e condivisibile.
 - **Numeri di maglia**: a inizio stagione ogni giocatore indica fino a 5

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import rows from "@/test/fixtures/crono-chigio.json"
-import { cronoMetrics, cronoRank, sortCronoRows } from "./crono-chigio"
+import { cronoMetrics, cronoRank, sortCronoRows, cronoAthlete, cronoCsv } from "./crono-chigio"
 
 describe("CronoChigio", () => {
   it("calculates speeds using each segment distance", () => {
@@ -62,5 +62,30 @@ describe("CronoChigio table", () => {
     expect(rockets).toHaveLength(7)
     expect(rockets.find((row) => row.name === "Atleta N")?.totalRank).toBe(12)
     expect(sortCronoRows(rows, "order", "asc").map((row) => row.name)).toEqual(rows.map((row) => row.name))
+  })
+})
+
+
+describe("CronoChigio identities and CSV", () => {
+  const player = { season_id: "season", profile_id: "player", nome: "Mario", cognome: "Atleta A", avatar_url: "https://example.com/avatar.png", role: null, jersey_number: null }
+  it("matches full names and photos without choosing an ambiguous surname", () => {
+    expect(cronoAthlete(rows[0], [player])).toMatchObject({ name: "Mario Atleta A", avatarUrl: player.avatar_url })
+    const roster = [player, { ...player, profile_id: "other", nome: "Dario" }]
+    expect(cronoAthlete(rows[0], roster).avatarUrl).toBeUndefined()
+    expect(cronoAthlete({ ...rows[0], firstName: "Mario" }, roster).name).toBe("Mario Atleta A")
+  })
+  it("exports the visible rows in order with full names, units and Italian decimals", () => {
+    const csv = cronoCsv(sortCronoRows(rows, "order", "asc"), [player])
+    expect(csv.startsWith('\uFEFF"Profilo G2";"Partenza";"Atleta"')).toBe(true)
+    expect(csv).toContain('"Mario Atleta A"')
+    expect(csv).toContain('"-0,4"')
+    expect(csv).not.toContain('"\'-0,4"')
+    expect(csv.trim().split("\r\n")).toHaveLength(15)
+    const filtered = cronoCsv(sortCronoRows(rows, "best", "desc", "🚀"), [])
+    expect(filtered.trim().split("\r\n")).toHaveLength(8)
+  })
+  it("quotes delimiters, newlines and double quotes and neutralizes spreadsheet formulas", () => {
+    const attack = { ...rows[0], name: '=FORMULA;"nome"\n' }
+    expect(cronoCsv(sortCronoRows([attack], "order", "asc"), [])).toContain(`"'=FORMULA;""nome""\n"`)
   })
 })

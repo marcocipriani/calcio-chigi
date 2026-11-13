@@ -804,7 +804,7 @@ export default function StatisticsPage() {
                 seasonId={selectedSeasonId}
                 seasonSlug={selectedSeasonSlug}
               />
-              {selectedSeasonSlug === "2026-2027" && <CronoChigioSection players={players} />}
+              {selectedSeasonSlug === "2026-2027" && <CronoChigioSection />}
             </div>
           )}
         </div>

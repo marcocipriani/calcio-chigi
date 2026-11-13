@@ -34,7 +34,7 @@ export default function CronoChigioPage() {
   return <PageContainer contentClassName="space-y-5 pb-24">
     <PageTitleBar title="CronoChigio" subtitle="Tempi, velocità medie e profili del test" actions={<Button asChild variant="outline"><Link href="/statistiche">Statistiche</Link></Button>} />
     {loading ? <p role="status">Verifica accesso…</p> : !isAssociated ? <div className="space-y-3 rounded-xl border p-5"><p>Questo test è riservato ai membri attivi della squadra.</p><Button asChild><Link href="/login?next=%2Fcrono-chigio">Accedi</Link></Button></div> : players === null ? <p role="status">Caricamento squadra…</p> : <>
-      {avatarError && <p role="status" className="text-sm text-muted-foreground">Avatar non disponibili: vengono mostrate le iniziali. Ricarica la pagina per riprovare.</p>}
+      {avatarError && <p role="status" className="text-sm text-muted-foreground">Foto e nomi completi non disponibili. Ricarica la pagina per riprovare.</p>}
       <CronoChigioSection players={players} fullPage />
     </>}
   </PageContainer>

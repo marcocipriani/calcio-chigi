@@ -52,3 +52,8 @@ next-env.d.ts
 
 # one-off source data
 /Rosa_Squadra_2026-27.xlsx
+
+# Dati sportivi riservati: importati in Supabase, mai nel repository pubblico.
+/src/app/api/crono-chigio/results.json
+/docs/test-velocita-2026-11-12.md
+/docs/immagini/crono-chigio/

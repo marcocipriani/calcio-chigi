@@ -26,7 +26,7 @@ export function BottomNav() {
       <div className="mx-auto flex h-14 max-w-lg items-center justify-around md:max-w-none">
         {links.map(({ href, label, icon: Icon }) => {
           // Logica attiva: Home esatta oppure sottopagina (es. /torneo/classifica)
-          const isActive = href === '/' ? pathname === '/' : pathname?.startsWith(href);
+          const isActive = href === '/' ? pathname === '/' : pathname?.startsWith(href) || (href === '/statistiche' && pathname === '/crono-chigio');
           
           return (
             <Link 

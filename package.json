@@ -1,6 +1,6 @@
 {
   "name": "calcio-chigi",
-  "version": "2.10.1",
+  "version": "2.11.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -15,7 +15,7 @@
     "test:db": "npx supabase db reset --local && npx supabase test db tests/db",
     "assets:brand": "node scripts/generate-brand-assets.mjs",
     "test:brand": "node --test scripts/brand-assets.test.mjs",
-    "test:import": "node --test scripts/import-roster.test.mjs scripts/import-enjore-history.test.mjs",
+    "test:import": "node --test scripts/import-roster.test.mjs scripts/import-enjore-history.test.mjs scripts/import-crono-chigio.test.mjs",
     "test:sync": "node --test scripts/sync-enjore-calendar.test.mjs scripts/sync-enjore-cron.test.mjs",
     "import:roster": "node scripts/import-roster.mjs",
     "import:enjore-history": "node scripts/import-enjore-history.mjs",

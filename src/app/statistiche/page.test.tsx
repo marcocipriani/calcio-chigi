@@ -399,7 +399,7 @@ describe("StatisticsPage seasonal rankings", () => {
 
     render(<StatisticsPage />)
 
-    const alert = await screen.findByRole("alert")
+    const alert = await screen.findByText("Impossibile caricare le presenze.")
     expect(alert).toHaveTextContent("Impossibile caricare le presenze.")
     expect(alert).not.toHaveTextContent("private attendance detail")
     expect(

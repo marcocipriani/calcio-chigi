@@ -7,6 +7,7 @@ import { BarChart3, LockKeyhole, Medal, Target } from "lucide-react"
 import { useAppSession } from "@/components/auth/AppSessionProvider"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { PageTitleBar } from "@/components/layout/PageTitleBar"
+import { CronoChigioSection } from "@/components/stats/CronoChigioSection"
 import { AttendanceRing } from "@/components/stats/AttendanceRing"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -797,11 +798,14 @@ export default function StatisticsPage() {
           </section>
 
           {isAssociated && !sessionLoading && selectedSeasonId && !directoryLoading && (
-            <ChigioSection
-              players={players}
-              seasonId={selectedSeasonId}
-              seasonSlug={selectedSeasonSlug}
-            />
+            <div className="space-y-6 lg:col-span-2">
+              <ChigioSection
+                players={players}
+                seasonId={selectedSeasonId}
+                seasonSlug={selectedSeasonSlug}
+              />
+              {selectedSeasonSlug === "2026-2027" && <CronoChigioSection players={players} />}
+            </div>
           )}
         </div>
       )}

@@ -1,0 +1,100 @@
+[
+  {
+    "name": "Atleta A",
+    "first": 725,
+    "split": 310,
+    "total": 685,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta B",
+    "first": 710,
+    "split": 315,
+    "total": 675,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta C",
+    "first": 720,
+    "split": 318,
+    "total": 705,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta D",
+    "first": 780,
+    "split": 335,
+    "total": 750,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta E",
+    "first": 665,
+    "split": 360,
+    "total": 740,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta F",
+    "first": 642,
+    "split": 320,
+    "total": 650,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta G",
+    "first": 625,
+    "split": 310,
+    "total": 690,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta H",
+    "first": 655,
+    "split": 285,
+    "total": 624,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta I",
+    "first": 620,
+    "split": 290,
+    "total": 610,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta J",
+    "first": 675,
+    "split": 345,
+    "total": 730,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta K",
+    "first": 850,
+    "split": 380,
+    "total": 840,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta L",
+    "first": 720,
+    "split": 365,
+    "total": 780,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta M",
+    "first": 670,
+    "split": 325,
+    "total": 695,
+    "incompleteWarmup": false
+  },
+  {
+    "name": "Atleta N",
+    "first": 790,
+    "split": 310,
+    "total": 765,
+    "incompleteWarmup": true
+  }
+]
